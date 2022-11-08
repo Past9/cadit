@@ -4,7 +4,6 @@ pub fn show(ui: &mut Ui, frame: &mut eframe::Frame) -> InnerResponse<()> {
     ui.horizontal(|ui| {
         ui.style_mut().visuals.button_frame = false;
 
-        //ui.style_mut().noninteractive().bg_fill = Color32::from_rgb(255, 255, 255);
         ui.menu_button("File", |ui| {
             if ui.button("Open folder").clicked() {
                 println!("opening folder");

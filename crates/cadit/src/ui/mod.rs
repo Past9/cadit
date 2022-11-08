@@ -2,6 +2,7 @@ use self::organisms::workspace::Workspace;
 use self::organisms::{menu, status_bar};
 use eframe::egui::{self};
 use eframe::{epaint::Vec2, NativeOptions};
+use egui_modal::Modal;
 use std::collections::VecDeque;
 
 mod atoms;
@@ -63,17 +64,22 @@ impl CaditUi {
     }
 
     fn show_dialogs(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        if let Some(ref error_dialog) = self.error_dialog {
-            egui::Window::new(error_dialog)
-                .collapsible(false)
-                .resizable(false)
-                .show(ctx, |ui| {
-                    ui.horizontal(|ui| {
-                        if ui.button("Ok").clicked() {
-                            self.error_dialog = None;
-                        }
-                    });
+        if let Some(error_dialog) = self.error_dialog.clone() {
+            let err_modal = Modal::new(ctx, "error_modal");
+
+            err_modal.show(|ui| {
+                err_modal.title(ui, "Error");
+                err_modal.frame(ui, |ui| {
+                    err_modal.body(ui, error_dialog);
                 });
+                err_modal.buttons(ui, |ui| {
+                    if err_modal.button(ui, "Ok").clicked() {
+                        self.error_dialog = None;
+                    }
+                });
+            });
+
+            err_modal.open();
         }
     }
 }

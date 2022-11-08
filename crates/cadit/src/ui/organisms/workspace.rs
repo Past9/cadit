@@ -95,8 +95,7 @@ impl<'a> egui_dock::TabViewer for PaneViewer<'a> {
             let editor = match EditorPane::from_path_str("my/cool/CustomPart.cptx") {
                 Ok(editor) => editor,
                 Err(err) => {
-                    self.messages
-                        .push(UiMessage::ErrorDialog(format!("Bad file {}", err)));
+                    self.messages.push(UiMessage::ErrorDialog(err.to_string()));
                     EditorPane::empty()
                 }
             };

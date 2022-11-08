@@ -92,14 +92,14 @@ impl<'a> egui_dock::TabViewer for PaneViewer<'a> {
         ui.style_mut().visuals.button_frame = false;
 
         if ui.button("Editor").clicked() {
-            let editor = match EditorPane::from_path_str("my/cool/CustomPart.cptx") {
-                Ok(editor) => editor,
+            match EditorPane::from_path_str("my/cool/CustomPart.cptx") {
+                Ok(editor) => {
+                    self.panes_to_add.push(PaneToAdd::new(node, editor));
+                }
                 Err(err) => {
                     self.messages.push(UiMessage::ErrorDialog(err.to_string()));
-                    EditorPane::empty()
                 }
             };
-            self.panes_to_add.push(PaneToAdd::new(node, editor));
         }
 
         if ui.button("Features").clicked() {

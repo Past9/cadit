@@ -11,7 +11,7 @@ impl Pane for FeaturesPane {
         "Features".to_owned()
     }
 
-    fn show(&self, ui: &mut eframe::egui::Ui) {
+    fn show(&mut self, ui: &mut eframe::egui::Ui) {
         ui.label("This is where the part's feature timeline will be shown".to_owned());
     }
 }

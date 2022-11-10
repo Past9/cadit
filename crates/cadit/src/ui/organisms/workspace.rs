@@ -30,7 +30,7 @@ pub(crate) struct Workspace {
 impl Workspace {
     pub fn new() -> Self {
         let mut tree = Tree::new(vec![PaneView::new(
-            EditorPane::from_path_str("some/awesome/WidgetPart.cpt").unwrap(),
+            EditorPane::from_path_str("some/awesome/WidgetPart.cdp").unwrap(),
         )]);
         tree.split_left(
             NodeIndex::root(),
@@ -92,7 +92,7 @@ impl<'a> egui_dock::TabViewer for PaneViewer<'a> {
         ui.style_mut().visuals.button_frame = false;
 
         if ui.button("Editor").clicked() {
-            match EditorPane::from_path_str("my/cool/CustomPart.cptx") {
+            match EditorPane::from_path_str("my/cool/WidgetAssembly.cda") {
                 Ok(editor) => {
                     self.panes_to_add.push(PaneToAdd::new(node, editor));
                 }

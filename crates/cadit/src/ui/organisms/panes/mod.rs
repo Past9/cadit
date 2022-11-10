@@ -17,5 +17,5 @@ impl PaneView {
 
 pub trait Pane {
     fn title(&self) -> String;
-    fn show(&self, ui: &mut Ui);
+    fn show(&mut self, ui: &mut Ui);
 }

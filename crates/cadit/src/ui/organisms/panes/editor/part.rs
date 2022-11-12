@@ -1,5 +1,5 @@
 use eframe::{egui, egui_glow, egui_glow::glow, epaint::PaintCallback};
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 
 const ROTATION_SENSITIVITY: f32 = 0.007;
 
@@ -152,46 +152,67 @@ use three_d::*;
 pub struct ThreeDApp {
     context: Context,
     camera: Camera,
-    model: Gm<Mesh, ColorMaterial>,
+    //model: Gm<Mesh, ColorMaterial>,
+    model: Model<PhysicalMaterial>,
+    ambient_lights: Vec<AmbientLight>,
 }
 
 impl ThreeDApp {
     pub fn new(gl: std::sync::Arc<glow::Context>) -> Self {
         let context = Context::from_gl_context(gl).unwrap();
         // Create a camera
-        let camera = Camera::new_perspective(
+
+        let position = vec3(0.0, 0.0, 15.0); // Camera position
+        let target = vec3(0.0, 0.0, 0.0); // Look-at point
+        let dist = (position - target).magnitude(); // Distance from camera origin to look-at point
+        let fov_y = degrees(45.0); // Y-FOV for perspective camera
+        let height = (fov_y / 2.0).tan() * dist * 2.0; // FOV-equivalent height for ortho camera
+
+        // Ortho camera
+        let camera = Camera::new_orthographic(
             Viewport::new_at_origo(1, 1),
-            vec3(0.0, 0.0, 2.0),
-            vec3(0.0, 0.0, 0.0),
+            position,
+            target,
             vec3(0.0, 1.0, 0.0),
-            degrees(45.0),
+            height,
             0.1,
-            10.0,
+            1000.0,
         );
 
-        // Create a CPU-side mesh consisting of a single colored triangle
-        let positions = vec![
-            vec3(0.5, -0.5, 0.0),  // bottom right
-            vec3(-0.5, -0.5, 0.0), // bottom left
-            vec3(0.0, 0.5, 0.0),   // top
-        ];
-        let colors = vec![
-            Color::new(255, 0, 0, 255), // bottom right
-            Color::new(0, 255, 0, 255), // bottom left
-            Color::new(0, 0, 255, 255), // top
-        ];
-        let cpu_mesh = CpuMesh {
-            positions: Positions::F32(positions),
-            colors: Some(colors),
-            ..Default::default()
-        };
+        /*
+        // Perspective camera
+        let camera = Camera::new_perspective(
+            Viewport::new_at_origo(1, 1),
+            position,
+            target,
+            vec3(0.0, 1.0, 0.0),
+            fov_y,
+            0.1,
+            1000.0,
+        );
+        */
 
-        // Construct a model, with a default color material, thereby transferring the mesh data to the GPU
-        let model = Gm::new(Mesh::new(&context, &cpu_mesh), ColorMaterial::default());
+        let mut loaded = three_d_asset::io::load(&["resources/assets/gizmo.obj"]).unwrap();
+
+        println!("LOADED {:#?}", loaded.keys());
+
+        let mut gizmo =
+            Model::<PhysicalMaterial>::new(&context, &loaded.deserialize("gizmo.obj").unwrap())
+                .unwrap();
+
+        println!("GOT GIZMO");
+
+        gizmo
+            .iter_mut()
+            .for_each(|g| g.material.render_states.cull = Cull::Back);
+
+        let ambient = AmbientLight::new(&context, 1.0, Color::WHITE);
+
         Self {
             context,
             camera,
-            model,
+            model: gizmo,
+            ambient_lights: vec![ambient],
         }
     }
 
@@ -203,8 +224,15 @@ impl ThreeDApp {
         // Ensure the viewport matches the current window viewport which changes if the window is resized
         self.camera.set_viewport(frame_input.viewport);
 
-        // Set the current transformation of the triangle
-        self.model.set_transformation(Mat4::from(rotation));
+        for model in self.model.iter_mut() {
+            model.set_transformation(Mat4::from(rotation));
+        }
+
+        let lights = self
+            .ambient_lights
+            .iter()
+            .map(|l| l as &dyn Light)
+            .collect::<Vec<&dyn Light>>();
 
         // Get the screen render target to be able to render something on the screen
         frame_input
@@ -212,7 +240,7 @@ impl ThreeDApp {
             // Clear the color and depth of the screen render target
             .clear_partially(frame_input.scissor_box, ClearState::depth(1.0))
             // Render the triangle with the color material which uses the per vertex colors defined at construction
-            .render_partially(frame_input.scissor_box, &self.camera, &[&self.model], &[]);
+            .render_partially(frame_input.scissor_box, &self.camera, &self.model, &lights);
 
         frame_input.screen.into_framebuffer() // Take back the screen fbo, we will continue to use it.
     }

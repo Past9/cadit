@@ -33,7 +33,7 @@ impl Editor for PartEditor {
 
             if dy != 0.0 || dx != 0.0 {
                 self.rotation = Quaternion::from_axis_angle(
-                    Vector3::new(dy, dx, 0.0).normalize(),
+                    Vector3::new(-dy, dx, 0.0).normalize(),
                     Rad(Vector3::new(dx, dy, 0.0).magnitude() * ROTATION_SENSITIVITY),
                 ) * self.rotation;
             }
@@ -151,7 +151,7 @@ impl ThreeDApp {
         let context = Context::from_gl_context(gl).unwrap();
         // Create a camera
 
-        let position = vec3(0.0, 0.0, 15.0); // Camera position
+        let position = vec3(0.0, 0.0, -15.0); // Camera position
         let target = vec3(0.0, 0.0, 0.0); // Look-at point
         let dist = (position - target).magnitude(); // Distance from camera origin to look-at point
         let fov_y = degrees(45.0); // Y-FOV for perspective camera
@@ -235,7 +235,7 @@ impl ThreeDApp {
             .collect::<Vec<&dyn Light>>();
 
         // Create offscreen textures to render the initial image to
-        let mut color_texture = Texture2D::new_empty::<[u8; 4]>(
+        let mut render_color_texture = Texture2D::new_empty::<[u8; 4]>(
             &self.context,
             frame_input.viewport.width,
             frame_input.viewport.height,
@@ -246,7 +246,7 @@ impl ThreeDApp {
             Wrapping::ClampToEdge,
         );
 
-        let mut depth_texture = DepthTexture2D::new::<f32>(
+        let mut render_depth_texture = DepthTexture2D::new::<f32>(
             &self.context,
             frame_input.viewport.width,
             frame_input.viewport.height,
@@ -256,34 +256,52 @@ impl ThreeDApp {
 
         // Render offscreen
         RenderTarget::new(
-            color_texture.as_color_target(None),
-            depth_texture.as_depth_target(),
+            render_color_texture.as_color_target(None),
+            render_depth_texture.as_depth_target(),
         )
         .clear(ClearState::default())
         .render(&self.camera, &self.model, &lights);
 
-        // Copy to the screen, applying FXAA
-        frame_input
-            .screen
-            .copy_partially_from(
-                frame_input.viewport.into(),
-                ColorTexture::Single(&color_texture),
-                DepthTexture::Single(&depth_texture),
-                frame_input.viewport,
-                WriteMask::default(),
-            )
-            .write_partially(
-                ScissorBox {
-                    x: frame_input.viewport.x,
-                    y: frame_input.viewport.y,
-                    width: frame_input.viewport.width,
-                    height: frame_input.viewport.height,
-                    //frame_input.viewport.into()
-                },
-                || {
-                    (FxaaEffect {}).apply(&self.context, ColorTexture::Single(&color_texture));
-                },
-            );
+        // Create offscreen textures to apply FXAA to the rendered image. Should be able to
+        // apply this directly when copying to the screen, but the coordinates are off
+        // because write_partially(...) does not allow specifying source coordinates.
+        let mut fxaa_color_texture = Texture2D::new_empty::<[u8; 4]>(
+            &self.context,
+            frame_input.viewport.width,
+            frame_input.viewport.height,
+            Interpolation::Nearest,
+            Interpolation::Nearest,
+            None,
+            Wrapping::ClampToEdge,
+            Wrapping::ClampToEdge,
+        );
+
+        let mut fxaa_depth_texture = DepthTexture2D::new::<f32>(
+            &self.context,
+            frame_input.viewport.width,
+            frame_input.viewport.height,
+            Wrapping::ClampToEdge,
+            Wrapping::ClampToEdge,
+        );
+
+        // Apply FXAA
+        RenderTarget::new(
+            fxaa_color_texture.as_color_target(None),
+            fxaa_depth_texture.as_depth_target(),
+        )
+        .clear(ClearState::default())
+        .write(|| {
+            (FxaaEffect {}).apply(&self.context, ColorTexture::Single(&render_color_texture));
+        });
+
+        // Copy FXAA image to the screen
+        frame_input.screen.copy_partially_from(
+            frame_input.viewport.into(),
+            ColorTexture::Single(&fxaa_color_texture),
+            DepthTexture::Single(&fxaa_depth_texture),
+            frame_input.viewport,
+            WriteMask::default(),
+        );
 
         frame_input.screen.into_framebuffer() // Take back the screen fbo, we will continue to use it.
     }

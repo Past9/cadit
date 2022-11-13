@@ -2,7 +2,6 @@ use eframe::{
     egui, egui_glow,
     egui_glow::glow,
     epaint::{mutex::Mutex, PaintCallback},
-    Frame,
 };
 use std::sync::Arc;
 
@@ -49,7 +48,7 @@ impl Editor for PartEditor {
                     let mut scene = scene.lock();
                     let context = &scene.context;
                     let frame_input = FrameInput::new(context, &info, painter);
-                    scene.frame(frame_input, rotation); //painter.intermediate_fbo(),
+                    scene.frame(frame_input, rotation);
                 })),
             };
 
@@ -81,7 +80,6 @@ impl Editor for PartEditor {
 pub struct FrameInput<'a> {
     screen: three_d::RenderTarget<'a>,
     viewport: three_d::Viewport,
-    scissor_box: three_d::ScissorBox,
 }
 
 impl FrameInput<'_> {
@@ -100,7 +98,6 @@ impl FrameInput<'_> {
             context.disable(glow::FRAMEBUFFER_SRGB);
         }
 
-        let clip_rect = info.clip_rect_in_pixels();
         // Constructs a screen render target to render the final image to
         let viewport = info.viewport_in_pixels();
         let screen = painter.intermediate_fbo().map_or_else(
@@ -129,20 +126,7 @@ impl FrameInput<'_> {
             height: viewport.height_px.round() as _,
         };
 
-        // Respect the egui clip region (e.g. if we are inside an `egui::ScrollArea`).
-        let clip_rect = info.clip_rect_in_pixels();
-        let scissor_box = ScissorBox {
-            x: clip_rect.left_px.round() as _,
-            y: clip_rect.from_bottom_px.round() as _,
-            width: clip_rect.width_px.round() as _,
-            height: clip_rect.height_px.round() as _,
-        };
-
-        Self {
-            screen,
-            scissor_box,
-            viewport,
-        }
+        Self { screen, viewport }
     }
 }
 
@@ -158,7 +142,6 @@ use super::Editor;
 pub struct ThreeDApp {
     context: Context,
     camera: Camera,
-    //model: Gm<Mesh, ColorMaterial>,
     model: Model<PhysicalMaterial>,
     ambient_lights: Vec<AmbientLight>,
 }
@@ -168,7 +151,7 @@ impl ThreeDApp {
         let context = Context::from_gl_context(gl).unwrap();
         // Create a camera
 
-        let position = vec3(0.0, 0.0, 1.5); // Camera position
+        let position = vec3(0.0, 0.0, 15.0); // Camera position
         let target = vec3(0.0, 0.0, 0.0); // Look-at point
         let dist = (position - target).magnitude(); // Distance from camera origin to look-at point
         let fov_y = degrees(45.0); // Y-FOV for perspective camera
@@ -200,13 +183,9 @@ impl ThreeDApp {
 
         let mut loaded = three_d_asset::io::load(&["resources/assets/gizmo.obj"]).unwrap();
 
-        //println!("LOADED {:#?}", loaded.keys());
-
         let mut gizmo =
             Model::<PhysicalMaterial>::new(&context, &loaded.deserialize("gizmo.obj").unwrap())
                 .unwrap();
-
-        //println!("GOT GIZMO");
 
         gizmo
             .iter_mut()
@@ -236,10 +215,11 @@ impl ThreeDApp {
         frame_input: FrameInput<'_>,
         rotation: Quaternion<f32>,
     ) -> Option<glow::Framebuffer> {
-        // Ensure the viewport matches the current window viewport which changes if the window is resized
+        // Ensure the camera viewport size matches the current window viewport
+        // size which changes if the window is resized
         self.camera.set_viewport(Viewport {
-            x: 0, //frame_input.viewport.x,
-            y: 0, //frame_input.viewport.y,
+            x: 0,
+            y: 0,
             width: frame_input.viewport.width,
             height: frame_input.viewport.height,
         });
@@ -254,6 +234,7 @@ impl ThreeDApp {
             .map(|l| l as &dyn Light)
             .collect::<Vec<&dyn Light>>();
 
+        // Create offscreen textures to render the initial image to
         let mut color_texture = Texture2D::new_empty::<[u8; 4]>(
             &self.context,
             frame_input.viewport.width,
@@ -273,6 +254,7 @@ impl ThreeDApp {
             Wrapping::ClampToEdge,
         );
 
+        // Render offscreen
         RenderTarget::new(
             color_texture.as_color_target(None),
             depth_texture.as_depth_target(),
@@ -280,61 +262,28 @@ impl ThreeDApp {
         .clear(ClearState::default())
         .render(&self.camera, &self.model, &lights);
 
+        // Copy to the screen, applying FXAA
         frame_input
             .screen
             .copy_partially_from(
+                frame_input.viewport.into(),
+                ColorTexture::Single(&color_texture),
+                DepthTexture::Single(&depth_texture),
+                frame_input.viewport,
+                WriteMask::default(),
+            )
+            .write_partially(
                 ScissorBox {
                     x: frame_input.viewport.x,
                     y: frame_input.viewport.y,
                     width: frame_input.viewport.width,
                     height: frame_input.viewport.height,
+                    //frame_input.viewport.into()
                 },
-                ColorTexture::Single(&color_texture),
-                DepthTexture::Single(&depth_texture),
-                Viewport {
-                    x: frame_input.viewport.x,
-                    y: frame_input.viewport.y,
-                    width: frame_input.viewport.width,
-                    height: frame_input.viewport.height,
-                    /*
-                    x: frame_input.scissor_box.x,
-                    y: frame_input.scissor_box.y,
-                    width: frame_input.scissor_box.width,
-                    height: frame_input.scissor_box.height,
-                    */
+                || {
+                    (FxaaEffect {}).apply(&self.context, ColorTexture::Single(&color_texture));
                 },
-                WriteMask::default(),
-            )
-            /*
-            .copy_from(
-                ColorTexture::Single(&color_texture),
-                DepthTexture::Single(&depth_texture),
-                Viewport {
-                    x: frame_input.viewport.x,
-                    y: frame_input.viewport.y,
-                    width: frame_input.viewport.width,
-                    height: frame_input.viewport.height,
-                    /*
-                    x: frame_input.scissor_box.x,
-                    y: frame_input.scissor_box.y,
-                    width: frame_input.scissor_box.width,
-                    height: frame_input.scissor_box.height,
-                    */
-                },
-                WriteMask::default(),
-            )
-            */
-            .write(|| {});
-
-        // Get the screen render target to be able to render something on the screen
-        /*
-        frame_input
-            .screen
-            // Clear the color and depth of the screen render target
-            .clear_partially(frame_input.scissor_box, ClearState::depth(1.0))
-            // Render the triangle with the color material which uses the per vertex colors defined at construction
-            .render_partially(frame_input.scissor_box, &self.camera, &self.model, &lights);
-            */
+            );
 
         frame_input.screen.into_framebuffer() // Take back the screen fbo, we will continue to use it.
     }

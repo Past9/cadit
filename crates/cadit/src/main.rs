@@ -4,5 +4,5 @@ mod error;
 mod ui;
 
 fn main() {
-    CaditUi::new().run();
+    CaditUi::run();
 }

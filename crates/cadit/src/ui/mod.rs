@@ -4,6 +4,7 @@ use eframe::egui::{self};
 use eframe::{epaint::Vec2, NativeOptions};
 use egui_modal::Modal;
 use std::collections::VecDeque;
+use std::sync::Arc;
 
 mod atoms;
 mod molecules;
@@ -11,6 +12,8 @@ mod organisms;
 
 const MENU_HEIGHT: f32 = 17.0;
 const STATUS_BAR_HEIGHT: f32 = 21.0;
+
+type GlowContext = Arc<eframe::glow::Context>;
 
 pub(crate) enum UiMessage {
     ErrorDialog(String),
@@ -41,19 +44,30 @@ pub struct CaditUi {
     error_dialog: Option<String>,
 }
 impl CaditUi {
-    pub fn new() -> Self {
-        Self {
-            messages: MessageBus::new(),
-            workspace: Workspace::new(),
-            error_dialog: None,
-        }
+    pub fn run() {
+        let mut options = NativeOptions::default();
+        options.initial_window_size = Some(Vec2::new(1760.0, 990.0));
+        eframe::run_native(
+            "Cadit",
+            options,
+            Box::new(|cc| {
+                let gl = cc.gl.clone().unwrap();
+                Box::new(Self {
+                    messages: MessageBus::new(),
+                    workspace: Workspace::new(gl),
+                    error_dialog: None,
+                })
+            }),
+        );
     }
 
+    /*
     pub fn run(self) {
         let mut options = NativeOptions::default();
         options.initial_window_size = Some(Vec2::new(1760.0, 990.0));
         eframe::run_native("Cadit", options, Box::new(|_cc| Box::new(self)));
     }
+    */
 
     fn handle_messages(&mut self) {
         while let Some(message) = self.messages.pop() {

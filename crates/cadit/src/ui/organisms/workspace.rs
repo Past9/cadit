@@ -5,7 +5,7 @@ use crate::{
     ui::MessageBus,
     ui::{
         organisms::panes::{editor::EditorPane, Pane},
-        UiMessage,
+        GlowContext,
     },
 };
 
@@ -25,20 +25,19 @@ impl PaneToAdd {
 }
 
 pub(crate) struct Workspace {
+    gl: GlowContext,
     tree: Tree<PaneView>,
 }
 impl Workspace {
-    pub fn new() -> Self {
-        let mut tree = Tree::new(vec![PaneView::new(
-            EditorPane::from_path_str("some/awesome/WidgetPart.cdp").unwrap(),
-        )]);
+    pub fn new(gl: GlowContext) -> Self {
+        let mut tree = Tree::new(vec![PaneView::new(EditorPane::part(gl.clone()))]);
         tree.split_left(
             NodeIndex::root(),
             0.15,
             vec![PaneView::new(FeaturesPane::new())],
         );
 
-        Self { tree }
+        Self { gl, tree }
     }
 
     pub fn show(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, messages: &mut MessageBus) {
@@ -54,6 +53,7 @@ impl Workspace {
             .show(
                 ui.ctx(),
                 &mut PaneViewer {
+                    gl: self.gl.clone(),
                     messages,
                     panes_to_add: &mut panes_to_add,
                 },
@@ -67,6 +67,7 @@ impl Workspace {
 }
 
 struct PaneViewer<'a> {
+    gl: GlowContext,
     messages: &'a mut MessageBus,
     panes_to_add: &'a mut Vec<PaneToAdd>,
 }
@@ -91,15 +92,14 @@ impl<'a> egui_dock::TabViewer for PaneViewer<'a> {
 
         ui.style_mut().visuals.button_frame = false;
 
-        if ui.button("Editor").clicked() {
-            match EditorPane::from_path_str("my/cool/WidgetAssembly.cda") {
-                Ok(editor) => {
-                    self.panes_to_add.push(PaneToAdd::new(node, editor));
-                }
-                Err(err) => {
-                    self.messages.push(UiMessage::ErrorDialog(err.to_string()));
-                }
-            };
+        if ui.button("Part editor").clicked() {
+            self.panes_to_add
+                .push(PaneToAdd::new(node, EditorPane::part(self.gl.clone())));
+        }
+
+        if ui.button("Assembly editor").clicked() {
+            self.panes_to_add
+                .push(PaneToAdd::new(node, EditorPane::assembly()));
         }
 
         if ui.button("Features").clicked() {

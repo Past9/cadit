@@ -5,21 +5,17 @@ use std::{
 
 use crate::error::{CaditError, CaditResult};
 
-use super::{assembly::AssemblyEditorState, part::PartEditorState};
-
 const PART_FILE_EXT: &str = "cdp";
 const ASSEMBLY_FILE_EXT: &str = "cda";
 
 pub struct PartFileState {
     file_path: PathBuf,
     file_name: OsString,
-    pub(crate) editor_state: PartEditorState,
 }
 
 pub struct AssemblyFileState {
     file_path: PathBuf,
     file_name: OsString,
-    pub(crate) editor_state: AssemblyEditorState,
 }
 
 pub enum CaditFile {
@@ -31,7 +27,6 @@ impl CaditFile {
         Ok(Self::Part(PartFileState {
             file_name: Self::file_name_from_path(&file_path)?,
             file_path,
-            editor_state: PartEditorState::new(),
         }))
     }
 
@@ -39,7 +34,6 @@ impl CaditFile {
         Ok(Self::Assembly(AssemblyFileState {
             file_name: Self::file_name_from_path(&file_path)?,
             file_path,
-            editor_state: AssemblyEditorState::new(),
         }))
     }
 

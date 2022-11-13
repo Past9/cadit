@@ -1,28 +1,31 @@
-use eframe::{egui, egui_glow, egui_glow::glow, epaint::PaintCallback};
-use std::{ops::Deref, sync::Arc};
+use eframe::{
+    egui, egui_glow,
+    egui_glow::glow,
+    epaint::{mutex::Mutex, PaintCallback},
+    Frame,
+};
+use std::sync::Arc;
 
 const ROTATION_SENSITIVITY: f32 = 0.007;
 
-pub struct PartEditorState {
+pub struct PartEditor {
     rotation: Quaternion<f32>,
+    scene: Arc<Mutex<ThreeDApp>>,
 }
-impl PartEditorState {
-    pub fn new() -> Self {
+impl PartEditor {
+    pub fn new(gl: GlowContext) -> Self {
         Self {
             rotation: Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), Rad(0.0)),
+            scene: Arc::new(Mutex::new(ThreeDApp::new(gl.clone()))),
         }
     }
 }
-
-pub struct PartEditor<'a> {
-    pub(crate) state: &'a mut PartEditorState,
-}
-impl<'a> PartEditor<'a> {
-    pub fn with_state(state: &'a mut PartEditorState) -> Self {
-        Self { state }
+impl Editor for PartEditor {
+    fn title(&self) -> String {
+        "Part editor".to_owned()
     }
 
-    pub fn show(&mut self, ui: &mut egui::Ui) {
+    fn show(&mut self, ui: &mut egui::Ui) {
         egui::Frame::canvas(ui.style()).show(ui, |ui| {
             let (rect, response) = ui.allocate_at_least(ui.available_size(), egui::Sense::drag());
 
@@ -30,49 +33,34 @@ impl<'a> PartEditor<'a> {
             let dy = response.drag_delta().y;
 
             if dy != 0.0 || dx != 0.0 {
-                self.state.rotation = Quaternion::from_axis_angle(
+                self.rotation = Quaternion::from_axis_angle(
                     Vector3::new(dy, dx, 0.0).normalize(),
                     Rad(Vector3::new(dx, dy, 0.0).magnitude() * ROTATION_SENSITIVITY),
-                ) * self.state.rotation;
+                ) * self.rotation;
             }
 
-            println!("{:#?}", ui.input().events);
+            let rotation = self.rotation;
 
-            let rotation = self.state.rotation;
+            let scene = self.scene.clone();
 
-            let callback = PaintCallback {
+            let paint_callback = PaintCallback {
                 rect,
                 callback: Arc::new(egui_glow::CallbackFn::new(move |info, painter| {
-                    with_three_d(painter.gl(), |three_d| {
-                        three_d.frame(FrameInput::new(&three_d.context, &info, painter), rotation)
-                    });
+                    let mut scene = scene.lock();
+                    let context = &scene.context;
+                    let frame_input = FrameInput::new(context, &info, painter);
+                    scene.frame(frame_input, rotation);
                 })),
             };
 
-            ui.painter().add(callback);
+            println!("{:#?}", ui.input().events);
+
+            let scene = self.scene.lock();
+            scene.pick((100.0, 100.0));
+
+            ui.painter().add(paint_callback);
         });
     }
-}
-
-/// We get a [`glow::Context`] from `eframe` and we want to construct a [`ThreeDApp`].
-///
-/// Sadly we can't just create a [`ThreeDApp`] in [`MyApp::new`] and pass it
-/// to the [`egui::PaintCallback`] because [`glow::Context`] isn't `Send+Sync` on web, which
-/// [`egui::PaintCallback`] needs. If you do not target web, then you can construct the [`ThreeDApp`] in [`MyApp::new`].
-fn with_three_d<R>(
-    gl: &std::sync::Arc<egui_glow::glow::Context>,
-    f: impl FnOnce(&mut ThreeDApp) -> R,
-) -> R {
-    use std::cell::RefCell;
-    thread_local! {
-        pub static THREE_D: RefCell<Option<ThreeDApp>> = RefCell::new(None);
-    }
-
-    THREE_D.with(|three_d| {
-        let mut three_d = three_d.borrow_mut();
-        let three_d = three_d.get_or_insert_with(|| ThreeDApp::new(gl.clone()));
-        f(three_d)
-    })
 }
 
 ///
@@ -149,6 +137,10 @@ impl FrameInput<'_> {
 /// This is where you'll need to customize
 ///
 use three_d::*;
+
+use crate::ui::GlowContext;
+
+use super::Editor;
 pub struct ThreeDApp {
     context: Context,
     camera: Camera,
@@ -214,6 +206,15 @@ impl ThreeDApp {
             model: gizmo,
             ambient_lights: vec![ambient],
         }
+    }
+
+    pub fn pick(&self, pixel: (f32, f32)) -> Vec<String> {
+        self.model
+            .iter()
+            .filter_map(|m| {
+                pick(&self.context, &self.camera, pixel, m).map(|_| m.material.name.to_owned())
+            })
+            .collect()
     }
 
     pub fn frame(

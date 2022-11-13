@@ -49,7 +49,7 @@ impl Editor for PartEditor {
                     let mut scene = scene.lock();
                     let context = &scene.context;
                     let frame_input = FrameInput::new(context, &info, painter);
-                    scene.frame(frame_input, rotation);
+                    scene.frame(frame_input, rotation); //painter.intermediate_fbo(),
                 })),
             };
 
@@ -100,27 +100,28 @@ impl FrameInput<'_> {
             context.disable(glow::FRAMEBUFFER_SRGB);
         }
 
+        let clip_rect = info.clip_rect_in_pixels();
         // Constructs a screen render target to render the final image to
+        let viewport = info.viewport_in_pixels();
         let screen = painter.intermediate_fbo().map_or_else(
             || {
                 RenderTarget::screen(
                     context,
-                    info.viewport.width() as u32,
-                    info.viewport.height() as u32,
+                    viewport.width_px.round() as u32,
+                    viewport.height_px.round() as u32,
                 )
             },
             |fbo| {
                 RenderTarget::from_framebuffer(
                     context,
-                    info.viewport.width() as u32,
-                    info.viewport.height() as u32,
+                    viewport.width_px.round() as u32,
+                    viewport.height_px.round() as u32,
                     fbo,
                 )
             },
         );
 
         // Set where to paint
-        let viewport = info.viewport_in_pixels();
         let viewport = Viewport {
             x: viewport.left_px.round() as _,
             y: viewport.from_bottom_px.round() as _,
@@ -136,6 +137,7 @@ impl FrameInput<'_> {
             width: clip_rect.width_px.round() as _,
             height: clip_rect.height_px.round() as _,
         };
+
         Self {
             screen,
             scissor_box,
@@ -166,7 +168,7 @@ impl ThreeDApp {
         let context = Context::from_gl_context(gl).unwrap();
         // Create a camera
 
-        let position = vec3(0.0, 0.0, 15.0); // Camera position
+        let position = vec3(0.0, 0.0, 1.5); // Camera position
         let target = vec3(0.0, 0.0, 0.0); // Look-at point
         let dist = (position - target).magnitude(); // Distance from camera origin to look-at point
         let fov_y = degrees(45.0); // Y-FOV for perspective camera
@@ -235,7 +237,12 @@ impl ThreeDApp {
         rotation: Quaternion<f32>,
     ) -> Option<glow::Framebuffer> {
         // Ensure the viewport matches the current window viewport which changes if the window is resized
-        self.camera.set_viewport(frame_input.viewport);
+        self.camera.set_viewport(Viewport {
+            x: 0, //frame_input.viewport.x,
+            y: 0, //frame_input.viewport.y,
+            width: frame_input.viewport.width,
+            height: frame_input.viewport.height,
+        });
 
         for model in self.model.iter_mut() {
             model.set_transformation(Mat4::from(rotation));
@@ -247,13 +254,87 @@ impl ThreeDApp {
             .map(|l| l as &dyn Light)
             .collect::<Vec<&dyn Light>>();
 
+        let mut color_texture = Texture2D::new_empty::<[u8; 4]>(
+            &self.context,
+            frame_input.viewport.width,
+            frame_input.viewport.height,
+            Interpolation::Nearest,
+            Interpolation::Nearest,
+            None,
+            Wrapping::ClampToEdge,
+            Wrapping::ClampToEdge,
+        );
+
+        let mut depth_texture = DepthTexture2D::new::<f32>(
+            &self.context,
+            frame_input.viewport.width,
+            frame_input.viewport.height,
+            Wrapping::ClampToEdge,
+            Wrapping::ClampToEdge,
+        );
+
+        RenderTarget::new(
+            color_texture.as_color_target(None),
+            depth_texture.as_depth_target(),
+        )
+        .clear(ClearState::default())
+        .render(&self.camera, &self.model, &lights);
+
+        frame_input
+            .screen
+            .copy_partially_from(
+                ScissorBox {
+                    x: frame_input.viewport.x,
+                    y: frame_input.viewport.y,
+                    width: frame_input.viewport.width,
+                    height: frame_input.viewport.height,
+                },
+                ColorTexture::Single(&color_texture),
+                DepthTexture::Single(&depth_texture),
+                Viewport {
+                    x: frame_input.viewport.x,
+                    y: frame_input.viewport.y,
+                    width: frame_input.viewport.width,
+                    height: frame_input.viewport.height,
+                    /*
+                    x: frame_input.scissor_box.x,
+                    y: frame_input.scissor_box.y,
+                    width: frame_input.scissor_box.width,
+                    height: frame_input.scissor_box.height,
+                    */
+                },
+                WriteMask::default(),
+            )
+            /*
+            .copy_from(
+                ColorTexture::Single(&color_texture),
+                DepthTexture::Single(&depth_texture),
+                Viewport {
+                    x: frame_input.viewport.x,
+                    y: frame_input.viewport.y,
+                    width: frame_input.viewport.width,
+                    height: frame_input.viewport.height,
+                    /*
+                    x: frame_input.scissor_box.x,
+                    y: frame_input.scissor_box.y,
+                    width: frame_input.scissor_box.width,
+                    height: frame_input.scissor_box.height,
+                    */
+                },
+                WriteMask::default(),
+            )
+            */
+            .write(|| {});
+
         // Get the screen render target to be able to render something on the screen
+        /*
         frame_input
             .screen
             // Clear the color and depth of the screen render target
             .clear_partially(frame_input.scissor_box, ClearState::depth(1.0))
             // Render the triangle with the color material which uses the per vertex colors defined at construction
             .render_partially(frame_input.scissor_box, &self.camera, &self.model, &lights);
+            */
 
         frame_input.screen.into_framebuffer() // Take back the screen fbo, we will continue to use it.
     }

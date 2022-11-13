@@ -53,10 +53,22 @@ impl Editor for PartEditor {
                 })),
             };
 
-            println!("{:#?}", ui.input().events);
+            //println!("{:#?}", ui.input().events);
 
-            let scene = self.scene.lock();
-            scene.pick((100.0, 100.0));
+            let mut mouse: Option<(f32, f32)> = None;
+
+            for event in ui.input().events.iter() {
+                match event {
+                    egui::Event::PointerMoved(pos) => mouse = Some((pos.x, pos.y)),
+                    _ => {}
+                }
+            }
+
+            if let Some(mouse) = mouse {
+                let scene = self.scene.lock();
+                let picks = scene.pick(mouse);
+                println!("PICKS {:#?}", picks);
+            }
 
             ui.painter().add(paint_callback);
         });
@@ -186,13 +198,13 @@ impl ThreeDApp {
 
         let mut loaded = three_d_asset::io::load(&["resources/assets/gizmo.obj"]).unwrap();
 
-        println!("LOADED {:#?}", loaded.keys());
+        //println!("LOADED {:#?}", loaded.keys());
 
         let mut gizmo =
             Model::<PhysicalMaterial>::new(&context, &loaded.deserialize("gizmo.obj").unwrap())
                 .unwrap();
 
-        println!("GOT GIZMO");
+        //println!("GOT GIZMO");
 
         gizmo
             .iter_mut()

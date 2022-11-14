@@ -63,11 +63,13 @@ impl Editor for PartEditor {
                 }
             }
 
+            /*
             if let Some(mouse) = mouse {
                 let scene = self.scene.lock();
                 let picks = scene.pick(mouse);
                 println!("PICKS {:#?}", picks);
             }
+            */
 
             ui.painter().add(paint_callback);
         });

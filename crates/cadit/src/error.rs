@@ -1,6 +1,7 @@
 use std::{ffi::OsString, path::PathBuf};
 
 use thiserror::Error;
+use three_d::RendererError;
 
 pub type CaditResult<T> = Result<T, CaditError>;
 
@@ -17,4 +18,7 @@ pub enum CaditError {
 
     #[error("Cannot open `{}` as a file because it is a directory", .0.to_string_lossy())]
     AttemptToOpenDirectoryAsFile(PathBuf),
+
+    #[error("Renderer error: {0}")]
+    RendererError(#[from] RendererError),
 }

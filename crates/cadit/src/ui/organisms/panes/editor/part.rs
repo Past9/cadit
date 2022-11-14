@@ -4,9 +4,133 @@ use eframe::{
     egui_glow::glow,
     epaint::{mutex::Mutex, PaintCallback, Pos2},
 };
-use std::{collections::BTreeSet, io::Cursor, mem::transmute, sync::Arc};
+use std::{io::Cursor, mem::transmute, sync::Arc};
+use three_d::renderer::Geometry;
 
 const ROTATION_SENSITIVITY: f32 = 0.007;
+
+trait ToRenderObjects {
+    fn physical_render_objects(&self) -> Vec<Gm<&three_d::Mesh, &PhysicalMaterial>>;
+    fn id_render_objects(&self) -> Vec<Gm<&three_d::Mesh, &ColorId>>;
+}
+
+pub(crate) struct SceneObject {
+    id: ColorId,
+    geometry: Mesh,
+    physical_material: PhysicalMaterial,
+}
+impl SceneObject {
+    pub(crate) fn from_cpu_model(
+        context: &Context,
+        id_source: &mut ColorIdSource,
+        cpu_model: &CpuModel,
+    ) -> CaditResult<Vec<Self>> {
+        let mut materials = std::collections::HashMap::new();
+        for material in cpu_model.materials.iter() {
+            materials.insert(
+                material.name.clone(),
+                PhysicalMaterial::from_cpu_material(context, material),
+            );
+        }
+        let mut models = Vec::new();
+        for trimesh in cpu_model.geometries.iter() {
+            let id = id_source.next();
+            models.push(if let Some(material_name) = &trimesh.material_name {
+                Self {
+                    id,
+                    geometry: Mesh::new(context, trimesh),
+                    physical_material: materials
+                        .get(material_name)
+                        .ok_or(RendererError::MissingMaterial(
+                            material_name.clone(),
+                            trimesh.name.clone(),
+                        ))?
+                        .clone(),
+                }
+            } else {
+                Self {
+                    id,
+                    geometry: Mesh::new(context, trimesh),
+                    physical_material: PhysicalMaterial::default(),
+                }
+            });
+        }
+
+        Ok(models)
+    }
+
+    fn physical_render_object(&self) -> Gm<&three_d::Mesh, &PhysicalMaterial> {
+        Gm {
+            geometry: &self.geometry,
+            material: &self.physical_material,
+        }
+    }
+
+    fn id_render_object(&self) -> Gm<&three_d::Mesh, &ColorId> {
+        Gm {
+            geometry: &self.geometry,
+            material: &self.id,
+        }
+    }
+
+    pub fn set_transformation(&mut self, transformation: Mat4) {
+        self.geometry.set_transformation(transformation);
+    }
+}
+impl ToRenderObjects for Vec<SceneObject> {
+    fn physical_render_objects(&self) -> Vec<Gm<&three_d::Mesh, &PhysicalMaterial>> {
+        self.iter()
+            .map(|m| m.physical_render_object())
+            .collect::<Vec<_>>()
+    }
+
+    fn id_render_objects(&self) -> Vec<Gm<&three_d::Mesh, &ColorId>> {
+        self.iter()
+            .map(|m| m.id_render_object())
+            .collect::<Vec<_>>()
+    }
+}
+impl Geometry for SceneObject {
+    fn render_with_material(
+        &self,
+        material: &dyn Material,
+        camera: &Camera,
+        lights: &[&dyn Light],
+    ) {
+        self.geometry.render_with_material(material, camera, lights)
+    }
+
+    fn render_with_post_material(
+        &self,
+        material: &dyn PostMaterial,
+        camera: &Camera,
+        lights: &[&dyn Light],
+        color_texture: Option<ColorTexture>,
+        depth_texture: Option<DepthTexture>,
+    ) {
+        self.geometry.render_with_post_material(
+            material,
+            camera,
+            lights,
+            color_texture,
+            depth_texture,
+        )
+    }
+
+    fn aabb(&self) -> AxisAlignedBoundingBox {
+        self.geometry.aabb()
+    }
+}
+impl three_d::Object for SceneObject {
+    fn render(&self, camera: &Camera, lights: &[&dyn Light]) {
+        self.geometry
+            .render_with_material(&self.physical_material, camera, lights)
+    }
+
+    fn material_type(&self) -> MaterialType {
+        self.physical_material.material_type()
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct ColorId(u32);
@@ -17,7 +141,7 @@ impl ColorId {
 
     fn to_color(&self) -> Color {
         let bytes: [u8; 4] = unsafe { transmute(self.0.to_be()) };
-        Color::new(bytes[0], bytes[1], bytes[2], 255)
+        Color::new(bytes[1], bytes[2], bytes[3], 255)
     }
 
     fn from_color(color: &Color) -> Self {
@@ -26,7 +150,7 @@ impl ColorId {
     }
 
     fn from_u32(id: u32) -> Self {
-        Self(id << 8)
+        Self(id)
     }
 }
 impl Default for ColorId {
@@ -72,7 +196,7 @@ impl Material for ColorId {
     }
 }
 
-struct ColorIdSource {
+pub(crate) struct ColorIdSource {
     seed: u32,
 }
 impl ColorIdSource {
@@ -165,7 +289,9 @@ impl Editor for PartEditor {
                     .lock()
                     .read_color_id(self.ui_pos_to_fbo_pos(ui, mouse_pos));
 
-                println!("PICK {:#?}", pick);
+                if let Some(pick) = pick {
+                    println!("PICK {:?}", pick.0);
+                }
             }
 
             ui.painter().add(paint_callback);
@@ -233,15 +359,22 @@ impl FrameInput<'_> {
 ///
 use three_d::*;
 
-use crate::ui::GlowContext;
+use crate::{error::CaditResult, ui::GlowContext};
 
 use super::Editor;
 pub struct ThreeDApp {
     context: Context,
     camera: Camera,
-    model: Model<ColorId>,
+    objects: Vec<SceneObject>,
+    ambient_lights: Vec<AmbientLight>,
+
     id_color_texture: Texture2D,
     id_depth_texture: DepthTexture2D,
+
+    image_color_texture: Texture2D,
+    image_depth_texture: DepthTexture2D,
+    image_fxaa_color_texture: Texture2D,
+    image_fxaa_depth_texture: DepthTexture2D,
 }
 
 impl ThreeDApp {
@@ -281,21 +414,43 @@ impl ThreeDApp {
 
         let mut loaded = three_d_asset::io::load(&["resources/assets/gizmo.obj"]).unwrap();
 
-        let mut gizmo =
-            Model::<ColorId>::new(&context, &loaded.deserialize("gizmo.obj").unwrap()).unwrap();
+        let gizmo = SceneObject::from_cpu_model(
+            &context,
+            id_source,
+            &loaded.deserialize("gizmo.obj").unwrap(),
+        )
+        .unwrap();
 
-        for gm in gizmo.iter_mut() {
-            gm.material = id_source.next();
+        for gm in gizmo.iter() {
+            //let cm = CadModel::from_gm(gm);
+            //gm.material = id_source.next();
+            println!("GM {} {:?}", gm.physical_material.name, gm.id);
         }
 
         let (id_color_texture, id_depth_texture) = Self::new_id_textures(&context, 1, 1);
+        let (
+            image_color_texture,
+            image_depth_texture,
+            image_fxaa_color_texture,
+            image_fxaa_depth_texture,
+        ) = Self::new_image_textures(&context, 1, 1);
+
+        let ambient_light = AmbientLight::new(&context, 1.0, Color::WHITE);
 
         Self {
-            id_color_texture,
-            id_depth_texture,
             context,
             camera,
-            model: gizmo,
+            objects: gizmo,
+            ambient_lights: vec![ambient_light],
+
+            id_color_texture,
+            id_depth_texture,
+
+            image_color_texture,
+            image_depth_texture,
+
+            image_fxaa_color_texture,
+            image_fxaa_depth_texture,
         }
     }
 
@@ -310,14 +465,17 @@ impl ThreeDApp {
                 height: 1,
             });
 
-        let colors: BTreeSet<Color> = BTreeSet::from_iter(color.iter().cloned());
-
-        println!("PICK");
-        for color in colors.iter() {
-            println!("{:?}", color);
+        match color.get(0) {
+            Some(color) => {
+                let id = ColorId::from_color(color);
+                if id.0 > 0 {
+                    Some(id)
+                } else {
+                    None
+                }
+            }
+            None => todo!(),
         }
-
-        color.get(0).map(|color| ColorId::from_color(color))
     }
 
     pub fn render(
@@ -334,21 +492,77 @@ impl ThreeDApp {
             height: frame_input.viewport.height,
         });
 
-        for model in self.model.iter_mut() {
+        for model in self.objects.iter_mut() {
             model.set_transformation(Mat4::from(rotation));
         }
 
+        //self.render_image(&frame_input);
         self.render_id_textures(&frame_input);
 
         frame_input.screen.copy_partially_from(
             frame_input.viewport.into(),
             ColorTexture::Single(&self.id_color_texture),
             DepthTexture::Single(&self.id_depth_texture),
+            /*
+            ColorTexture::Single(&self.image_fxaa_color_texture),
+            DepthTexture::Single(&self.image_fxaa_depth_texture),
+            */
             frame_input.viewport,
             WriteMask::default(),
         );
 
         frame_input.screen.into_framebuffer() // Take back the screen fbo, we will continue to use it.
+    }
+
+    pub fn render_image(&mut self, frame_input: &FrameInput<'_>) {
+        if frame_input.viewport.width != self.image_color_texture.width()
+            || frame_input.viewport.height != self.image_color_texture.height()
+            || frame_input.viewport.width != self.image_fxaa_color_texture.width()
+            || frame_input.viewport.height != self.image_fxaa_color_texture.height()
+        {
+            let (
+                image_color_texture,
+                image_depth_texture,
+                image_fxaa_color_texture,
+                image_fxaa_depth_texture,
+            ) = Self::new_image_textures(
+                &self.context,
+                frame_input.viewport.width,
+                frame_input.viewport.height,
+            );
+
+            self.image_color_texture = image_color_texture;
+            self.image_depth_texture = image_depth_texture;
+            self.image_fxaa_color_texture = image_fxaa_color_texture;
+            self.image_fxaa_depth_texture = image_fxaa_depth_texture;
+        }
+
+        let lights = self
+            .ambient_lights
+            .iter()
+            .map(|l| l as &dyn Light)
+            .collect::<Vec<&dyn Light>>();
+
+        // Render offscreen
+        RenderTarget::new(
+            self.image_color_texture.as_color_target(None),
+            self.image_depth_texture.as_depth_target(),
+        )
+        .clear(ClearState::default())
+        .render(&self.camera, &self.objects.id_render_objects(), &lights);
+
+        // Apply FXAA
+        RenderTarget::new(
+            self.image_fxaa_color_texture.as_color_target(None),
+            self.image_fxaa_depth_texture.as_depth_target(),
+        )
+        .clear(ClearState::default())
+        .write(|| {
+            (FxaaEffect {}).apply(
+                &self.context,
+                ColorTexture::Single(&self.image_color_texture),
+            );
+        });
     }
 
     pub fn render_id_textures(&mut self, frame_input: &FrameInput<'_>) {
@@ -371,7 +585,7 @@ impl ThreeDApp {
             self.id_depth_texture.as_depth_target(),
         )
         .clear(ClearState::default())
-        .render(&self.camera, &self.model, &[]);
+        .render(&self.camera, &self.objects.physical_render_objects(), &[]);
     }
 
     fn new_id_textures(context: &Context, width: u32, height: u32) -> (Texture2D, DepthTexture2D) {
@@ -393,6 +607,61 @@ impl ThreeDApp {
                 Wrapping::ClampToEdge,
                 Wrapping::ClampToEdge,
             ),
+        )
+    }
+
+    fn new_image_textures(
+        context: &Context,
+        width: u32,
+        height: u32,
+    ) -> (Texture2D, DepthTexture2D, Texture2D, DepthTexture2D) {
+        // Create offscreen textures to render the initial image to
+        let image_color_texture = Texture2D::new_empty::<[u8; 4]>(
+            context,
+            width,
+            height,
+            Interpolation::Nearest,
+            Interpolation::Nearest,
+            None,
+            Wrapping::ClampToEdge,
+            Wrapping::ClampToEdge,
+        );
+
+        let image_depth_texture = DepthTexture2D::new::<f32>(
+            context,
+            width,
+            height,
+            Wrapping::ClampToEdge,
+            Wrapping::ClampToEdge,
+        );
+
+        // Create offscreen textures to apply FXAA to the rendered image. Should be able to
+        // apply this directly when copying to the screen, but the coordinates are off
+        // because write_partially(...) does not allow specifying source coordinates.
+        let image_fxaa_color_texture = Texture2D::new_empty::<[u8; 4]>(
+            context,
+            width,
+            height,
+            Interpolation::Nearest,
+            Interpolation::Nearest,
+            None,
+            Wrapping::ClampToEdge,
+            Wrapping::ClampToEdge,
+        );
+
+        let image_fxaa_depth_texture = DepthTexture2D::new::<f32>(
+            context,
+            width,
+            height,
+            Wrapping::ClampToEdge,
+            Wrapping::ClampToEdge,
+        );
+
+        (
+            image_color_texture,
+            image_depth_texture,
+            image_fxaa_color_texture,
+            image_fxaa_depth_texture,
         )
     }
 }

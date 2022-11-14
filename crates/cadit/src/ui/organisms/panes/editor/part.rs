@@ -371,10 +371,10 @@ pub struct ThreeDApp {
     id_color_texture: Texture2D,
     id_depth_texture: DepthTexture2D,
 
-    image_color_texture: Texture2D,
-    image_depth_texture: DepthTexture2D,
-    image_fxaa_color_texture: Texture2D,
-    image_fxaa_depth_texture: DepthTexture2D,
+    pbr_color_texture: Texture2D,
+    pbr_depth_texture: DepthTexture2D,
+    pbr_fxaa_color_texture: Texture2D,
+    pbr_fxaa_depth_texture: DepthTexture2D,
 }
 
 impl ThreeDApp {
@@ -428,12 +428,9 @@ impl ThreeDApp {
         }
 
         let (id_color_texture, id_depth_texture) = Self::new_id_textures(&context, 1, 1);
-        let (
-            image_color_texture,
-            image_depth_texture,
-            image_fxaa_color_texture,
-            image_fxaa_depth_texture,
-        ) = Self::new_image_textures(&context, 1, 1);
+
+        let (pbr_color_texture, pbr_depth_texture, pbr_fxaa_color_texture, pbr_fxaa_depth_texture) =
+            Self::new_physical_textures(&context, 1, 1);
 
         let ambient_light = AmbientLight::new(&context, 1.0, Color::WHITE);
 
@@ -442,15 +439,14 @@ impl ThreeDApp {
             camera,
             objects: gizmo,
             ambient_lights: vec![ambient_light],
-
             id_color_texture,
             id_depth_texture,
 
-            image_color_texture,
-            image_depth_texture,
+            pbr_color_texture,
+            pbr_depth_texture,
 
-            image_fxaa_color_texture,
-            image_fxaa_depth_texture,
+            pbr_fxaa_color_texture,
+            pbr_fxaa_depth_texture,
         }
     }
 
@@ -496,45 +492,46 @@ impl ThreeDApp {
             model.set_transformation(Mat4::from(rotation));
         }
 
-        //self.render_image(&frame_input);
+        self.render_pbr(&frame_input);
         self.render_id_textures(&frame_input);
 
         frame_input.screen.copy_partially_from(
             frame_input.viewport.into(),
+            /*
             ColorTexture::Single(&self.id_color_texture),
             DepthTexture::Single(&self.id_depth_texture),
-            /*
-            ColorTexture::Single(&self.image_fxaa_color_texture),
-            DepthTexture::Single(&self.image_fxaa_depth_texture),
             */
+            ColorTexture::Single(&self.pbr_fxaa_color_texture),
+            DepthTexture::Single(&self.pbr_fxaa_depth_texture),
             frame_input.viewport,
             WriteMask::default(),
         );
 
-        frame_input.screen.into_framebuffer() // Take back the screen fbo, we will continue to use it.
+        // Take back the screen fbo, we will continue to use it.
+        frame_input.screen.into_framebuffer()
     }
 
-    pub fn render_image(&mut self, frame_input: &FrameInput<'_>) {
-        if frame_input.viewport.width != self.image_color_texture.width()
-            || frame_input.viewport.height != self.image_color_texture.height()
-            || frame_input.viewport.width != self.image_fxaa_color_texture.width()
-            || frame_input.viewport.height != self.image_fxaa_color_texture.height()
+    pub fn render_pbr(&mut self, frame_input: &FrameInput<'_>) {
+        if frame_input.viewport.width != self.pbr_color_texture.width()
+            || frame_input.viewport.height != self.pbr_color_texture.height()
+            || frame_input.viewport.width != self.pbr_fxaa_color_texture.width()
+            || frame_input.viewport.height != self.pbr_fxaa_color_texture.height()
         {
             let (
-                image_color_texture,
-                image_depth_texture,
-                image_fxaa_color_texture,
-                image_fxaa_depth_texture,
-            ) = Self::new_image_textures(
+                pbr_color_texture,
+                pbr_depth_texture,
+                pbr_fxaa_color_texture,
+                pbr_fxaa_depth_texture,
+            ) = Self::new_physical_textures(
                 &self.context,
                 frame_input.viewport.width,
                 frame_input.viewport.height,
             );
 
-            self.image_color_texture = image_color_texture;
-            self.image_depth_texture = image_depth_texture;
-            self.image_fxaa_color_texture = image_fxaa_color_texture;
-            self.image_fxaa_depth_texture = image_fxaa_depth_texture;
+            self.pbr_color_texture = pbr_color_texture;
+            self.pbr_depth_texture = pbr_depth_texture;
+            self.pbr_fxaa_color_texture = pbr_fxaa_color_texture;
+            self.pbr_fxaa_depth_texture = pbr_fxaa_depth_texture;
         }
 
         let lights = self
@@ -545,23 +542,24 @@ impl ThreeDApp {
 
         // Render offscreen
         RenderTarget::new(
-            self.image_color_texture.as_color_target(None),
-            self.image_depth_texture.as_depth_target(),
+            self.pbr_color_texture.as_color_target(None),
+            self.pbr_depth_texture.as_depth_target(),
         )
         .clear(ClearState::default())
-        .render(&self.camera, &self.objects.id_render_objects(), &lights);
+        .render(
+            &self.camera,
+            &self.objects.physical_render_objects(),
+            &lights,
+        );
 
         // Apply FXAA
         RenderTarget::new(
-            self.image_fxaa_color_texture.as_color_target(None),
-            self.image_fxaa_depth_texture.as_depth_target(),
+            self.pbr_fxaa_color_texture.as_color_target(None),
+            self.pbr_fxaa_depth_texture.as_depth_target(),
         )
         .clear(ClearState::default())
         .write(|| {
-            (FxaaEffect {}).apply(
-                &self.context,
-                ColorTexture::Single(&self.image_color_texture),
-            );
+            (FxaaEffect {}).apply(&self.context, ColorTexture::Single(&self.pbr_color_texture));
         });
     }
 
@@ -585,7 +583,7 @@ impl ThreeDApp {
             self.id_depth_texture.as_depth_target(),
         )
         .clear(ClearState::default())
-        .render(&self.camera, &self.objects.physical_render_objects(), &[]);
+        .render(&self.camera, &self.objects.id_render_objects(), &[]);
     }
 
     fn new_id_textures(context: &Context, width: u32, height: u32) -> (Texture2D, DepthTexture2D) {
@@ -610,13 +608,13 @@ impl ThreeDApp {
         )
     }
 
-    fn new_image_textures(
+    fn new_physical_textures(
         context: &Context,
         width: u32,
         height: u32,
     ) -> (Texture2D, DepthTexture2D, Texture2D, DepthTexture2D) {
         // Create offscreen textures to render the initial image to
-        let image_color_texture = Texture2D::new_empty::<[u8; 4]>(
+        let pbr_color_texture = Texture2D::new_empty::<[u8; 4]>(
             context,
             width,
             height,
@@ -627,7 +625,7 @@ impl ThreeDApp {
             Wrapping::ClampToEdge,
         );
 
-        let image_depth_texture = DepthTexture2D::new::<f32>(
+        let pbr_depth_texture = DepthTexture2D::new::<f32>(
             context,
             width,
             height,
@@ -638,7 +636,7 @@ impl ThreeDApp {
         // Create offscreen textures to apply FXAA to the rendered image. Should be able to
         // apply this directly when copying to the screen, but the coordinates are off
         // because write_partially(...) does not allow specifying source coordinates.
-        let image_fxaa_color_texture = Texture2D::new_empty::<[u8; 4]>(
+        let pbr_fxaa_color_texture = Texture2D::new_empty::<[u8; 4]>(
             context,
             width,
             height,
@@ -649,7 +647,7 @@ impl ThreeDApp {
             Wrapping::ClampToEdge,
         );
 
-        let image_fxaa_depth_texture = DepthTexture2D::new::<f32>(
+        let pbr_fxaa_depth_texture = DepthTexture2D::new::<f32>(
             context,
             width,
             height,
@@ -658,10 +656,10 @@ impl ThreeDApp {
         );
 
         (
-            image_color_texture,
-            image_depth_texture,
-            image_fxaa_color_texture,
-            image_fxaa_depth_texture,
+            pbr_color_texture,
+            pbr_depth_texture,
+            pbr_fxaa_color_texture,
+            pbr_fxaa_depth_texture,
         )
     }
 }

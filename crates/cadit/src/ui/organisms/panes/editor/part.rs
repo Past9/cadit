@@ -132,7 +132,7 @@ impl three_d::Object for SceneObject {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct ColorId(u32);
 impl ColorId {
     fn none() -> Self {
@@ -213,7 +213,7 @@ impl ColorIdSource {
 pub struct PartEditor {
     id_source: ColorIdSource,
     rotation: Quaternion<f32>,
-    scene: Arc<Mutex<ThreeDApp>>,
+    scene: Arc<Mutex<Scene>>,
     scene_rect: egui::Rect,
 }
 impl PartEditor {
@@ -221,7 +221,7 @@ impl PartEditor {
         let mut id_source = ColorIdSource::new();
         Self {
             rotation: Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), Rad(0.0)),
-            scene: Arc::new(Mutex::new(ThreeDApp::new(gl.clone(), &mut id_source))),
+            scene: Arc::new(Mutex::new(Scene::new(gl.clone(), &mut id_source))),
             id_source,
             scene_rect: egui::Rect {
                 min: (0.0, 0.0).into(),
@@ -284,13 +284,15 @@ impl Editor for PartEditor {
             }
 
             if let Some(mouse_pos) = mouse_pos {
-                let pick = self
-                    .scene
-                    .lock()
-                    .read_color_id(self.ui_pos_to_fbo_pos(ui, mouse_pos));
+                let mut scene = self.scene.lock();
+
+                let pick = scene.read_color_id(self.ui_pos_to_fbo_pos(ui, mouse_pos));
 
                 if let Some(pick) = pick {
                     println!("PICK {:?}", pick.0);
+                    scene.select_object(Some(pick));
+                } else {
+                    scene.select_object(None);
                 }
             }
 
@@ -362,7 +364,7 @@ use three_d::*;
 use crate::{error::CaditResult, ui::GlowContext};
 
 use super::Editor;
-pub struct ThreeDApp {
+pub struct Scene {
     context: Context,
     camera: Camera,
     objects: Vec<SceneObject>,
@@ -377,7 +379,7 @@ pub struct ThreeDApp {
     pbr_fxaa_depth_texture: DepthTexture2D,
 }
 
-impl ThreeDApp {
+impl Scene {
     fn new(gl: std::sync::Arc<glow::Context>, id_source: &mut ColorIdSource) -> Self {
         let context = Context::from_gl_context(gl).unwrap();
 
@@ -448,6 +450,19 @@ impl ThreeDApp {
             pbr_fxaa_color_texture,
             pbr_fxaa_depth_texture,
         }
+    }
+
+    pub(crate) fn select_object(&mut self, id: Option<ColorId>) {
+        self.objects.iter_mut().for_each(|obj| {
+            if let Some(id) = id {
+                if id == obj.id {
+                    obj.physical_material.emissive = Color::GREEN;
+                    return;
+                }
+            }
+
+            obj.physical_material.emissive = Color::BLACK;
+        });
     }
 
     pub(crate) fn read_color_id(&mut self, pos: Pos2) -> Option<ColorId> {

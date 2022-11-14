@@ -141,6 +141,7 @@ checksum = "ec8a7b6a70fde80372154c65702f00a0f56f3e1c36abbc6c440484be248856db"
 name = "cadit"
 version = "0.1.0"
 dependencies = [
+ "byteorder",
  "eframe",
  "egui-modal",
  "egui_dock",

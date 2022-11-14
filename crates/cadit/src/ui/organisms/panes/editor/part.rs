@@ -1,21 +1,103 @@
+use byteorder::{BigEndian, ReadBytesExt};
 use eframe::{
     egui, egui_glow,
     egui_glow::glow,
     epaint::{mutex::Mutex, PaintCallback},
 };
-use std::sync::Arc;
+use std::{collections::BTreeSet, io::Cursor, mem::transmute, sync::Arc};
 
 const ROTATION_SENSITIVITY: f32 = 0.007;
 
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ColorId(u32);
+impl ColorId {
+    fn none() -> Self {
+        Self(0)
+    }
+
+    fn to_color(&self) -> Color {
+        let bytes: [u8; 4] = unsafe { transmute(self.0.to_be()) };
+        Color::new(bytes[0], bytes[1], bytes[2], 255)
+    }
+
+    fn from_color(color: &Color) -> Self {
+        let mut reader = Cursor::new(vec![0, color.r, color.g, color.b]);
+        Self(reader.read_u32::<BigEndian>().unwrap())
+    }
+
+    fn from_u32(id: u32) -> Self {
+        Self(id << 8)
+    }
+}
+impl Default for ColorId {
+    fn default() -> Self {
+        Self::none()
+    }
+}
+impl FromCpuMaterial for ColorId {
+    fn from_cpu_material(_context: &Context, _cpu_material: &CpuMaterial) -> Self {
+        Self::default()
+    }
+}
+impl Material for ColorId {
+    fn fragment_shader_source(&self, _use_vertex_colors: bool, _lights: &[&dyn Light]) -> String {
+        r#"
+            uniform vec4 surfaceColor;
+
+            layout (location = 0) out vec4 outColor;
+
+            void main()
+            {
+                outColor = surfaceColor;
+            }
+        "#
+        .to_owned()
+    }
+
+    fn use_uniforms(&self, program: &Program, _camera: &Camera, _lights: &[&dyn Light]) {
+        program.use_uniform("surfaceColor", self.to_color());
+    }
+
+    fn render_states(&self) -> RenderStates {
+        RenderStates {
+            write_mask: WriteMask::COLOR_AND_DEPTH,
+            depth_test: DepthTest::Less,
+            blend: Blend::Disabled,
+            cull: Cull::Back,
+        }
+    }
+
+    fn material_type(&self) -> MaterialType {
+        MaterialType::Opaque
+    }
+}
+
+struct ColorIdSource {
+    seed: u32,
+}
+impl ColorIdSource {
+    pub fn new() -> Self {
+        Self { seed: 0 }
+    }
+
+    pub fn next(&mut self) -> ColorId {
+        self.seed += 1;
+        ColorId::from_u32(self.seed)
+    }
+}
+
 pub struct PartEditor {
+    id_source: ColorIdSource,
     rotation: Quaternion<f32>,
     scene: Arc<Mutex<ThreeDApp>>,
 }
 impl PartEditor {
     pub fn new(gl: GlowContext) -> Self {
+        let mut id_source = ColorIdSource::new();
         Self {
             rotation: Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), Rad(0.0)),
-            scene: Arc::new(Mutex::new(ThreeDApp::new(gl.clone()))),
+            scene: Arc::new(Mutex::new(ThreeDApp::new(gl.clone(), &mut id_source))),
+            id_source,
         }
     }
 }
@@ -48,7 +130,7 @@ impl Editor for PartEditor {
                     let mut scene = scene.lock();
                     let context = &scene.context;
                     let frame_input = FrameInput::new(context, &info, painter);
-                    scene.frame(frame_input, rotation);
+                    scene.render(frame_input, rotation);
                 })),
             };
 
@@ -63,13 +145,17 @@ impl Editor for PartEditor {
                 }
             }
 
-            /*
             if let Some(mouse) = mouse {
-                let scene = self.scene.lock();
-                let picks = scene.pick(mouse);
-                println!("PICKS {:#?}", picks);
+                let x = (mouse.0 - rect.min.x) * 1.5;
+                let y = (rect.max.y - mouse.1) * 1.5;
+
+                println!("RECT {:?}", rect);
+                println!("MOUSE {} {}", x, y);
+
+                let pick = self.scene.lock().read_color_id(x as u32, y as u32);
+
+                println!("PICK {:#?}", pick);
             }
-            */
 
             ui.painter().add(paint_callback);
         });
@@ -93,10 +179,16 @@ impl FrameInput<'_> {
         use three_d::*;
 
         // Disable sRGB textures for three-d
-        #[cfg(not(target_arch = "wasm32"))]
-        #[allow(unsafe_code)]
         unsafe {
             use glow::HasContext as _;
+            context.disable(glow::BLEND); // GL_BLEND
+            context.disable(glow::DITHER); // GL_DITHER
+                                           //context.disable(glow::FOG); // GL_FOG
+                                           //context.disable(glow::LIGHTING); // GL_LIGHTING
+            context.disable(glow::TEXTURE_1D); // GL_TEXTURE_1D
+            context.disable(glow::TEXTURE_2D); // GL_TEXTURE_2D
+            context.disable(glow::TEXTURE_3D); // GL_TEXTURE_3D
+
             context.disable(glow::FRAMEBUFFER_SRGB);
         }
 
@@ -144,15 +236,16 @@ use super::Editor;
 pub struct ThreeDApp {
     context: Context,
     camera: Camera,
-    model: Model<PhysicalMaterial>,
-    ambient_lights: Vec<AmbientLight>,
+    model: Model<ColorId>,
+    id_color_texture: Texture2D,
+    id_depth_texture: DepthTexture2D,
 }
 
 impl ThreeDApp {
-    pub fn new(gl: std::sync::Arc<glow::Context>) -> Self {
+    fn new(gl: std::sync::Arc<glow::Context>, id_source: &mut ColorIdSource) -> Self {
         let context = Context::from_gl_context(gl).unwrap();
-        // Create a camera
 
+        // Create a camera
         let position = vec3(0.0, 0.0, -15.0); // Camera position
         let target = vec3(0.0, 0.0, 0.0); // Look-at point
         let dist = (position - target).magnitude(); // Distance from camera origin to look-at point
@@ -185,34 +278,71 @@ impl ThreeDApp {
 
         let mut loaded = three_d_asset::io::load(&["resources/assets/gizmo.obj"]).unwrap();
 
+        //let x = loaded.deserialize("gizmo.obj").unwrap();
+
         let mut gizmo =
-            Model::<PhysicalMaterial>::new(&context, &loaded.deserialize("gizmo.obj").unwrap())
-                .unwrap();
+            Model::<ColorId>::new(&context, &loaded.deserialize("gizmo.obj").unwrap()).unwrap();
 
-        gizmo
-            .iter_mut()
-            .for_each(|g| g.material.render_states.cull = Cull::Back);
+        for gm in gizmo.iter_mut() {
+            gm.material = id_source.next();
+            /*
+            gm.material = ColorMaterial {
+                color: id_source.next().to_color(),
+                texture: None,
+                is_transparent: false,
+                render_states: RenderStates {
+                    write_mask: WriteMask::COLOR_AND_DEPTH,
+                    depth_test: gm.material.render_states.depth_test,
+                    /*
+                    blend: Blend::Enabled {
+                        source_rgb_multiplier: BlendMultiplierType::One,
+                        source_alpha_multiplier: BlendMultiplierType::One,
+                        destination_rgb_multiplier: BlendMultiplierType::Zero,
+                        destination_alpha_multiplier: BlendMultiplierType::Zero,
+                        rgb_equation: BlendEquationType::Max,
+                        alpha_equation: BlendEquationType::Max,
+                    },
+                    */
+                    blend: Blend::Disabled,
+                    cull: Cull::Back,
+                },
+            };
+            */
+        }
 
-        let ambient = AmbientLight::new(&context, 1.0, Color::WHITE);
+        let (id_color_texture, id_depth_texture) = Self::new_id_textures(&context, 1, 1);
 
         Self {
+            id_color_texture,
+            id_depth_texture,
             context,
             camera,
             model: gizmo,
-            ambient_lights: vec![ambient],
         }
     }
 
-    pub fn pick(&self, pixel: (f32, f32)) -> Vec<String> {
-        self.model
-            .iter()
-            .filter_map(|m| {
-                pick(&self.context, &self.camera, pixel, m).map(|_| m.material.name.to_owned())
-            })
-            .collect()
+    pub(crate) fn read_color_id(&mut self, x: u32, y: u32) -> Option<ColorId> {
+        let color = self
+            .id_color_texture
+            .as_color_target(None)
+            .read_partially(ScissorBox {
+                x: x as i32,
+                y: y as i32,
+                width: 1,
+                height: 1,
+            });
+
+        let colors: BTreeSet<Color> = BTreeSet::from_iter(color.iter().cloned());
+
+        println!("PICK");
+        for color in colors.iter() {
+            println!("{:?}", color);
+        }
+
+        color.get(0).map(|color| ColorId::from_color(color))
     }
 
-    pub fn frame(
+    pub fn render(
         &mut self,
         frame_input: FrameInput<'_>,
         rotation: Quaternion<f32>,
@@ -230,81 +360,76 @@ impl ThreeDApp {
             model.set_transformation(Mat4::from(rotation));
         }
 
-        let lights = self
-            .ambient_lights
-            .iter()
-            .map(|l| l as &dyn Light)
-            .collect::<Vec<&dyn Light>>();
+        self.render_id_textures(&frame_input);
 
-        // Create offscreen textures to render the initial image to
-        let mut render_color_texture = Texture2D::new_empty::<[u8; 4]>(
-            &self.context,
-            frame_input.viewport.width,
-            frame_input.viewport.height,
-            Interpolation::Nearest,
-            Interpolation::Nearest,
-            None,
-            Wrapping::ClampToEdge,
-            Wrapping::ClampToEdge,
-        );
-
-        let mut render_depth_texture = DepthTexture2D::new::<f32>(
-            &self.context,
-            frame_input.viewport.width,
-            frame_input.viewport.height,
-            Wrapping::ClampToEdge,
-            Wrapping::ClampToEdge,
-        );
-
-        // Render offscreen
-        RenderTarget::new(
-            render_color_texture.as_color_target(None),
-            render_depth_texture.as_depth_target(),
-        )
-        .clear(ClearState::default())
-        .render(&self.camera, &self.model, &lights);
-
-        // Create offscreen textures to apply FXAA to the rendered image. Should be able to
-        // apply this directly when copying to the screen, but the coordinates are off
-        // because write_partially(...) does not allow specifying source coordinates.
-        let mut fxaa_color_texture = Texture2D::new_empty::<[u8; 4]>(
-            &self.context,
-            frame_input.viewport.width,
-            frame_input.viewport.height,
-            Interpolation::Nearest,
-            Interpolation::Nearest,
-            None,
-            Wrapping::ClampToEdge,
-            Wrapping::ClampToEdge,
-        );
-
-        let mut fxaa_depth_texture = DepthTexture2D::new::<f32>(
-            &self.context,
-            frame_input.viewport.width,
-            frame_input.viewport.height,
-            Wrapping::ClampToEdge,
-            Wrapping::ClampToEdge,
-        );
-
-        // Apply FXAA
-        RenderTarget::new(
-            fxaa_color_texture.as_color_target(None),
-            fxaa_depth_texture.as_depth_target(),
-        )
-        .clear(ClearState::default())
-        .write(|| {
-            (FxaaEffect {}).apply(&self.context, ColorTexture::Single(&render_color_texture));
-        });
-
-        // Copy FXAA image to the screen
         frame_input.screen.copy_partially_from(
             frame_input.viewport.into(),
-            ColorTexture::Single(&fxaa_color_texture),
-            DepthTexture::Single(&fxaa_depth_texture),
+            ColorTexture::Single(&self.id_color_texture),
+            DepthTexture::Single(&self.id_depth_texture),
             frame_input.viewport,
             WriteMask::default(),
         );
 
         frame_input.screen.into_framebuffer() // Take back the screen fbo, we will continue to use it.
+    }
+
+    pub fn render_id_textures(&mut self, frame_input: &FrameInput<'_>) {
+        if frame_input.viewport.width != self.id_color_texture.width()
+            || frame_input.viewport.height != self.id_color_texture.height()
+        {
+            let (id_color_texture, id_depth_texture) = Self::new_id_textures(
+                &self.context,
+                frame_input.viewport.width,
+                frame_input.viewport.height,
+            );
+
+            self.id_color_texture = id_color_texture;
+            self.id_depth_texture = id_depth_texture;
+        }
+
+        /*
+        unsafe {
+            self.context.disable(3042); // GL_BLEND
+            self.context.disable(3024); // GL_DITHER
+            self.context.disable(2912); // GL_FOG
+            self.context.disable(2896); // GL_LIGHTING
+            self.context.disable(3552); // GL_TEXTURE_1D
+            self.context.disable(3552); // GL_TEXTURE_2D
+            self.context.disable(32879); // GL_TEXTURE_3D
+            self.context.disable(36281); // GL_FRAMEBUFFER_SRGB
+
+            self.context.disable(egui_glow::glow::FRAMEBUFFER_SRGB);
+        }
+        */
+
+        // Render offscreen
+        RenderTarget::new(
+            self.id_color_texture.as_color_target(None),
+            self.id_depth_texture.as_depth_target(),
+        )
+        .clear(ClearState::default())
+        .render(&self.camera, &self.model, &[]);
+    }
+
+    fn new_id_textures(context: &Context, width: u32, height: u32) -> (Texture2D, DepthTexture2D) {
+        (
+            Texture2D::new_empty::<[f32; 3]>(
+                context,
+                width,
+                height,
+                Interpolation::Nearest,
+                Interpolation::Nearest,
+                None,
+                Wrapping::ClampToEdge,
+                Wrapping::ClampToEdge,
+            ),
+            DepthTexture2D::new::<f32>(
+                context,
+                width,
+                height,
+                Wrapping::ClampToEdge,
+                Wrapping::ClampToEdge,
+            ),
+        )
     }
 }

@@ -2,7 +2,7 @@ use byteorder::{BigEndian, ReadBytesExt};
 use eframe::{
     egui, egui_glow,
     egui_glow::glow,
-    epaint::{mutex::Mutex, PaintCallback},
+    epaint::{mutex::Mutex, PaintCallback, Pos2},
 };
 use std::{collections::BTreeSet, io::Cursor, mem::transmute, sync::Arc};
 
@@ -90,6 +90,7 @@ pub struct PartEditor {
     id_source: ColorIdSource,
     rotation: Quaternion<f32>,
     scene: Arc<Mutex<ThreeDApp>>,
+    scene_rect: egui::Rect,
 }
 impl PartEditor {
     pub fn new(gl: GlowContext) -> Self {
@@ -98,7 +99,18 @@ impl PartEditor {
             rotation: Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), Rad(0.0)),
             scene: Arc::new(Mutex::new(ThreeDApp::new(gl.clone(), &mut id_source))),
             id_source,
+            scene_rect: egui::Rect {
+                min: (0.0, 0.0).into(),
+                max: (0.0, 0.0).into(),
+            },
         }
+    }
+
+    fn ui_pos_to_fbo_pos(&self, ui: &egui::Ui, ui_pos: Pos2) -> Pos2 {
+        let pix_per_pt = ui.input().pixels_per_point;
+        let x = (ui_pos.x - self.scene_rect.min.x) * pix_per_pt;
+        let y = (self.scene_rect.max.y - ui_pos.y) * pix_per_pt;
+        Pos2 { x, y }
     }
 }
 impl Editor for PartEditor {
@@ -109,6 +121,8 @@ impl Editor for PartEditor {
     fn show(&mut self, ui: &mut egui::Ui) {
         egui::Frame::canvas(ui.style()).show(ui, |ui| {
             let (rect, response) = ui.allocate_at_least(ui.available_size(), egui::Sense::drag());
+
+            self.scene_rect = rect;
 
             let dx = response.drag_delta().x;
             let dy = response.drag_delta().y;
@@ -134,25 +148,22 @@ impl Editor for PartEditor {
                 })),
             };
 
-            //println!("{:#?}", ui.input().events);
-
-            let mut mouse: Option<(f32, f32)> = None;
+            let mut mouse_pos: Option<Pos2> = None;
 
             for event in ui.input().events.iter() {
                 match event {
-                    egui::Event::PointerMoved(pos) => mouse = Some((pos.x, pos.y)),
+                    egui::Event::PointerMoved(pos) => {
+                        mouse_pos = Some(pos.to_owned());
+                    }
                     _ => {}
                 }
             }
 
-            if let Some(mouse) = mouse {
-                let x = (mouse.0 - rect.min.x) * 1.5;
-                let y = (rect.max.y - mouse.1) * 1.5;
-
-                println!("RECT {:?}", rect);
-                println!("MOUSE {} {}", x, y);
-
-                let pick = self.scene.lock().read_color_id(x as u32, y as u32);
+            if let Some(mouse_pos) = mouse_pos {
+                let pick = self
+                    .scene
+                    .lock()
+                    .read_color_id(self.ui_pos_to_fbo_pos(ui, mouse_pos));
 
                 println!("PICK {:#?}", pick);
             }
@@ -181,14 +192,6 @@ impl FrameInput<'_> {
         // Disable sRGB textures for three-d
         unsafe {
             use glow::HasContext as _;
-            context.disable(glow::BLEND); // GL_BLEND
-            context.disable(glow::DITHER); // GL_DITHER
-                                           //context.disable(glow::FOG); // GL_FOG
-                                           //context.disable(glow::LIGHTING); // GL_LIGHTING
-            context.disable(glow::TEXTURE_1D); // GL_TEXTURE_1D
-            context.disable(glow::TEXTURE_2D); // GL_TEXTURE_2D
-            context.disable(glow::TEXTURE_3D); // GL_TEXTURE_3D
-
             context.disable(glow::FRAMEBUFFER_SRGB);
         }
 
@@ -278,36 +281,11 @@ impl ThreeDApp {
 
         let mut loaded = three_d_asset::io::load(&["resources/assets/gizmo.obj"]).unwrap();
 
-        //let x = loaded.deserialize("gizmo.obj").unwrap();
-
         let mut gizmo =
             Model::<ColorId>::new(&context, &loaded.deserialize("gizmo.obj").unwrap()).unwrap();
 
         for gm in gizmo.iter_mut() {
             gm.material = id_source.next();
-            /*
-            gm.material = ColorMaterial {
-                color: id_source.next().to_color(),
-                texture: None,
-                is_transparent: false,
-                render_states: RenderStates {
-                    write_mask: WriteMask::COLOR_AND_DEPTH,
-                    depth_test: gm.material.render_states.depth_test,
-                    /*
-                    blend: Blend::Enabled {
-                        source_rgb_multiplier: BlendMultiplierType::One,
-                        source_alpha_multiplier: BlendMultiplierType::One,
-                        destination_rgb_multiplier: BlendMultiplierType::Zero,
-                        destination_alpha_multiplier: BlendMultiplierType::Zero,
-                        rgb_equation: BlendEquationType::Max,
-                        alpha_equation: BlendEquationType::Max,
-                    },
-                    */
-                    blend: Blend::Disabled,
-                    cull: Cull::Back,
-                },
-            };
-            */
         }
 
         let (id_color_texture, id_depth_texture) = Self::new_id_textures(&context, 1, 1);
@@ -321,13 +299,13 @@ impl ThreeDApp {
         }
     }
 
-    pub(crate) fn read_color_id(&mut self, x: u32, y: u32) -> Option<ColorId> {
+    pub(crate) fn read_color_id(&mut self, pos: Pos2) -> Option<ColorId> {
         let color = self
             .id_color_texture
             .as_color_target(None)
             .read_partially(ScissorBox {
-                x: x as i32,
-                y: y as i32,
+                x: pos.x as i32,
+                y: pos.y as i32,
                 width: 1,
                 height: 1,
             });
@@ -386,21 +364,6 @@ impl ThreeDApp {
             self.id_color_texture = id_color_texture;
             self.id_depth_texture = id_depth_texture;
         }
-
-        /*
-        unsafe {
-            self.context.disable(3042); // GL_BLEND
-            self.context.disable(3024); // GL_DITHER
-            self.context.disable(2912); // GL_FOG
-            self.context.disable(2896); // GL_LIGHTING
-            self.context.disable(3552); // GL_TEXTURE_1D
-            self.context.disable(3552); // GL_TEXTURE_2D
-            self.context.disable(32879); // GL_TEXTURE_3D
-            self.context.disable(36281); // GL_FRAMEBUFFER_SRGB
-
-            self.context.disable(egui_glow::glow::FRAMEBUFFER_SRGB);
-        }
-        */
 
         // Render offscreen
         RenderTarget::new(

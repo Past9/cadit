@@ -1,6 +1,7 @@
 use byteorder::{BigEndian, ReadBytesExt};
 use eframe::{
-    egui, egui_glow,
+    egui::{self, PointerButton},
+    egui_glow,
     egui_glow::glow,
     epaint::{mutex::Mutex, PaintCallback, Pos2},
 };
@@ -11,7 +12,11 @@ const ROTATION_SENSITIVITY: f32 = 0.007;
 
 trait SceneObjects {
     fn find_by_id(&self, id: ColorId) -> Option<&SceneObject>;
-    fn physical_render_objects(&self) -> Vec<Gm<&three_d::Mesh, PhysicalMaterial>>;
+    fn find_by_id_mut(&mut self, id: ColorId) -> Option<&mut SceneObject>;
+    fn physical_render_objects(
+        &self,
+        palette: &Palette,
+    ) -> Vec<Gm<&three_d::Mesh, PhysicalMaterial>>;
     fn id_render_objects(&self) -> Vec<Gm<&three_d::Mesh, &ColorId>>;
 }
 
@@ -187,9 +192,50 @@ impl PhysicalMaterialOverride {
     }
 }
 
+pub struct Palette {
+    hover_color: Color,
+    select_color: Color,
+}
+impl Palette {
+    fn physical_material_override(
+        &self,
+        hovered: bool,
+        selected: bool,
+    ) -> PhysicalMaterialOverride {
+        let mut mat = PhysicalMaterialOverride::new();
+
+        if hovered {
+            mat.albedo = Some(self.hover_color);
+        }
+
+        if selected {
+            mat.albedo = Some(self.select_color);
+        }
+
+        mat
+    }
+}
+impl Default for Palette {
+    fn default() -> Self {
+        Self {
+            hover_color: Color::new(0, 135, 215, 0),
+            select_color: Color::new(255, 30, 0, 255),
+        }
+    }
+}
+
 pub(crate) struct SceneObject {
     id: ColorId,
     name: String,
+
+    selectable: bool,
+    selected: bool,
+
+    hovered: bool,
+    hoverable: bool,
+
+    clickable: bool,
+
     geometry: Mesh,
     physical_material: PhysicalMaterial,
     physical_material_override: PhysicalMaterialOverride,
@@ -214,6 +260,15 @@ impl SceneObject {
                 Self {
                     id,
                     name: trimesh.name.clone(),
+
+                    selectable: false,
+                    selected: false,
+
+                    clickable: false,
+
+                    hovered: false,
+                    hoverable: false,
+
                     geometry: Mesh::new(context, trimesh),
                     physical_material: materials
                         .get(material_name)
@@ -228,6 +283,15 @@ impl SceneObject {
                 Self {
                     id,
                     name: trimesh.name.clone(),
+
+                    selectable: false,
+                    selected: false,
+
+                    clickable: false,
+
+                    hovered: false,
+                    hoverable: false,
+
                     geometry: Mesh::new(context, trimesh),
                     physical_material: PhysicalMaterial::default(),
                     physical_material_override: PhysicalMaterialOverride::new(),
@@ -238,12 +302,16 @@ impl SceneObject {
         Ok(models)
     }
 
-    fn physical_render_object(&self) -> Gm<&three_d::Mesh, PhysicalMaterial> {
+    fn physical_render_object(&self, palette: &Palette) -> Gm<&three_d::Mesh, PhysicalMaterial> {
+        let material = self
+            .physical_material_override
+            .apply_to(&self.physical_material);
+
         Gm {
             geometry: &self.geometry,
-            material: self
-                .physical_material_override
-                .apply_to(&self.physical_material),
+            material: palette
+                .physical_material_override(self.hovered, self.selected)
+                .apply_to(&material),
         }
     }
 
@@ -259,9 +327,12 @@ impl SceneObject {
     }
 }
 impl SceneObjects for Vec<SceneObject> {
-    fn physical_render_objects(&self) -> Vec<Gm<&three_d::Mesh, PhysicalMaterial>> {
+    fn physical_render_objects(
+        &self,
+        palette: &Palette,
+    ) -> Vec<Gm<&three_d::Mesh, PhysicalMaterial>> {
         self.iter()
-            .map(|m| m.physical_render_object())
+            .map(|m| m.physical_render_object(palette))
             .collect::<Vec<_>>()
     }
 
@@ -273,6 +344,10 @@ impl SceneObjects for Vec<SceneObject> {
 
     fn find_by_id(&self, id: ColorId) -> Option<&SceneObject> {
         self.iter().find(|obj| obj.id == id)
+    }
+
+    fn find_by_id_mut(&mut self, id: ColorId) -> Option<&mut SceneObject> {
+        self.iter_mut().find(|obj| obj.id == id)
     }
 }
 impl Geometry for SceneObject {
@@ -395,11 +470,21 @@ impl ColorIdSource {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct PointerButtonDown {
+    pos: Pos2,
+    button: PointerButton,
+    down_at: std::time::Instant,
+    modifiers: eframe::egui::Modifiers,
+    scene_object: Option<ColorId>,
+}
+
 pub struct PartEditor {
     id_source: ColorIdSource,
     rotation: Quaternion<f32>,
     scene: Arc<Mutex<Scene>>,
     scene_rect: egui::Rect,
+    pointer_buttons_down: Vec<PointerButtonDown>,
 }
 impl PartEditor {
     pub fn new(gl: GlowContext) -> Self {
@@ -412,6 +497,7 @@ impl PartEditor {
                 min: (0.0, 0.0).into(),
                 max: (0.0, 0.0).into(),
             },
+            pointer_buttons_down: Vec::new(),
         }
     }
 
@@ -457,32 +543,50 @@ impl Editor for PartEditor {
                 })),
             };
 
-            let mut mouse_pos: Option<Pos2> = None;
-
+            let mut scene = self.scene.lock();
             for event in ui.input().events.iter() {
                 match event {
                     egui::Event::PointerMoved(pos) => {
-                        mouse_pos = Some(pos.to_owned());
+                        let obj_id = scene.read_color_id(self.ui_pos_to_fbo_pos(ui, *pos));
+                        scene.hover_object(obj_id);
                     }
-                    _ => {}
-                }
-            }
+                    egui::Event::PointerButton {
+                        pos,
+                        button,
+                        pressed,
+                        modifiers,
+                    } => {
+                        let obj_id = scene.read_color_id(self.ui_pos_to_fbo_pos(ui, *pos));
 
-            if let Some(mouse_pos) = mouse_pos {
-                let mut scene = self.scene.lock();
-                scene.select_object(None);
+                        if *pressed {
+                            self.pointer_buttons_down
+                                .retain(|down| down.button != *button);
 
-                let pick = scene.read_color_id(self.ui_pos_to_fbo_pos(ui, mouse_pos));
+                            self.pointer_buttons_down.push(PointerButtonDown {
+                                pos: *pos,
+                                button: *button,
+                                down_at: std::time::Instant::now(),
+                                modifiers: modifiers.to_owned(),
+                                scene_object: obj_id,
+                            });
+                        } else {
+                            if let Some(obj_id) = obj_id {
+                                let down = self
+                                    .pointer_buttons_down
+                                    .iter()
+                                    .find(|down| down.scene_object == Some(obj_id));
 
-                if let Some(pick) = pick {
-                    println!("PICK {:?}", pick.0);
+                                if let Some(down) = down {
+                                    let shift_select = down.modifiers.shift && modifiers.shift;
 
-                    if let Some(obj) = scene.objects.find_by_id(pick) {
-                        if obj.name != "Space" {
-                            println!("Selected: {}", obj.name);
-                            scene.select_object(Some(pick));
+                                    scene.toggle_select_object(Some(obj_id), !shift_select)
+                                }
+                            }
+
+                            self.pointer_buttons_down = Vec::new();
                         }
                     }
+                    _ => {}
                 }
             }
 
@@ -560,6 +664,8 @@ pub struct Scene {
     objects: Vec<SceneObject>,
     ambient_lights: Vec<AmbientLight>,
 
+    palette: Palette,
+
     id_color_texture: Texture2D,
     id_depth_texture: DepthTexture2D,
 
@@ -574,7 +680,7 @@ impl Scene {
         let context = Context::from_gl_context(gl).unwrap();
 
         // Create a camera
-        let position = vec3(0.0, 0.0, -65.0); // Camera position
+        let position = vec3(0.0, 0.0, -15.0); // Camera position
         let target = vec3(0.0, 0.0, 0.0); // Look-at point
         let dist = (position - target).magnitude(); // Distance from camera origin to look-at point
         let fov_y = degrees(45.0); // Y-FOV for perspective camera
@@ -606,17 +712,18 @@ impl Scene {
 
         let mut loaded = three_d_asset::io::load(&["resources/assets/gizmo2.obj"]).unwrap();
 
-        let gizmo = SceneObject::from_cpu_model(
+        let mut gizmo = SceneObject::from_cpu_model(
             &context,
             id_source,
             &loaded.deserialize("gizmo2.obj").unwrap(),
         )
         .unwrap();
 
-        for gm in gizmo.iter() {
-            //let cm = CadModel::from_gm(gm);
-            //gm.material = id_source.next();
-            println!("GM {} {:?}", gm.physical_material.name, gm.id);
+        for obj in gizmo.iter_mut() {
+            let is_camera_control = obj.name != "Space";
+            obj.hoverable = is_camera_control;
+            obj.clickable = is_camera_control;
+            obj.selectable = is_camera_control;
         }
 
         let (id_color_texture, id_depth_texture) = Self::new_id_textures(&context, 1, 1);
@@ -633,6 +740,7 @@ impl Scene {
             ambient_lights: vec![ambient_light],
             id_color_texture,
             id_depth_texture,
+            palette: Palette::default(),
 
             pbr_color_texture,
             pbr_depth_texture,
@@ -642,16 +750,26 @@ impl Scene {
         }
     }
 
-    pub(crate) fn select_object(&mut self, id: Option<ColorId>) {
+    pub(crate) fn hover_object(&mut self, id: Option<ColorId>) {
+        self.objects.iter_mut().for_each(|obj| {
+            obj.hovered = if let Some(id) = id && id == obj.id && obj.hoverable { true } else { false };
+        });
+    }
+
+    pub(crate) fn toggle_select_object(&mut self, id: Option<ColorId>, exclusive: bool) {
         self.objects.iter_mut().for_each(|obj| {
             if let Some(id) = id {
                 if id == obj.id {
-                    obj.physical_material_override.albedo = Some(Color::new(0, 135, 215, 255));
-                    return;
+                    if obj.selectable {
+                        obj.selected = !obj.selected;
+                        return;
+                    }
                 }
             }
 
-            obj.physical_material_override.albedo = None;
+            if exclusive {
+                obj.selected = false;
+            }
         });
     }
 
@@ -753,7 +871,7 @@ impl Scene {
         .clear(ClearState::default())
         .render(
             &self.camera,
-            &self.objects.physical_render_objects(),
+            &self.objects.physical_render_objects(&self.palette),
             &lights,
         );
 

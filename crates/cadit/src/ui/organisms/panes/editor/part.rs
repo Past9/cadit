@@ -10,14 +10,188 @@ use three_d::renderer::Geometry;
 const ROTATION_SENSITIVITY: f32 = 0.007;
 
 trait ToRenderObjects {
-    fn physical_render_objects(&self) -> Vec<Gm<&three_d::Mesh, &PhysicalMaterial>>;
+    fn physical_render_objects(&self) -> Vec<Gm<&three_d::Mesh, PhysicalMaterial>>;
     fn id_render_objects(&self) -> Vec<Gm<&three_d::Mesh, &ColorId>>;
+}
+
+pub struct PhysicalMaterialOverride {
+    pub albedo: Option<Color>,
+    pub albedo_texture: Option<Option<Arc<Texture2D>>>,
+    pub metallic: Option<f32>,
+    pub roughness: Option<f32>,
+    pub metallic_roughness_texture: Option<Option<Arc<Texture2D>>>,
+    pub occlusion_strength: Option<f32>,
+    pub occlusion_texture: Option<Option<Arc<Texture2D>>>,
+    pub normal_scale: Option<f32>,
+    pub normal_texture: Option<Option<Arc<Texture2D>>>,
+    pub render_states: Option<RenderStates>,
+    pub is_transparent: Option<bool>,
+    pub emissive: Option<Color>,
+    pub emissive_texture: Option<Option<Arc<Texture2D>>>,
+    pub lighting_model: Option<LightingModel>,
+}
+impl PhysicalMaterialOverride {
+    pub fn new() -> Self {
+        Self {
+            albedo: None,
+            albedo_texture: None,
+            metallic: None,
+            roughness: None,
+            metallic_roughness_texture: None,
+            occlusion_strength: None,
+            occlusion_texture: None,
+            normal_scale: None,
+            normal_texture: None,
+            render_states: None,
+            is_transparent: None,
+            emissive: None,
+            emissive_texture: None,
+            lighting_model: None,
+        }
+    }
+
+    pub fn with_albedo(mut self, albedo: Color) -> Self {
+        self.albedo = Some(albedo);
+        self
+    }
+
+    pub fn with_albedo_texture(mut self, albedo_texture: Option<Arc<Texture2D>>) -> Self {
+        self.albedo_texture = Some(albedo_texture);
+        self
+    }
+
+    pub fn with_metallic(mut self, metallic: f32) -> Self {
+        self.metallic = Some(metallic);
+        self
+    }
+
+    pub fn with_roughness(mut self, roughness: f32) -> Self {
+        self.roughness = Some(roughness);
+        self
+    }
+
+    pub fn with_metallic_roughness_texture(
+        mut self,
+        metallic_roughness_texture: Option<Arc<Texture2D>>,
+    ) -> Self {
+        self.metallic_roughness_texture = Some(metallic_roughness_texture);
+        self
+    }
+
+    pub fn with_occlusion_strength(mut self, occlusion_strength: f32) -> Self {
+        self.occlusion_strength = Some(occlusion_strength);
+        self
+    }
+
+    pub fn with_occlusion_texture(mut self, occlusion_texture: Option<Arc<Texture2D>>) -> Self {
+        self.occlusion_texture = Some(occlusion_texture);
+        self
+    }
+
+    pub fn with_normal_scale(mut self, normal_scale: f32) -> Self {
+        self.normal_scale = Some(normal_scale);
+        self
+    }
+
+    pub fn with_normal_texture(mut self, normal_texture: Option<Arc<Texture2D>>) -> Self {
+        self.normal_texture = Some(normal_texture);
+        self
+    }
+
+    pub fn with_render_states(mut self, render_states: RenderStates) -> Self {
+        self.render_states = Some(render_states);
+        self
+    }
+
+    pub fn with_is_transparent(mut self, is_transparent: bool) -> Self {
+        self.is_transparent = Some(is_transparent);
+        self
+    }
+
+    pub fn with_emissive(mut self, emissive: Color) -> Self {
+        self.emissive = Some(emissive);
+        self
+    }
+
+    pub fn with_emissive_texture(mut self, emissive_texture: Option<Arc<Texture2D>>) -> Self {
+        self.emissive_texture = Some(emissive_texture);
+        self
+    }
+
+    pub fn with_lighting_model(mut self, lighting_model: LightingModel) -> Self {
+        self.lighting_model = Some(lighting_model);
+        self
+    }
+
+    pub fn apply_to(&self, physical_material: &PhysicalMaterial) -> PhysicalMaterial {
+        let mut mat = physical_material.to_owned();
+
+        if let Some(albedo) = self.albedo {
+            mat.albedo = albedo;
+        }
+
+        if let Some(ref albedo_texture) = self.albedo_texture {
+            mat.albedo_texture = albedo_texture.to_owned();
+        }
+
+        if let Some(metallic) = self.metallic {
+            mat.metallic = metallic;
+        }
+
+        if let Some(roughness) = self.roughness {
+            mat.roughness = roughness;
+        }
+
+        if let Some(ref metallic_roughness_texture) = self.metallic_roughness_texture {
+            mat.metallic_roughness_texture = metallic_roughness_texture.to_owned();
+        }
+
+        if let Some(occlusion_strength) = self.occlusion_strength {
+            mat.occlusion_strength = occlusion_strength;
+        }
+
+        if let Some(ref occlusion_texture) = self.occlusion_texture {
+            mat.occlusion_texture = occlusion_texture.to_owned();
+        }
+
+        if let Some(normal_scale) = self.normal_scale {
+            mat.normal_scale = normal_scale;
+        }
+
+        if let Some(ref normal_texture) = self.normal_texture {
+            mat.normal_texture = normal_texture.to_owned();
+        }
+
+        if let Some(render_states) = self.render_states {
+            mat.render_states = render_states;
+        }
+
+        if let Some(is_transparent) = self.is_transparent {
+            mat.is_transparent = is_transparent;
+        }
+
+        if let Some(emissive) = self.emissive {
+            mat.emissive = emissive;
+        }
+
+        if let Some(ref emissive_texture) = self.emissive_texture {
+            mat.emissive_texture = emissive_texture.to_owned();
+        }
+
+        if let Some(lighting_model) = self.lighting_model {
+            mat.lighting_model = lighting_model;
+        }
+
+        mat
+    }
 }
 
 pub(crate) struct SceneObject {
     id: ColorId,
+    name: String,
     geometry: Mesh,
     physical_material: PhysicalMaterial,
+    physical_material_override: PhysicalMaterialOverride,
 }
 impl SceneObject {
     pub(crate) fn from_cpu_model(
@@ -38,6 +212,7 @@ impl SceneObject {
             models.push(if let Some(material_name) = &trimesh.material_name {
                 Self {
                     id,
+                    name: trimesh.name.clone(),
                     geometry: Mesh::new(context, trimesh),
                     physical_material: materials
                         .get(material_name)
@@ -46,12 +221,15 @@ impl SceneObject {
                             trimesh.name.clone(),
                         ))?
                         .clone(),
+                    physical_material_override: PhysicalMaterialOverride::new(),
                 }
             } else {
                 Self {
                     id,
+                    name: trimesh.name.clone(),
                     geometry: Mesh::new(context, trimesh),
                     physical_material: PhysicalMaterial::default(),
+                    physical_material_override: PhysicalMaterialOverride::new(),
                 }
             });
         }
@@ -59,10 +237,12 @@ impl SceneObject {
         Ok(models)
     }
 
-    fn physical_render_object(&self) -> Gm<&three_d::Mesh, &PhysicalMaterial> {
+    fn physical_render_object(&self) -> Gm<&three_d::Mesh, PhysicalMaterial> {
         Gm {
             geometry: &self.geometry,
-            material: &self.physical_material,
+            material: self
+                .physical_material_override
+                .apply_to(&self.physical_material),
         }
     }
 
@@ -78,7 +258,7 @@ impl SceneObject {
     }
 }
 impl ToRenderObjects for Vec<SceneObject> {
-    fn physical_render_objects(&self) -> Vec<Gm<&three_d::Mesh, &PhysicalMaterial>> {
+    fn physical_render_objects(&self) -> Vec<Gm<&three_d::Mesh, PhysicalMaterial>> {
         self.iter()
             .map(|m| m.physical_render_object())
             .collect::<Vec<_>>()
@@ -414,12 +594,12 @@ impl Scene {
         );
         */
 
-        let mut loaded = three_d_asset::io::load(&["resources/assets/gizmo.obj"]).unwrap();
+        let mut loaded = three_d_asset::io::load(&["resources/assets/gizmo2.obj"]).unwrap();
 
         let gizmo = SceneObject::from_cpu_model(
             &context,
             id_source,
-            &loaded.deserialize("gizmo.obj").unwrap(),
+            &loaded.deserialize("gizmo2.obj").unwrap(),
         )
         .unwrap();
 
@@ -456,12 +636,12 @@ impl Scene {
         self.objects.iter_mut().for_each(|obj| {
             if let Some(id) = id {
                 if id == obj.id {
-                    obj.physical_material.emissive = Color::GREEN;
+                    obj.physical_material_override.albedo = Some(Color::new(0, 135, 215, 255));
                     return;
                 }
             }
 
-            obj.physical_material.emissive = Color::BLACK;
+            obj.physical_material_override.albedo = None;
         });
     }
 

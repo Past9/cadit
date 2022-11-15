@@ -9,7 +9,8 @@ use three_d::renderer::Geometry;
 
 const ROTATION_SENSITIVITY: f32 = 0.007;
 
-trait ToRenderObjects {
+trait SceneObjects {
+    fn find_by_id(&self, id: ColorId) -> Option<&SceneObject>;
     fn physical_render_objects(&self) -> Vec<Gm<&three_d::Mesh, PhysicalMaterial>>;
     fn id_render_objects(&self) -> Vec<Gm<&three_d::Mesh, &ColorId>>;
 }
@@ -257,7 +258,7 @@ impl SceneObject {
         self.geometry.set_transformation(transformation);
     }
 }
-impl ToRenderObjects for Vec<SceneObject> {
+impl SceneObjects for Vec<SceneObject> {
     fn physical_render_objects(&self) -> Vec<Gm<&three_d::Mesh, PhysicalMaterial>> {
         self.iter()
             .map(|m| m.physical_render_object())
@@ -268,6 +269,10 @@ impl ToRenderObjects for Vec<SceneObject> {
         self.iter()
             .map(|m| m.id_render_object())
             .collect::<Vec<_>>()
+    }
+
+    fn find_by_id(&self, id: ColorId) -> Option<&SceneObject> {
+        self.iter().find(|obj| obj.id == id)
     }
 }
 impl Geometry for SceneObject {
@@ -465,14 +470,19 @@ impl Editor for PartEditor {
 
             if let Some(mouse_pos) = mouse_pos {
                 let mut scene = self.scene.lock();
+                scene.select_object(None);
 
                 let pick = scene.read_color_id(self.ui_pos_to_fbo_pos(ui, mouse_pos));
 
                 if let Some(pick) = pick {
                     println!("PICK {:?}", pick.0);
-                    scene.select_object(Some(pick));
-                } else {
-                    scene.select_object(None);
+
+                    if let Some(obj) = scene.objects.find_by_id(pick) {
+                        if obj.name != "Space" {
+                            println!("Selected: {}", obj.name);
+                            scene.select_object(Some(pick));
+                        }
+                    }
                 }
             }
 
@@ -564,7 +574,7 @@ impl Scene {
         let context = Context::from_gl_context(gl).unwrap();
 
         // Create a camera
-        let position = vec3(0.0, 0.0, -15.0); // Camera position
+        let position = vec3(0.0, 0.0, -65.0); // Camera position
         let target = vec3(0.0, 0.0, 0.0); // Look-at point
         let dist = (position - target).magnitude(); // Distance from camera origin to look-at point
         let fov_y = degrees(45.0); // Y-FOV for perspective camera

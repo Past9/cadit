@@ -20,8 +20,33 @@ trait SceneObjects {
     fn id_render_objects(&self) -> Vec<Gm<&three_d::Mesh, &ColorId>>;
 }
 
+pub enum ColorOverride {
+    Replace(Color),
+    Blend(Color, f32),
+}
+impl ColorOverride {
+    pub fn apply_to(&self, original_color: &Color) -> Color {
+        match self {
+            ColorOverride::Replace(replacement_color) => replacement_color.to_owned(),
+            ColorOverride::Blend(target_color, amount) => Color::new(
+                Self::interpolate(original_color.r, target_color.r, amount),
+                Self::interpolate(original_color.g, target_color.g, amount),
+                Self::interpolate(original_color.b, target_color.b, amount),
+                Self::interpolate(original_color.a, target_color.a, amount),
+            ),
+        }
+    }
+
+    fn interpolate(from: u8, to: u8, amount: &f32) -> u8 {
+        let from = from as f32;
+        let to = to as f32;
+
+        ((to - from) * amount + from).round() as u8
+    }
+}
+
 pub struct PhysicalMaterialOverride {
-    pub albedo: Option<Color>,
+    pub albedo: Option<ColorOverride>,
     pub albedo_texture: Option<Option<Arc<Texture2D>>>,
     pub metallic: Option<f32>,
     pub roughness: Option<f32>,
@@ -32,7 +57,7 @@ pub struct PhysicalMaterialOverride {
     pub normal_texture: Option<Option<Arc<Texture2D>>>,
     pub render_states: Option<RenderStates>,
     pub is_transparent: Option<bool>,
-    pub emissive: Option<Color>,
+    pub emissive: Option<ColorOverride>,
     pub emissive_texture: Option<Option<Arc<Texture2D>>>,
     pub lighting_model: Option<LightingModel>,
 }
@@ -56,7 +81,7 @@ impl PhysicalMaterialOverride {
         }
     }
 
-    pub fn with_albedo(mut self, albedo: Color) -> Self {
+    pub fn with_albedo(mut self, albedo: ColorOverride) -> Self {
         self.albedo = Some(albedo);
         self
     }
@@ -114,7 +139,7 @@ impl PhysicalMaterialOverride {
         self
     }
 
-    pub fn with_emissive(mut self, emissive: Color) -> Self {
+    pub fn with_emissive(mut self, emissive: ColorOverride) -> Self {
         self.emissive = Some(emissive);
         self
     }
@@ -132,8 +157,8 @@ impl PhysicalMaterialOverride {
     pub fn apply_to(&self, physical_material: &PhysicalMaterial) -> PhysicalMaterial {
         let mut mat = physical_material.to_owned();
 
-        if let Some(albedo) = self.albedo {
-            mat.albedo = albedo;
+        if let Some(ref albedo) = self.albedo {
+            mat.albedo = albedo.apply_to(&mat.albedo);
         }
 
         if let Some(ref albedo_texture) = self.albedo_texture {
@@ -176,8 +201,8 @@ impl PhysicalMaterialOverride {
             mat.is_transparent = is_transparent;
         }
 
-        if let Some(emissive) = self.emissive {
-            mat.emissive = emissive;
+        if let Some(ref emissive) = self.emissive {
+            mat.emissive = emissive.apply_to(&mat.emissive);
         }
 
         if let Some(ref emissive_texture) = self.emissive_texture {
@@ -205,11 +230,11 @@ impl Palette {
         let mut mat = PhysicalMaterialOverride::new();
 
         if hovered {
-            mat.albedo = Some(self.hover_color);
+            mat.emissive = Some(ColorOverride::Replace(self.hover_color))
         }
 
         if selected {
-            mat.albedo = Some(self.select_color);
+            mat.emissive = Some(ColorOverride::Replace(self.select_color));
         }
 
         mat
@@ -218,8 +243,8 @@ impl Palette {
 impl Default for Palette {
     fn default() -> Self {
         Self {
-            hover_color: Color::new(0, 135, 215, 0),
-            select_color: Color::new(255, 30, 0, 255),
+            hover_color: Color::new(0, 135, 215, 255),
+            select_color: Color::new(255, 75, 0, 255),
         }
     }
 }
@@ -687,6 +712,7 @@ impl Scene {
         let height = (fov_y / 2.0).tan() * dist * 2.0; // FOV-equivalent height for ortho camera
 
         // Ortho camera
+        /*
         let camera = Camera::new_orthographic(
             Viewport::new_at_origo(1, 1),
             position,
@@ -696,8 +722,8 @@ impl Scene {
             0.1,
             1000.0,
         );
+        */
 
-        /*
         // Perspective camera
         let camera = Camera::new_perspective(
             Viewport::new_at_origo(1, 1),
@@ -708,7 +734,6 @@ impl Scene {
             0.1,
             1000.0,
         );
-        */
 
         let mut loaded = three_d_asset::io::load(&["resources/assets/gizmo2.obj"]).unwrap();
 

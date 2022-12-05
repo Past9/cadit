@@ -606,6 +606,10 @@ impl Editor for PartEditor {
 
                                     scene.toggle_select_object(Some(obj_id), !shift_select)
                                 }
+                            } else {
+                                if !modifiers.shift {
+                                    scene.deselect_all_objects();
+                                }
                             }
 
                             self.pointer_buttons_down = Vec::new();
@@ -795,6 +799,12 @@ impl Scene {
             if exclusive {
                 obj.selected = false;
             }
+        });
+    }
+
+    pub(crate) fn deselect_all_objects(&mut self) {
+        self.objects.iter_mut().for_each(|obj| {
+            obj.selected = false;
         });
     }
 

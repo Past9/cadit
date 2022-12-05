@@ -1,4 +1,7 @@
-use super::Editor;
+use super::{
+    part::{SceneObject, SceneObjectProps},
+    Editor,
+};
 
 pub struct AssemblyEditor {}
 impl AssemblyEditor {
@@ -13,5 +16,9 @@ impl Editor for AssemblyEditor {
 
     fn show(&mut self, ui: &mut eframe::egui::Ui) {
         ui.label("Edit assembly here");
+    }
+
+    fn clicked(&self) -> Option<SceneObjectProps> {
+        None
     }
 }

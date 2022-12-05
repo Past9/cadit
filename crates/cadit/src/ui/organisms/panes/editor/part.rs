@@ -5,10 +5,150 @@ use eframe::{
     egui_glow::glow,
     epaint::{mutex::Mutex, PaintCallback, Pos2},
 };
-use std::{io::Cursor, mem::transmute, sync::Arc};
+use std::{fmt::Display, io::Cursor, mem::transmute, sync::Arc};
 use three_d::renderer::Geometry;
 
 const ROTATION_SENSITIVITY: f32 = 0.007;
+
+#[derive(Debug, Clone, Copy)]
+pub enum CameraPosition {
+    // Faces
+    Front,
+    Right,
+    Back,
+    Left,
+    Top,
+    Bottom,
+
+    // Edges
+    FrontRight,
+    BackRight,
+    BackLeft,
+    FrontLeft,
+    FrontTop,
+    BackTop,
+    FrontBottom,
+    BackBottom,
+    RightTop,
+    LeftTop,
+    RightBottom,
+    LeftBottom,
+
+    // Corners
+    FrontRightTop,
+    BackRightTop,
+    BackLeftTop,
+    FrontLeftTop,
+    FrontRightBottom,
+    BackRightBottom,
+    BackLeftBottom,
+    FrontLeftBottom,
+}
+impl CameraPosition {
+    pub fn from_name(name: &str) -> Self {
+        match &*name {
+            "Front" => Self::Front,
+            "Right" => Self::Right,
+            "Back" => Self::Back,
+            "Left" => Self::Left,
+            "Top" => Self::Top,
+            "Bottom" => Self::Bottom,
+            "FrontRight" => Self::FrontRight,
+            "BackRight" => Self::BackRight,
+            "BackLeft" => Self::BackLeft,
+            "FrontLeft" => Self::FrontLeft,
+            "FrontTop" => Self::FrontTop,
+            "BackTop" => Self::BackTop,
+            "FrontBottom" => Self::FrontBottom,
+            "BackBottom" => Self::BackBottom,
+            "RightTop" => Self::RightTop,
+            "LeftTop" => Self::LeftTop,
+            "RightBottom" => Self::RightBottom,
+            "LeftBottom" => Self::LeftBottom,
+            "FrontRightTop" => Self::FrontRightTop,
+            "BackRightTop" => Self::BackRightTop,
+            "BackLeftTop" => Self::BackLeftTop,
+            "FrontLeftTop" => Self::FrontLeftTop,
+            "FrontRightBottom" => Self::FrontRightBottom,
+            "BackRightBottom" => Self::BackRightBottom,
+            "BackLeftBottom" => Self::BackLeftBottom,
+            "FrontLeftBottom" => Self::FrontLeftBottom,
+            _ => panic!("Unknown camera position '{}'", name),
+        }
+    }
+
+    pub fn get_rotation(&self) -> Quaternion<f32> {
+        let x: i32 = match self {
+            // Faces
+            CameraPosition::Front => 0,
+            CameraPosition::Right => 0,
+            CameraPosition::Back => 0,
+            CameraPosition::Left => 0,
+            CameraPosition::Top => 270,
+            CameraPosition::Bottom => 90,
+
+            // Edges
+            CameraPosition::FrontRight => 0,
+            CameraPosition::BackRight => 0,
+            CameraPosition::BackLeft => 0,
+            CameraPosition::FrontLeft => 0,
+            CameraPosition::FrontTop => -45,
+            CameraPosition::BackTop => -45,
+            CameraPosition::FrontBottom => 45,
+            CameraPosition::BackBottom => 45,
+            CameraPosition::RightTop => -45,
+            CameraPosition::LeftTop => -45,
+            CameraPosition::RightBottom => 45,
+            CameraPosition::LeftBottom => 45,
+
+            // Corners
+            CameraPosition::FrontRightTop => -45,
+            CameraPosition::BackRightTop => -45,
+            CameraPosition::BackLeftTop => -45,
+            CameraPosition::FrontLeftTop => -45,
+            CameraPosition::FrontRightBottom => 45,
+            CameraPosition::BackRightBottom => 45,
+            CameraPosition::BackLeftBottom => 45,
+            CameraPosition::FrontLeftBottom => 45,
+        };
+
+        let y: i32 = match self {
+            // Faces
+            CameraPosition::Front => 0,
+            CameraPosition::Right => -90,
+            CameraPosition::Back => 180,
+            CameraPosition::Left => 90,
+            CameraPosition::Top => 0,
+            CameraPosition::Bottom => 0,
+
+            // Edges
+            CameraPosition::FrontRight => -45,
+            CameraPosition::BackRight => -135,
+            CameraPosition::BackLeft => 135,
+            CameraPosition::FrontLeft => 45,
+            CameraPosition::FrontTop => 0,
+            CameraPosition::BackTop => 180,
+            CameraPosition::FrontBottom => 0,
+            CameraPosition::BackBottom => 180,
+            CameraPosition::RightTop => -90,
+            CameraPosition::LeftTop => 90,
+            CameraPosition::RightBottom => -90,
+            CameraPosition::LeftBottom => 90,
+
+            // Corners
+            CameraPosition::FrontRightTop => -45,
+            CameraPosition::BackRightTop => -135,
+            CameraPosition::BackLeftTop => 135,
+            CameraPosition::FrontLeftTop => 45,
+            CameraPosition::FrontRightBottom => -45,
+            CameraPosition::BackRightBottom => -135,
+            CameraPosition::BackLeftBottom => 135,
+            CameraPosition::FrontLeftBottom => 45,
+        };
+
+        Quaternion::from_angle_x(Deg(x as f32)) * Quaternion::from_angle_y(Deg(y as f32))
+    }
+}
 
 trait SceneObjects {
     fn find_by_id(&self, id: ColorId) -> Option<&SceneObject>;
@@ -249,6 +389,16 @@ impl Default for Palette {
     }
 }
 
+pub(crate) struct SceneObjectProps {
+    pub id: ColorId,
+    pub name: String,
+}
+impl SceneObjectProps {
+    pub fn new(id: ColorId, name: String) -> Self {
+        Self { id, name }
+    }
+}
+
 pub(crate) struct SceneObject {
     id: ColorId,
     name: String,
@@ -266,6 +416,10 @@ pub(crate) struct SceneObject {
     physical_material_override: PhysicalMaterialOverride,
 }
 impl SceneObject {
+    pub fn props(&self) -> SceneObjectProps {
+        SceneObjectProps::new(self.id, self.name.clone())
+    }
+
     pub(crate) fn from_cpu_model(
         context: &Context,
         id_source: &mut ColorIdSource,
@@ -349,6 +503,10 @@ impl SceneObject {
 
     pub fn set_transformation(&mut self, transformation: Mat4) {
         self.geometry.set_transformation(transformation);
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
     }
 }
 impl SceneObjects for Vec<SceneObject> {
@@ -438,6 +596,11 @@ impl ColorId {
         Self(id)
     }
 }
+impl Display for ColorId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}", self.0))
+    }
+}
 impl Default for ColorId {
     fn default() -> Self {
         Self::none()
@@ -510,12 +673,22 @@ pub struct PartEditor {
     scene: Arc<Mutex<Scene>>,
     scene_rect: egui::Rect,
     pointer_buttons_down: Vec<PointerButtonDown>,
+    clicked: Option<ColorId>,
 }
 impl PartEditor {
     pub fn new(gl: GlowContext) -> Self {
         let mut id_source = ColorIdSource::new();
+
+        // Interpolate quaternions:
+        /*
+        let a = CameraPosition::FrontLeft.get_rotation();
+        let b = CameraPosition::Front.get_rotation();
+        let c = (a + b) / 2.0;
+        */
+
         Self {
-            rotation: Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), Rad(0.0)),
+            //rotation: Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), Rad(0.0)),
+            rotation: CameraPosition::FrontLeftBottom.get_rotation(),
             scene: Arc::new(Mutex::new(Scene::new(gl.clone(), &mut id_source))),
             id_source,
             scene_rect: egui::Rect {
@@ -523,6 +696,7 @@ impl PartEditor {
                 max: (0.0, 0.0).into(),
             },
             pointer_buttons_down: Vec::new(),
+            clicked: None,
         }
     }
 
@@ -539,6 +713,8 @@ impl Editor for PartEditor {
     }
 
     fn show(&mut self, ui: &mut egui::Ui) {
+        self.clicked = None;
+
         egui::Frame::canvas(ui.style()).show(ui, |ui| {
             let (rect, response) = ui.allocate_at_least(ui.available_size(), egui::Sense::drag());
 
@@ -604,7 +780,11 @@ impl Editor for PartEditor {
                                 if let Some(down) = down {
                                     let shift_select = down.modifiers.shift && modifiers.shift;
 
-                                    scene.toggle_select_object(Some(obj_id), !shift_select)
+                                    scene.toggle_select_object(Some(obj_id), !shift_select);
+
+                                    if scene.get_object(Some(obj_id)).is_some() {
+                                        self.clicked = Some(obj_id);
+                                    }
                                 }
                             } else {
                                 if !modifiers.shift {
@@ -621,6 +801,11 @@ impl Editor for PartEditor {
 
             ui.painter().add(paint_callback);
         });
+    }
+
+    fn clicked(&self) -> Option<SceneObjectProps> {
+        let mut scene = self.scene.lock();
+        scene.get_object(self.clicked).map(|obj| obj.props())
     }
 }
 
@@ -710,6 +895,7 @@ impl Scene {
 
         // Create a camera
         let position = vec3(0.0, 0.0, -15.0); // Camera position
+                                              //let position = CameraPosition::Front.get_position() * 15.0;
         let target = vec3(0.0, 0.0, 0.0); // Look-at point
         let dist = (position - target).magnitude(); // Distance from camera origin to look-at point
         let fov_y = degrees(45.0); // Y-FOV for perspective camera
@@ -750,9 +936,9 @@ impl Scene {
 
         for obj in gizmo.iter_mut() {
             let is_camera_control = obj.name != "Space";
-            obj.hoverable = is_camera_control;
             obj.clickable = is_camera_control;
-            obj.selectable = is_camera_control;
+            obj.hoverable = is_camera_control;
+            obj.selectable = false;
         }
 
         let (id_color_texture, id_depth_texture) = Self::new_id_textures(&context, 1, 1);
@@ -800,6 +986,30 @@ impl Scene {
                 obj.selected = false;
             }
         });
+    }
+
+    pub(crate) fn get_object(&mut self, id: Option<ColorId>) -> Option<&SceneObject> {
+        self.objects.iter().find(|obj| {
+            if let Some(id) = id {
+                if id == obj.id {
+                    return true;
+                }
+            }
+
+            return false;
+        })
+    }
+
+    pub(crate) fn get_object_mut(&mut self, id: Option<ColorId>) -> Option<&mut SceneObject> {
+        self.objects.iter_mut().find(|obj| {
+            if let Some(id) = id {
+                if id == obj.id {
+                    return true;
+                }
+            }
+
+            return false;
+        })
     }
 
     pub(crate) fn deselect_all_objects(&mut self) {

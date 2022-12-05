@@ -11,7 +11,7 @@ use three_d::renderer::Geometry;
 const ROTATION_SENSITIVITY: f32 = 0.007;
 
 #[derive(Debug, Clone, Copy)]
-pub enum CameraPosition {
+pub enum CameraAngle {
     // Faces
     Front,
     Right,
@@ -44,7 +44,7 @@ pub enum CameraPosition {
     BackLeftBottom,
     FrontLeftBottom,
 }
-impl CameraPosition {
+impl CameraAngle {
     pub fn from_name(name: &str) -> Self {
         match &*name {
             "Front" => Self::Front,
@@ -80,70 +80,70 @@ impl CameraPosition {
     pub fn get_rotation(&self) -> Quaternion<f32> {
         let x: i32 = match self {
             // Faces
-            CameraPosition::Front => 0,
-            CameraPosition::Right => 0,
-            CameraPosition::Back => 0,
-            CameraPosition::Left => 0,
-            CameraPosition::Top => 270,
-            CameraPosition::Bottom => 90,
+            CameraAngle::Front => 0,
+            CameraAngle::Right => 0,
+            CameraAngle::Back => 0,
+            CameraAngle::Left => 0,
+            CameraAngle::Top => 270,
+            CameraAngle::Bottom => 90,
 
             // Edges
-            CameraPosition::FrontRight => 0,
-            CameraPosition::BackRight => 0,
-            CameraPosition::BackLeft => 0,
-            CameraPosition::FrontLeft => 0,
-            CameraPosition::FrontTop => -45,
-            CameraPosition::BackTop => -45,
-            CameraPosition::FrontBottom => 45,
-            CameraPosition::BackBottom => 45,
-            CameraPosition::RightTop => -45,
-            CameraPosition::LeftTop => -45,
-            CameraPosition::RightBottom => 45,
-            CameraPosition::LeftBottom => 45,
+            CameraAngle::FrontRight => 0,
+            CameraAngle::BackRight => 0,
+            CameraAngle::BackLeft => 0,
+            CameraAngle::FrontLeft => 0,
+            CameraAngle::FrontTop => -45,
+            CameraAngle::BackTop => -45,
+            CameraAngle::FrontBottom => 45,
+            CameraAngle::BackBottom => 45,
+            CameraAngle::RightTop => -45,
+            CameraAngle::LeftTop => -45,
+            CameraAngle::RightBottom => 45,
+            CameraAngle::LeftBottom => 45,
 
             // Corners
-            CameraPosition::FrontRightTop => -45,
-            CameraPosition::BackRightTop => -45,
-            CameraPosition::BackLeftTop => -45,
-            CameraPosition::FrontLeftTop => -45,
-            CameraPosition::FrontRightBottom => 45,
-            CameraPosition::BackRightBottom => 45,
-            CameraPosition::BackLeftBottom => 45,
-            CameraPosition::FrontLeftBottom => 45,
+            CameraAngle::FrontRightTop => -45,
+            CameraAngle::BackRightTop => -45,
+            CameraAngle::BackLeftTop => -45,
+            CameraAngle::FrontLeftTop => -45,
+            CameraAngle::FrontRightBottom => 45,
+            CameraAngle::BackRightBottom => 45,
+            CameraAngle::BackLeftBottom => 45,
+            CameraAngle::FrontLeftBottom => 45,
         };
 
         let y: i32 = match self {
             // Faces
-            CameraPosition::Front => 0,
-            CameraPosition::Right => -90,
-            CameraPosition::Back => 180,
-            CameraPosition::Left => 90,
-            CameraPosition::Top => 0,
-            CameraPosition::Bottom => 0,
+            CameraAngle::Front => 0,
+            CameraAngle::Right => -90,
+            CameraAngle::Back => 180,
+            CameraAngle::Left => 90,
+            CameraAngle::Top => 0,
+            CameraAngle::Bottom => 0,
 
             // Edges
-            CameraPosition::FrontRight => -45,
-            CameraPosition::BackRight => -135,
-            CameraPosition::BackLeft => 135,
-            CameraPosition::FrontLeft => 45,
-            CameraPosition::FrontTop => 0,
-            CameraPosition::BackTop => 180,
-            CameraPosition::FrontBottom => 0,
-            CameraPosition::BackBottom => 180,
-            CameraPosition::RightTop => -90,
-            CameraPosition::LeftTop => 90,
-            CameraPosition::RightBottom => -90,
-            CameraPosition::LeftBottom => 90,
+            CameraAngle::FrontRight => -45,
+            CameraAngle::BackRight => -135,
+            CameraAngle::BackLeft => 135,
+            CameraAngle::FrontLeft => 45,
+            CameraAngle::FrontTop => 0,
+            CameraAngle::BackTop => 180,
+            CameraAngle::FrontBottom => 0,
+            CameraAngle::BackBottom => 180,
+            CameraAngle::RightTop => -90,
+            CameraAngle::LeftTop => 90,
+            CameraAngle::RightBottom => -90,
+            CameraAngle::LeftBottom => 90,
 
             // Corners
-            CameraPosition::FrontRightTop => -45,
-            CameraPosition::BackRightTop => -135,
-            CameraPosition::BackLeftTop => 135,
-            CameraPosition::FrontLeftTop => 45,
-            CameraPosition::FrontRightBottom => -45,
-            CameraPosition::BackRightBottom => -135,
-            CameraPosition::BackLeftBottom => 135,
-            CameraPosition::FrontLeftBottom => 45,
+            CameraAngle::FrontRightTop => -45,
+            CameraAngle::BackRightTop => -135,
+            CameraAngle::BackLeftTop => 135,
+            CameraAngle::FrontLeftTop => 45,
+            CameraAngle::FrontRightBottom => -45,
+            CameraAngle::BackRightBottom => -135,
+            CameraAngle::BackLeftBottom => 135,
+            CameraAngle::FrontLeftBottom => 45,
         };
 
         Quaternion::from_angle_x(Deg(x as f32)) * Quaternion::from_angle_y(Deg(y as f32))
@@ -688,7 +688,7 @@ impl PartEditor {
 
         Self {
             //rotation: Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), Rad(0.0)),
-            rotation: CameraPosition::FrontLeftBottom.get_rotation(),
+            rotation: CameraAngle::FrontLeftBottom.get_rotation(),
             scene: Arc::new(Mutex::new(Scene::new(gl.clone(), &mut id_source))),
             id_source,
             scene_rect: egui::Rect {

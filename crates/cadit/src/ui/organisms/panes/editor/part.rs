@@ -688,7 +688,7 @@ impl PartEditor {
 
         Self {
             //rotation: Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), Rad(0.0)),
-            rotation: CameraAngle::FrontLeftBottom.get_rotation(),
+            rotation: CameraAngle::FrontRightTop.get_rotation(),
             scene: Arc::new(Mutex::new(Scene::new(gl.clone(), &mut id_source))),
             id_source,
             scene_rect: egui::Rect {
@@ -906,7 +906,6 @@ impl Scene {
         let height = (fov_y / 2.0).tan() * dist * 2.0; // FOV-equivalent height for ortho camera
 
         // Ortho camera
-        /*
         let camera = Camera::new_orthographic(
             Viewport::new_at_origo(1, 1),
             position,
@@ -916,9 +915,9 @@ impl Scene {
             0.1,
             1000.0,
         );
-        */
 
         // Perspective camera
+        /*
         let camera = Camera::new_perspective(
             Viewport::new_at_origo(1, 1),
             position,
@@ -928,6 +927,7 @@ impl Scene {
             0.1,
             1000.0,
         );
+        */
 
         let mut loaded = three_d_asset::io::load(&["resources/assets/gizmo2.obj"]).unwrap();
 

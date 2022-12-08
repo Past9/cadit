@@ -712,6 +712,10 @@ impl Editor for PartEditor {
         "Part editor".to_owned()
     }
 
+    fn set_rotation(&mut self, rotation: Quaternion<f32>) {
+        self.rotation = rotation;
+    }
+
     fn show(&mut self, ui: &mut egui::Ui) {
         self.clicked = None;
 

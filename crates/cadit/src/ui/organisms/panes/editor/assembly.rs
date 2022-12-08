@@ -21,4 +21,8 @@ impl Editor for AssemblyEditor {
     fn clicked(&self) -> Option<SceneObjectProps> {
         None
     }
+
+    fn set_rotation(&mut self, rotation: three_d::Quaternion<f32>) {
+        // nothing
+    }
 }

@@ -1,9 +1,11 @@
+use three_d::Quaternion;
+
 use self::{
     assembly::AssemblyEditor,
     part::{ColorId, PartEditor, SceneObject, SceneObjectProps},
 };
 use super::Pane;
-use crate::ui::GlowContext;
+use crate::ui::{organisms::panes::editor::part::CameraAngle, GlowContext};
 
 pub mod assembly;
 //pub mod file;
@@ -13,6 +15,7 @@ trait Editor {
     fn title(&self) -> String;
     fn show(&mut self, ui: &mut eframe::egui::Ui);
     fn clicked(&self) -> Option<SceneObjectProps>;
+    fn set_rotation(&mut self, rotation: Quaternion<f32>);
 }
 
 pub struct EditorPane {
@@ -40,7 +43,9 @@ impl Pane for EditorPane {
         self.editor.show(ui);
 
         if let Some(obj) = self.editor.clicked() {
+            let rotation = CameraAngle::from_name(&obj.name);
             println!("Click {}", obj.name);
+            self.editor.set_rotation(rotation.get_rotation());
         }
     }
 }

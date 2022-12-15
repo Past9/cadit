@@ -5,7 +5,7 @@ use eframe::{
     egui_glow::glow,
     epaint::{mutex::Mutex, PaintCallback, Pos2},
 };
-use std::{fmt::Display, io::Cursor, mem::transmute, sync::Arc};
+use std::{fmt::Display, io::Cursor, mem::transmute, sync::Arc, time::Duration};
 use three_d::renderer::Geometry;
 
 const ROTATION_SENSITIVITY: f32 = 0.007;
@@ -669,7 +669,7 @@ pub struct PointerButtonDown {
 
 pub struct PartEditor {
     id_source: ColorIdSource,
-    rotation: Quaternion<f32>,
+    rotation: AnimatedValue<Quaternion<f32>>,
     scene: Arc<Mutex<Scene>>,
     scene_rect: egui::Rect,
     pointer_buttons_down: Vec<PointerButtonDown>,
@@ -688,7 +688,7 @@ impl PartEditor {
 
         Self {
             //rotation: Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), Rad(0.0)),
-            rotation: CameraAngle::FrontRightTop.get_rotation(),
+            rotation: AnimatedValue::new(CameraAngle::FrontRightTop.get_rotation()),
             scene: Arc::new(Mutex::new(Scene::new(gl.clone(), &mut id_source))),
             id_source,
             scene_rect: egui::Rect {
@@ -713,7 +713,12 @@ impl Editor for PartEditor {
     }
 
     fn set_rotation(&mut self, rotation: Quaternion<f32>) {
-        self.rotation = rotation;
+        self.rotation.set_immediate(rotation);
+    }
+
+    fn animate_rotation(&mut self, rotation: Quaternion<f32>) {
+        self.rotation
+            .push_swing(rotation, Duration::from_millis(500));
     }
 
     fn show(&mut self, ui: &mut egui::Ui) {
@@ -728,15 +733,18 @@ impl Editor for PartEditor {
             let dy = response.drag_delta().y;
 
             if dy != 0.0 || dx != 0.0 {
-                self.rotation = Quaternion::from_axis_angle(
-                    Vector3::new(-dy, dx, 0.0).normalize(),
-                    Rad(Vector3::new(dx, dy, 0.0).magnitude() * ROTATION_SENSITIVITY),
-                ) * self.rotation;
+                let rotation = self.rotation.value();
+                self.rotation.set_immediate(
+                    Quaternion::from_axis_angle(
+                        Vector3::new(-dy, dx, 0.0).normalize(),
+                        Rad(Vector3::new(dx, dy, 0.0).magnitude() * ROTATION_SENSITIVITY),
+                    ) * rotation,
+                );
             }
 
-            let rotation = self.rotation;
-
             let scene = self.scene.clone();
+
+            let rotation = self.rotation.value();
 
             let paint_callback = PaintCallback {
                 rect,
@@ -805,6 +813,10 @@ impl Editor for PartEditor {
 
             ui.painter().add(paint_callback);
         });
+
+        if self.rotation.has_queued() {
+            ui.ctx().request_repaint();
+        }
     }
 
     fn clicked(&self) -> Option<SceneObjectProps> {
@@ -873,7 +885,13 @@ impl FrameInput<'_> {
 ///
 use three_d::*;
 
-use crate::{error::CaditResult, ui::GlowContext};
+use crate::{
+    error::CaditResult,
+    ui::{
+        math::{AnimatedValue, Animation},
+        GlowContext,
+    },
+};
 
 use super::Editor;
 pub struct Scene {

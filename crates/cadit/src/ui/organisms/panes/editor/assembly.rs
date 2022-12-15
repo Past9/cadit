@@ -25,4 +25,8 @@ impl Editor for AssemblyEditor {
     fn set_rotation(&mut self, rotation: three_d::Quaternion<f32>) {
         // nothing
     }
+
+    fn animate_rotation(&mut self, rotation: three_d::Quaternion<f32>) {
+        // nothing
+    }
 }

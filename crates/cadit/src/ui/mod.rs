@@ -7,6 +7,7 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 
 mod atoms;
+mod math;
 mod molecules;
 mod organisms;
 

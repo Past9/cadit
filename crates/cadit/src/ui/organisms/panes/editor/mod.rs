@@ -44,9 +44,10 @@ impl Pane for EditorPane {
         self.editor.show(ui);
 
         if let Some(obj) = self.editor.clicked() {
-            let rotation = CameraAngle::from_name(&obj.name);
-            println!("Click {}", obj.name);
-            self.editor.animate_rotation(rotation.get_rotation());
+            if let Some(rotation) = CameraAngle::from_name(&obj.name) {
+                println!("Click {}", obj.name);
+                self.editor.animate_rotation(rotation.get_rotation());
+            }
         }
     }
 }

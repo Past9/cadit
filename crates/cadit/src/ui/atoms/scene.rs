@@ -98,7 +98,7 @@ impl ColorIdSource {
     }
 }
 
-pub(crate) struct SceneObjectProps {
+pub struct SceneObjectProps {
     pub id: ColorId,
     pub name: String,
 }

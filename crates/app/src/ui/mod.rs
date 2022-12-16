@@ -1,43 +1,6 @@
-use self::organisms::workspace::Workspace;
-use self::organisms::{menu, status_bar};
-use eframe::egui::{self};
-use eframe::{epaint::Vec2, NativeOptions};
-use egui_modal::Modal;
-use std::collections::VecDeque;
-use std::sync::Arc;
-
-mod atoms;
-mod math;
-mod molecules;
 mod organisms;
 
-const MENU_HEIGHT: f32 = 17.0;
-const STATUS_BAR_HEIGHT: f32 = 21.0;
-
-type GlowContext = Arc<eframe::glow::Context>;
-
-pub enum UiMessage {
-    ErrorDialog(String),
-}
-
-pub struct MessageBus {
-    messages: VecDeque<UiMessage>,
-}
-impl MessageBus {
-    pub fn new() -> Self {
-        Self {
-            messages: VecDeque::new(),
-        }
-    }
-
-    pub fn push(&mut self, message: UiMessage) {
-        self.messages.push_front(message);
-    }
-
-    pub fn pop(&mut self) -> Option<UiMessage> {
-        self.messages.pop_back()
-    }
-}
+use cadit::ui::MessageBus;
 
 pub struct CaditUi {
     messages: MessageBus,

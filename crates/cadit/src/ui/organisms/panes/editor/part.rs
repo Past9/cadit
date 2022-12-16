@@ -832,7 +832,6 @@ pub struct FrameInput<'a> {
     screen: three_d::RenderTarget<'a>,
     viewport: three_d::Viewport,
 }
-
 impl FrameInput<'_> {
     pub fn new(
         context: &three_d::Context,

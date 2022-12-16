@@ -1,3 +1,3 @@
 [workspace]
 
-members = ["crates/cadit"]
+members = ["crates/cadit", "crates/app"]

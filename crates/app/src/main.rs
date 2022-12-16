@@ -1,7 +1,7 @@
 #![feature(drain_filter)]
-use ui::CaditUi;
 
-mod error;
+use cadit::ui::CaditUi;
+
 mod ui;
 
 fn main() {

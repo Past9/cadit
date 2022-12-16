@@ -1,0 +1,16 @@
+[package]
+name = "app"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cadit = { path = "../cadit" }
+eframe = "0.19.0"
+egui_dock = { path = "../../../egui_dock", features = ["serde"] }
+egui-modal = "0.1.7"
+thiserror = "1.0.37"
+three-d = "0.14.0"
+three-d-asset = { version = "0.4.0", features = ["obj", "png"] }
+byteorder = "1.4.3"

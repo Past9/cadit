@@ -1,18 +1,15 @@
+use std::{sync::Arc, time::Duration};
+
 use eframe::{
     egui::{self, PointerButton},
     egui_glow,
     epaint::{mutex::Mutex, PaintCallback, Pos2},
 };
-use std::{sync::Arc, time::Duration};
-use three_d::*;
+use three_d::{Deg, InnerSpace, Quaternion, Rad, Rotation3, Vector3};
 
-use crate::ui::{
-    atoms::scene::{ColorId, ColorIdSource, Scene, SceneObjectProps},
-    math::AnimatedValue,
-    GlowContext,
-};
+use crate::ui::{math::AnimatedValue, GlowContext};
 
-use super::Editor;
+use super::scene::{ColorId, ColorIdSource, Scene, SceneObjectProps};
 
 const ROTATION_SENSITIVITY: f32 = 0.007;
 
@@ -165,7 +162,7 @@ pub struct PointerButtonDown {
     scene_object: Option<ColorId>,
 }
 
-pub struct PartEditor {
+pub struct ObjectScene {
     id_source: ColorIdSource,
     rotation: AnimatedValue<Quaternion<f32>>,
     scene: Arc<Mutex<Scene>>,
@@ -173,7 +170,7 @@ pub struct PartEditor {
     pointer_buttons_down: Vec<PointerButtonDown>,
     clicked: Option<ColorId>,
 }
-impl PartEditor {
+impl ObjectScene {
     pub fn new(gl: GlowContext) -> Self {
         let mut id_source = ColorIdSource::new();
 
@@ -203,11 +200,6 @@ impl PartEditor {
         let x = (ui_pos.x - self.scene_rect.min.x) * pix_per_pt;
         let y = (self.scene_rect.max.y - ui_pos.y) * pix_per_pt;
         Pos2 { x, y }
-    }
-}
-impl Editor for PartEditor {
-    fn title(&self) -> String {
-        "Part editor".to_owned()
     }
 
     fn set_rotation(&mut self, rotation: Quaternion<f32>) {

@@ -1,11 +1,10 @@
 use three_d::Quaternion;
 
-use self::{
-    assembly::AssemblyEditor,
-    part::{ColorId, PartEditor, SceneObject, SceneObjectProps},
-};
+use self::{assembly::AssemblyEditor, part::PartEditor};
 use super::Pane;
-use crate::ui::{organisms::panes::editor::part::CameraAngle, GlowContext};
+use crate::ui::{
+    atoms::scene::SceneObjectProps, organisms::panes::editor::part::CameraAngle, GlowContext,
+};
 
 pub mod assembly;
 //pub mod file;

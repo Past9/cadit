@@ -1,7 +1,6 @@
-use super::{
-    part::{SceneObject, SceneObjectProps},
-    Editor,
-};
+use crate::ui::atoms::scene::SceneObjectProps;
+
+use super::Editor;
 
 pub struct AssemblyEditor {}
 impl AssemblyEditor {
@@ -22,11 +21,11 @@ impl Editor for AssemblyEditor {
         None
     }
 
-    fn set_rotation(&mut self, rotation: three_d::Quaternion<f32>) {
+    fn set_rotation(&mut self, _rotation: three_d::Quaternion<f32>) {
         // nothing
     }
 
-    fn animate_rotation(&mut self, rotation: three_d::Quaternion<f32>) {
+    fn animate_rotation(&mut self, _rotation: three_d::Quaternion<f32>) {
         // nothing
     }
 }

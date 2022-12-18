@@ -162,6 +162,9 @@ impl Gizmo {
 
     pub fn show(&mut self, ui: &mut egui::Ui) {
         self.scene.show(ui);
+
+        self.scene.set_rotation(self.rotation.value());
+
         if let Some(obj) = self.scene.clicked() {
             if let Some(rotation) = CameraAngle::from_name(&obj.name) {
                 self.rotation.clear();
@@ -169,13 +172,21 @@ impl Gizmo {
                     .push_swing(rotation.get_rotation(), Duration::from_millis(500));
             }
         }
+
+        if self.rotation.has_queued() {
+            ui.ctx().request_repaint();
+        }
+    }
+
+    pub fn rotated(&self) -> bool {
+        self.scene.rotated()
     }
 
     pub fn rotation(&mut self) -> Quaternion<f32> {
         self.rotation.value()
     }
 
-    fn set_rotation(&mut self, rotation: Quaternion<f32>) {
-        self.scene.set_rotation(rotation);
+    pub fn set_rotation(&mut self, rotation: Quaternion<f32>) {
+        self.rotation.set_immediate(rotation);
     }
 }

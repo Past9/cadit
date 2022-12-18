@@ -37,6 +37,12 @@ impl Editor for PartEditor {
     fn show(&mut self, ui: &mut egui::Ui) {
         self.scene.show(ui);
 
+        if self.scene.rotated() {
+            self.gizmo.set_rotation(self.scene.rotation());
+        } else {
+            self.scene.set_rotation(self.gizmo.rotation());
+        }
+
         let scene_rect = self.scene.rect();
         let mut gizmo_ui = ui.child_ui(
             Rect::from_min_size(scene_rect.left_top(), emath::vec2(200.0, 200.0)),

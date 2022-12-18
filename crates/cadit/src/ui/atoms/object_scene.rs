@@ -46,6 +46,10 @@ impl ObjectScene {
         }
     }
 
+    pub fn rotated(&self) -> bool {
+        self.rotated
+    }
+
     fn ui_pos_to_fbo_pos(&self, ui: &egui::Ui, ui_pos: Pos2) -> Pos2 {
         let pix_per_pt = ui.input().pixels_per_point;
         let x = (ui_pos.x - self.scene_rect.min.x) * pix_per_pt;
@@ -53,7 +57,7 @@ impl ObjectScene {
         Pos2 { x, y }
     }
 
-    pub fn get_rotation(&mut self) -> Quaternion<f32> {
+    pub fn rotation(&mut self) -> Quaternion<f32> {
         self.rotation
     }
 
@@ -95,7 +99,6 @@ impl ObjectScene {
                     let mut scene = scene.lock();
                     let context = &scene.context();
                     let frame_input = crate::render::FrameInput::new(context, &info, painter);
-                    println!("{:?}", rotation);
                     scene.render(frame_input, rotation);
                 })),
             };

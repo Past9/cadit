@@ -253,24 +253,10 @@ impl ObjectScene {
                     callback: Arc::new(egui_glow::CallbackFn::new(move |info, painter| {
                         let mut scene = scene.lock();
                         let context = scene.context();
-                        context.set_blend(Blend::TRANSPARENCY);
                         let frame_input = crate::render::FrameInput::new(context, &info, painter);
                         scene.render(frame_input, rotation, position);
                     })),
                 };
-
-                /*
-                ui.painter().add(Shape::Circle(CircleShape {
-                    center: pos2(
-                        rect.left() + rect.width() / 2.0,
-                        rect.top() + rect.height() / 2.0,
-                    ),
-                    radius: rect.height() / 4.0,
-                    fill: Rgba::from_rgba_unmultiplied(1.0, 0.0, 0.0, 0.5).into(),
-                    stroke: Stroke::default(),
-                }));
-                */
-                //.circle_filled(pos2(900.0, 580.0), 200.0, Rgba::RED);
 
                 // Queue the scene for painting
                 ui.painter().add(paint_callback);

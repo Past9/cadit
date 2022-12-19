@@ -3,12 +3,12 @@ use std::{io::Cursor, mem::transmute};
 use byteorder::{BigEndian, ReadBytesExt};
 use eframe::{epaint::Pos2, glow};
 use three_d::{
-    degrees, vec3, AmbientLight, Angle, AxisAlignedBoundingBox, Blend, Camera, ClearState, Color,
-    ColorTexture, Context, CpuMaterial, CpuModel, Cull, Deg, DepthTest, DepthTexture,
-    DepthTexture2D, FromCpuMaterial, FxaaEffect, Geometry, Gm, HasContext, InnerSpace,
-    Interpolation, Light, Mat3, Mat4, Material, MaterialType, Mesh, PhysicalMaterial, Point3,
-    PostMaterial, Program, Quaternion, RenderStates, RenderTarget, RendererError, ScissorBox,
-    Texture2D, Vec2, Vec3, Vector3, Viewport, Wrapping, WriteMask,
+    apply_effect, degrees, vec3, AmbientLight, Angle, AxisAlignedBoundingBox, Blend, Camera,
+    ClearState, Color, ColorTexture, Context, CpuMaterial, CpuModel, Cull, Deg, DepthTest,
+    DepthTexture, DepthTexture2D, FromCpuMaterial, FxaaEffect, Geometry, Gm, HasContext,
+    InnerSpace, Interpolation, Light, Mat3, Mat4, Material, MaterialType, Mesh, PhysicalMaterial,
+    Point3, PostMaterial, Program, Quaternion, RenderStates, RenderTarget, RendererError,
+    ScissorBox, Texture2D, Vec2, Vec3, Vector3, Viewport, Wrapping, WriteMask,
 };
 
 use crate::{
@@ -472,35 +472,34 @@ impl Scene {
         self.render_pbr(&frame_input);
         self.render_id_textures(&frame_input);
 
-        self.context.set_blend(Blend::TRANSPARENCY);
-
-        /*
+        let color_texture = ColorTexture::Single(&self.pbr_fxaa_color_texture);
         frame_input
             .screen
-            /*
-            .clear_partially(
-                frame_input.viewport.into(),
-                ClearState {
-                    red: None,   //Some(0.0),
-                    green: None, //Some(0.0),
-                    blue: None,  //Some(1.0),
-                    alpha: Some(0.0),
-                    depth: Some(1.0),
-                },
-            )
-            */
-            .copy_partially_from(
-                frame_input.viewport.into(),
-                /*
-                ColorTexture::Single(&self.id_color_texture),
-                DepthTexture::Single(&self.id_depth_texture),
-                */
-                ColorTexture::Single(&self.pbr_color_texture),
-                DepthTexture::Single(&self.pbr_depth_texture),
-                frame_input.viewport,
-                WriteMask::default(),
-            );
-            */
+            .write_partially(frame_input.viewport.into(), || {
+                let fragment_shader_source = format!(
+                    "{}\nin vec2 uvs;
+                    layout (location = 0) out vec4 color;
+                    void main()
+                    {{
+                        color = sample_color(uvs);
+                    }}",
+                    color_texture.fragment_shader_source()
+                );
+                apply_effect(
+                    &self.context,
+                    &fragment_shader_source,
+                    RenderStates {
+                        depth_test: DepthTest::Always,
+                        write_mask: WriteMask::default(),
+                        blend: Blend::TRANSPARENCY,
+                        ..Default::default()
+                    },
+                    frame_input.viewport,
+                    |program| {
+                        color_texture.use_uniforms(program);
+                    },
+                )
+            });
 
         // Take back the screen fbo, we will continue to use it.
         frame_input.screen.into_framebuffer()
@@ -536,49 +535,35 @@ impl Scene {
             .collect::<Vec<&dyn Light>>();
 
         // Render offscreen
-        /*
         RenderTarget::new(
             self.pbr_color_texture.as_color_target(None),
             self.pbr_depth_texture.as_depth_target(),
         )
         .clear(ClearState {
-            red: None,   //Some(0.0),
-            green: None, //Some(1.0),
-            blue: None,  //Some(0.0),
+            red: None,
+            green: None,
+            blue: None,
             alpha: Some(0.0),
             depth: Some(1.0),
         })
-        */
-        frame_input
-            .screen
-            .clear_partially(
-                frame_input.viewport.into(),
-                ClearState {
-                    red: None, //Some(0.0),
-                    green: Some(1.0),
-                    blue: None, //Some(0.0),
-                    alpha: Some(0.2),
-                    depth: Some(1.0),
-                },
-            )
-            .render_partially(
-                frame_input.viewport.into(),
-                &self.camera_props.camera(),
-                &self.objects.physical_render_objects(&self.palette),
-                &lights,
-            );
+        .render(
+            &self.camera_props.camera(),
+            &self.objects.physical_render_objects(&self.palette),
+            &lights,
+        );
 
         // Apply FXAA
-        /*
         RenderTarget::new(
             self.pbr_fxaa_color_texture.as_color_target(None),
             self.pbr_fxaa_depth_texture.as_depth_target(),
         )
-        .clear(ClearState::default())
         .write(|| {
+            // TODO: This causes artifacts (dark pixels) around edges when rendered on transparent
+            // background, possibly because the default fxaa_effect.frag shader only blends the RGB
+            // values and ignores the alpha. Try writing a custom FXAA shader that blends the alpha
+            // channel as well.
             (FxaaEffect {}).apply(&self.context, ColorTexture::Single(&self.pbr_color_texture));
         });
-        */
     }
 
     pub fn render_id_textures(&mut self, frame_input: &FrameInput<'_>) {

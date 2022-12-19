@@ -45,7 +45,10 @@ impl Editor for PartEditor {
 
         let scene_rect = self.scene.rect();
         let mut gizmo_ui = ui.child_ui(
-            Rect::from_min_size(scene_rect.left_top(), emath::vec2(200.0, 200.0)),
+            Rect::from_min_size(
+                scene_rect.left_top() + egui::Vec2 { x: 500.0, y: 200.0 },
+                emath::vec2(200.0, 200.0),
+            ),
             Layout::top_down(Align::TOP),
         );
 

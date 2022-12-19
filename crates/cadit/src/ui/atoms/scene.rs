@@ -5,10 +5,10 @@ use eframe::{epaint::Pos2, glow};
 use three_d::{
     degrees, vec3, AmbientLight, Angle, AxisAlignedBoundingBox, Blend, Camera, ClearState, Color,
     ColorTexture, Context, CpuMaterial, CpuModel, Cull, Deg, DepthTest, DepthTexture,
-    DepthTexture2D, FromCpuMaterial, FxaaEffect, Geometry, Gm, InnerSpace, Interpolation, Light,
-    Mat3, Mat4, Material, MaterialType, Mesh, PhysicalMaterial, Point3, PostMaterial, Program,
-    Quaternion, RenderStates, RenderTarget, RendererError, ScissorBox, Texture2D, Vec2, Vec3,
-    Vector3, Viewport, Wrapping, WriteMask,
+    DepthTexture2D, FromCpuMaterial, FxaaEffect, Geometry, Gm, HasContext, InnerSpace,
+    Interpolation, Light, Mat3, Mat4, Material, MaterialType, Mesh, PhysicalMaterial, Point3,
+    PostMaterial, Program, Quaternion, RenderStates, RenderTarget, RendererError, ScissorBox,
+    Texture2D, Vec2, Vec3, Vector3, Viewport, Wrapping, WriteMask,
 };
 
 use crate::{
@@ -326,40 +326,6 @@ impl Scene {
             Viewport::new_at_origo(1, 1),
         );
 
-        // Create a camera
-        /*
-        let position = vec3(0.0, 0.0, -15.0); // Camera position
-                                              //let position = CameraPosition::Front.get_position() * 15.0;
-        let target = vec3(0.0, 0.0, 0.0); // Look-at point
-        let dist = (position - target).magnitude(); // Distance from camera origin to look-at point
-        let fov_y = degrees(45.0); // Y-FOV for perspective camera
-        let height = (fov_y / 2.0).tan() * dist * 2.0; // FOV-equivalent height for ortho camera
-
-        // Ortho camera
-        /*
-        let camera = Camera::new_orthographic(
-            Viewport::new_at_origo(1, 1),
-            position,
-            target,
-            vec3(0.0, 1.0, 0.0),
-            height,
-            0.1,
-            1000.0,
-        );
-        */
-
-        // Perspective camera
-        let camera = Camera::new_perspective(
-            Viewport::new_at_origo(1, 1),
-            position,
-            target,
-            vec3(0.0, 1.0, 0.0),
-            fov_y,
-            0.1,
-            1000.0,
-        );
-        */
-
         let mut loaded = three_d_asset::io::load(&["resources/assets/gizmo2.obj"]).unwrap();
 
         let mut gizmo = SceneObject::from_cpu_model(
@@ -506,17 +472,35 @@ impl Scene {
         self.render_pbr(&frame_input);
         self.render_id_textures(&frame_input);
 
-        frame_input.screen.copy_partially_from(
-            frame_input.viewport.into(),
+        self.context.set_blend(Blend::TRANSPARENCY);
+
+        /*
+        frame_input
+            .screen
             /*
-            ColorTexture::Single(&self.id_color_texture),
-            DepthTexture::Single(&self.id_depth_texture),
+            .clear_partially(
+                frame_input.viewport.into(),
+                ClearState {
+                    red: None,   //Some(0.0),
+                    green: None, //Some(0.0),
+                    blue: None,  //Some(1.0),
+                    alpha: Some(0.0),
+                    depth: Some(1.0),
+                },
+            )
             */
-            ColorTexture::Single(&self.pbr_fxaa_color_texture),
-            DepthTexture::Single(&self.pbr_fxaa_depth_texture),
-            frame_input.viewport,
-            WriteMask::default(),
-        );
+            .copy_partially_from(
+                frame_input.viewport.into(),
+                /*
+                ColorTexture::Single(&self.id_color_texture),
+                DepthTexture::Single(&self.id_depth_texture),
+                */
+                ColorTexture::Single(&self.pbr_color_texture),
+                DepthTexture::Single(&self.pbr_depth_texture),
+                frame_input.viewport,
+                WriteMask::default(),
+            );
+            */
 
         // Take back the screen fbo, we will continue to use it.
         frame_input.screen.into_framebuffer()
@@ -552,18 +536,40 @@ impl Scene {
             .collect::<Vec<&dyn Light>>();
 
         // Render offscreen
+        /*
         RenderTarget::new(
             self.pbr_color_texture.as_color_target(None),
             self.pbr_depth_texture.as_depth_target(),
         )
-        .clear(ClearState::default())
-        .render(
-            &self.camera_props.camera(),
-            &self.objects.physical_render_objects(&self.palette),
-            &lights,
-        );
+        .clear(ClearState {
+            red: None,   //Some(0.0),
+            green: None, //Some(1.0),
+            blue: None,  //Some(0.0),
+            alpha: Some(0.0),
+            depth: Some(1.0),
+        })
+        */
+        frame_input
+            .screen
+            .clear_partially(
+                frame_input.viewport.into(),
+                ClearState {
+                    red: None, //Some(0.0),
+                    green: Some(1.0),
+                    blue: None, //Some(0.0),
+                    alpha: Some(0.2),
+                    depth: Some(1.0),
+                },
+            )
+            .render_partially(
+                frame_input.viewport.into(),
+                &self.camera_props.camera(),
+                &self.objects.physical_render_objects(&self.palette),
+                &lights,
+            );
 
         // Apply FXAA
+        /*
         RenderTarget::new(
             self.pbr_fxaa_color_texture.as_color_target(None),
             self.pbr_fxaa_depth_texture.as_depth_target(),
@@ -572,6 +578,7 @@ impl Scene {
         .write(|| {
             (FxaaEffect {}).apply(&self.context, ColorTexture::Single(&self.pbr_color_texture));
         });
+        */
     }
 
     pub fn render_id_textures(&mut self, frame_input: &FrameInput<'_>) {

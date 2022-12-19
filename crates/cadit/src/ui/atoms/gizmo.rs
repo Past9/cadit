@@ -153,7 +153,6 @@ pub struct Gizmo {
 }
 impl Gizmo {
     pub fn new(gl: GlowContext) -> Self {
-        //let rotation = CameraAngle::FrontRightTop.get_rotation();
         let rotation = CameraAngle::Front.get_rotation();
         Self {
             scene: ObjectScene::new(gl, rotation, vec2(0.0, 0.0), false, false),

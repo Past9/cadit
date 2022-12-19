@@ -21,7 +21,7 @@ impl PartEditor {
         let rotation = gizmo.rotation();
         Self {
             gizmo,
-            scene: ObjectScene::new(gl, rotation, vec2(0.0, 0.0)),
+            scene: ObjectScene::new(gl, rotation, vec2(0.0, 0.0), true, true),
         }
     }
 }

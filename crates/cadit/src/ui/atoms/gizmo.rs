@@ -156,7 +156,7 @@ impl Gizmo {
         //let rotation = CameraAngle::FrontRightTop.get_rotation();
         let rotation = CameraAngle::Front.get_rotation();
         Self {
-            scene: ObjectScene::new(gl, rotation, vec2(0.0, 0.0)),
+            scene: ObjectScene::new(gl, rotation, vec2(0.0, 0.0), false, false),
             rotation: AnimatedValue::new(rotation),
         }
     }

@@ -31,9 +31,17 @@ pub struct ObjectScene {
     pointer_buttons_down: Vec<PointerButtonDown>,
     clicked: Option<ColorId>,
     rotated: bool,
+    allow_manual_rotate: bool,
+    allow_manual_pan: bool,
 }
 impl ObjectScene {
-    pub fn new(gl: GlowContext, rotation: Quaternion<f32>, position: Vector2<f32>) -> Self {
+    pub fn new(
+        gl: GlowContext,
+        rotation: Quaternion<f32>,
+        position: Vector2<f32>,
+        allow_manual_rotate: bool,
+        allow_manual_pan: bool,
+    ) -> Self {
         let mut id_source = ColorIdSource::new();
 
         Self {
@@ -48,6 +56,8 @@ impl ObjectScene {
             pointer_buttons_down: Vec::new(),
             clicked: None,
             rotated: false,
+            allow_manual_rotate,
+            allow_manual_pan,
         }
     }
 
@@ -104,26 +114,40 @@ impl ObjectScene {
                         let obj_id = scene.read_color_id(self.ui_pos_to_fbo_pos(ui, *pos));
                         scene.hover_object(obj_id);
 
-                        // Rotate the model on secondary mouse button drag
-                        if let Some(rotation_drag) = self.secondary_drag() {
-                            let Vec2 { x: dx, y: dy } = *pos - rotation_drag.last_position;
+                        // If manual rotation is enabled
+                        if self.allow_manual_rotate {
+                            // Rotate the model on secondary mouse button drag
+                            if let Some(rotation_drag) = self.secondary_drag() {
+                                let Vec2 { x: dx, y: dy } = *pos - rotation_drag.last_position;
 
-                            if dy != 0.0 || dx != 0.0 {
-                                self.rotation = Quaternion::from_axis_angle(
-                                    Vector3::new(-dy, dx, 0.0).normalize(),
-                                    Rad(Vector3::new(dx, dy, 0.0).magnitude()
-                                        * ROTATION_SENSITIVITY),
-                                ) * self.rotation;
-                                self.rotated = true;
+                                println!(
+                                    "start {} {}, {} {}",
+                                    rotation_drag.start_position.x,
+                                    rotation_drag.start_position.y,
+                                    rect.left_top().x,
+                                    rect.left_top().y
+                                );
+
+                                if dy != 0.0 || dx != 0.0 {
+                                    self.rotation = Quaternion::from_axis_angle(
+                                        Vector3::new(-dy, dx, 0.0).normalize(),
+                                        Rad(Vector3::new(dx, dy, 0.0).magnitude()
+                                            * ROTATION_SENSITIVITY),
+                                    ) * self.rotation;
+                                    self.rotated = true;
+                                }
                             }
                         }
 
-                        // Pan the model on middle button drag
-                        if let Some(pan_drag) = self.middle_drag() {
-                            let Vec2 { x: dx, y: dy } = *pos - pan_drag.last_position;
+                        // If manual panning is enabled
+                        if self.allow_manual_pan {
+                            // Pan the model on middle button drag
+                            if let Some(pan_drag) = self.middle_drag() {
+                                let Vec2 { x: dx, y: dy } = *pos - pan_drag.last_position;
 
-                            if dy != 0.0 || dx != 0.0 {
-                                self.position += Vector2::new(dx, dy) * PAN_SENSITIVITY;
+                                if dy != 0.0 || dx != 0.0 {
+                                    self.position += Vector2::new(dx, dy) * PAN_SENSITIVITY;
+                                }
                             }
                         }
 
@@ -142,26 +166,28 @@ impl ObjectScene {
                         let obj_id = scene.read_color_id(self.ui_pos_to_fbo_pos(ui, *pos));
 
                         if *pressed {
-                            // If a button was just pressed, update the list of currently-pressed
-                            // mouse buttons
+                            if self.scene_rect.contains(*pos) {
+                                // If a button was just pressed, update the list of currently-pressed
+                                // mouse buttons
 
-                            // Remove the button that was just pressed, in case it's still
-                            // somehow in the list (it should have been removed last time the
-                            // button was released)
-                            self.pointer_buttons_down
-                                .retain(|down| down.button != *button);
+                                // Remove the button that was just pressed, in case it's still
+                                // somehow in the list (it should have been removed last time the
+                                // button was released)
+                                self.pointer_buttons_down
+                                    .retain(|down| down.button != *button);
 
-                            // Now re-add the button that was just pressed with appropriate starting
-                            // properties
-                            self.pointer_buttons_down.push(PointerButtonDown {
-                                pos: *pos,
-                                button: *button,
-                                start_time: std::time::Instant::now(),
-                                start_position: *pos,
-                                last_position: *pos,
-                                modifiers: modifiers.to_owned(),
-                                start_scene_object: obj_id,
-                            });
+                                // Now re-add the button that was just pressed with appropriate starting
+                                // properties
+                                self.pointer_buttons_down.push(PointerButtonDown {
+                                    pos: *pos,
+                                    button: *button,
+                                    start_time: std::time::Instant::now(),
+                                    start_position: *pos,
+                                    last_position: *pos,
+                                    modifiers: modifiers.to_owned(),
+                                    start_scene_object: obj_id,
+                                });
+                            }
                         } else {
                             if *button == PointerButton::Primary {
                                 if let Some(obj_id) = obj_id {

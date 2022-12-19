@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use eframe::egui;
-use three_d::{Deg, Quaternion, Rotation3};
+use three_d::{vec2, vec3, Deg, Quaternion, Rotation3};
 
 use crate::ui::{math::AnimatedValue, GlowContext};
 
@@ -153,9 +153,10 @@ pub struct Gizmo {
 }
 impl Gizmo {
     pub fn new(gl: GlowContext) -> Self {
-        let rotation = CameraAngle::FrontRightTop.get_rotation();
+        //let rotation = CameraAngle::FrontRightTop.get_rotation();
+        let rotation = CameraAngle::Front.get_rotation();
         Self {
-            scene: ObjectScene::new(gl, rotation),
+            scene: ObjectScene::new(gl, rotation, vec2(0.0, 0.0)),
             rotation: AnimatedValue::new(rotation),
         }
     }

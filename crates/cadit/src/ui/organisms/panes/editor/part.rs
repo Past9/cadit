@@ -5,7 +5,7 @@ use crate::ui::{
 use eframe::{
     egui::{self, Layout},
     emath::{self, Align},
-    epaint::{pos2, Rect},
+    epaint::Rect,
 };
 use three_d::*;
 
@@ -21,7 +21,7 @@ impl PartEditor {
         let rotation = gizmo.rotation();
         Self {
             gizmo,
-            scene: ObjectScene::new(gl, rotation),
+            scene: ObjectScene::new(gl, rotation, vec2(0.0, 0.0)),
         }
     }
 }

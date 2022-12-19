@@ -4,16 +4,19 @@ use byteorder::{BigEndian, ReadBytesExt};
 use eframe::{epaint::Pos2, glow};
 use three_d::{
     degrees, vec3, AmbientLight, Angle, AxisAlignedBoundingBox, Blend, Camera, ClearState, Color,
-    ColorTexture, Context, CpuMaterial, CpuModel, Cull, DepthTest, DepthTexture, DepthTexture2D,
-    FromCpuMaterial, FxaaEffect, Geometry, Gm, InnerSpace, Interpolation, Light, Mat4, Material,
-    MaterialType, Mesh, PhysicalMaterial, PostMaterial, Program, Quaternion, RenderStates,
-    RenderTarget, RendererError, ScissorBox, Texture2D, Viewport, Wrapping, WriteMask,
+    ColorTexture, Context, CpuMaterial, CpuModel, Cull, Deg, DepthTest, DepthTexture,
+    DepthTexture2D, FromCpuMaterial, FxaaEffect, Geometry, Gm, InnerSpace, Interpolation, Light,
+    Mat3, Mat4, Material, MaterialType, Mesh, PhysicalMaterial, Point3, PostMaterial, Program,
+    Quaternion, RenderStates, RenderTarget, RendererError, ScissorBox, Texture2D, Vec2, Vec3,
+    Vector3, Viewport, Wrapping, WriteMask,
 };
 
 use crate::{
     error::CaditResult,
     render::{FrameInput, Palette, PhysicalMaterialOverride},
 };
+
+use super::camera::{CameraMode, CameraProps};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ColorId(u32);
@@ -296,7 +299,7 @@ impl three_d::Object for SceneObject {
 
 pub struct Scene {
     context: Context,
-    camera: Camera,
+    camera_props: CameraProps,
     objects: Vec<SceneObject>,
     ambient_lights: Vec<AmbientLight>,
 
@@ -315,7 +318,16 @@ impl Scene {
     pub fn new(gl: std::sync::Arc<glow::Context>, id_source: &mut ColorIdSource) -> Self {
         let context = Context::from_gl_context(gl).unwrap();
 
+        let camera_props = CameraProps::new(
+            vec3(0.0, 0.0, -15.0),
+            vec3(0.0, 0.0, 0.0),
+            degrees(45.0),
+            CameraMode::Perspective,
+            Viewport::new_at_origo(1, 1),
+        );
+
         // Create a camera
+        /*
         let position = vec3(0.0, 0.0, -15.0); // Camera position
                                               //let position = CameraPosition::Front.get_position() * 15.0;
         let target = vec3(0.0, 0.0, 0.0); // Look-at point
@@ -324,6 +336,7 @@ impl Scene {
         let height = (fov_y / 2.0).tan() * dist * 2.0; // FOV-equivalent height for ortho camera
 
         // Ortho camera
+        /*
         let camera = Camera::new_orthographic(
             Viewport::new_at_origo(1, 1),
             position,
@@ -333,9 +346,9 @@ impl Scene {
             0.1,
             1000.0,
         );
+        */
 
         // Perspective camera
-        /*
         let camera = Camera::new_perspective(
             Viewport::new_at_origo(1, 1),
             position,
@@ -372,7 +385,7 @@ impl Scene {
 
         Self {
             context,
-            camera,
+            camera_props,
             objects: gizmo,
             ambient_lights: vec![ambient_light],
             id_color_texture,
@@ -471,11 +484,12 @@ impl Scene {
     pub fn render(
         &mut self,
         frame_input: FrameInput<'_>,
-        rotation: Quaternion<f32>,
+        model_rotation: Quaternion<f32>,
+        camera_position: Vec2,
     ) -> Option<glow::Framebuffer> {
         // Ensure the camera viewport size matches the current window viewport
         // size which changes if the window is resized
-        self.camera.set_viewport(Viewport {
+        self.camera_props.set_viewport(Viewport {
             x: 0,
             y: 0,
             width: frame_input.viewport.width,
@@ -483,7 +497,10 @@ impl Scene {
         });
 
         for model in self.objects.iter_mut() {
-            model.set_transformation(Mat4::from(rotation));
+            let cam_pos_3 = vec3(camera_position.x, camera_position.y, 0.0);
+            model.set_transformation(
+                Mat4::from_translation(-cam_pos_3) * Mat4::from(model_rotation),
+            );
         }
 
         self.render_pbr(&frame_input);
@@ -541,7 +558,7 @@ impl Scene {
         )
         .clear(ClearState::default())
         .render(
-            &self.camera,
+            &self.camera_props.camera(),
             &self.objects.physical_render_objects(&self.palette),
             &lights,
         );
@@ -577,7 +594,11 @@ impl Scene {
             self.id_depth_texture.as_depth_target(),
         )
         .clear(ClearState::default())
-        .render(&self.camera, &self.objects.id_render_objects(), &[]);
+        .render(
+            &self.camera_props.camera(),
+            &self.objects.id_render_objects(),
+            &[],
+        );
     }
 
     fn new_id_textures(context: &Context, width: u32, height: u32) -> (Texture2D, DepthTexture2D) {

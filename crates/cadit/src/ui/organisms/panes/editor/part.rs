@@ -7,6 +7,7 @@ use eframe::{
     emath::{self, Align},
     epaint::Rect,
 };
+use egui_winit_vulkano::RenderResources;
 use three_d::*;
 
 use super::Editor;
@@ -16,12 +17,12 @@ pub struct PartEditor {
     scene: ObjectScene,
 }
 impl PartEditor {
-    pub fn new(gl: GlowContext) -> Self {
-        let mut gizmo = Gizmo::new(gl.clone());
+    pub fn new() -> Self {
+        let mut gizmo = Gizmo::new();
         let rotation = gizmo.rotation();
         Self {
             gizmo,
-            scene: ObjectScene::new(gl, rotation, vec2(0.0, 0.0), true, true),
+            scene: ObjectScene::new(rotation, vec2(0.0, 0.0), true, true, [0.0, 0.0, 1.0, 1.0]),
         }
     }
 }

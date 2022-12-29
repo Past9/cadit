@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use eframe::egui;
+use egui_winit_vulkano::RenderResources;
 use three_d::{vec2, vec3, Deg, Quaternion, Rotation3};
 
 use crate::ui::{math::AnimatedValue, GlowContext};
@@ -152,10 +153,10 @@ pub struct Gizmo {
     rotation: AnimatedValue<Quaternion<f32>>,
 }
 impl Gizmo {
-    pub fn new(gl: GlowContext) -> Self {
+    pub fn new() -> Self {
         let rotation = CameraAngle::Front.get_rotation();
         Self {
-            scene: ObjectScene::new(gl, rotation, vec2(0.0, 0.0), false, false),
+            scene: ObjectScene::new(rotation, vec2(0.0, 0.0), false, false, [1.0, 0.0, 0.0, 1.0]),
             rotation: AnimatedValue::new(rotation),
         }
     }

@@ -13,3 +13,9 @@ thiserror = "1.0.37"
 three-d = "0.14.0"
 three-d-asset = { version = "0.4.0", features = ["obj", "png"] }
 byteorder = "1.4.3"
+egui_winit_vulkano = { path = "../../../egui_winit_vulkano" }
+winit = "0.27.5"
+vulkano-util = "0.32"
+vulkano = "0.32"
+vulkano-shaders = "0.32"
+bytemuck = "1.12.2"

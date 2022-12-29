@@ -1,7 +1,12 @@
-use std::{io::Cursor, mem::transmute};
+use std::{io::Cursor, mem::transmute, sync::Arc};
 
+use bytemuck::{Pod, Zeroable};
 use byteorder::{BigEndian, ReadBytesExt};
-use eframe::{epaint::Pos2, glow};
+use eframe::{
+    epaint::{PaintCallbackInfo, Pos2},
+    glow,
+};
+use egui_winit_vulkano::{CallbackContext, RenderResources};
 use three_d::{
     apply_effect, degrees, vec3, AmbientLight, Angle, AxisAlignedBoundingBox, Blend, Camera,
     ClearState, Color, ColorTexture, Context, CpuMaterial, CpuModel, Cull, Deg, DepthTest,
@@ -9,6 +14,16 @@ use three_d::{
     InnerSpace, Interpolation, Light, Mat3, Mat4, Material, MaterialType, Mesh, PhysicalMaterial,
     Point3, PostMaterial, Program, Quaternion, RenderStates, RenderTarget, RendererError,
     ScissorBox, Texture2D, Vec2, Vec3, Vector3, Viewport, Wrapping, WriteMask,
+};
+use vulkano::{
+    buffer::{BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
+    pipeline::{
+        graphics::{
+            depth_stencil::DepthStencilState, input_assembly::InputAssemblyState,
+            vertex_input::BuffersDefinition, viewport::ViewportState,
+        },
+        GraphicsPipeline, Pipeline,
+    },
 };
 
 use crate::{
@@ -298,6 +313,160 @@ impl three_d::Object for SceneObject {
 }
 
 pub struct Scene {
+    color: [f32; 4],
+    pipeline: Option<Arc<GraphicsPipeline>>,
+    vertex_buffer: Option<Arc<CpuAccessibleBuffer<[Vertex]>>>,
+}
+impl Scene {
+    pub fn new(id_source: &mut ColorIdSource, color: [f32; 4]) -> Self {
+        // todo
+        Self {
+            color,
+            pipeline: None,
+            vertex_buffer: None,
+        }
+    }
+
+    fn pipeline<'a>(&mut self, resources: &RenderResources<'a>) -> Arc<GraphicsPipeline> {
+        self.pipeline
+            .get_or_insert_with(|| {
+                println!("Build graphics pipeline");
+
+                let vs = vs::load(resources.queue.device().clone())
+                    .expect("failed to create shader module");
+                let fs = fs::load(resources.queue.device().clone())
+                    .expect("failed to create shader module");
+
+                let pipeline = GraphicsPipeline::start()
+                    .vertex_input_state(BuffersDefinition::new().vertex::<Vertex>())
+                    .vertex_shader(vs.entry_point("main").unwrap(), ())
+                    .input_assembly_state(InputAssemblyState::new())
+                    .fragment_shader(fs.entry_point("main").unwrap(), ())
+                    .viewport_state(ViewportState::viewport_dynamic_scissor_dynamic(1))
+                    .depth_stencil_state(DepthStencilState::simple_depth_test())
+                    .render_pass(resources.subpass.clone())
+                    .build(resources.queue.device().clone())
+                    .unwrap();
+
+                pipeline
+            })
+            .clone()
+    }
+
+    fn vertex_buffer(&mut self, resources: &RenderResources) -> Arc<CpuAccessibleBuffer<[Vertex]>> {
+        self.vertex_buffer
+            .get_or_insert_with(|| {
+                println!("Build vertex buffer");
+                CpuAccessibleBuffer::from_iter(
+                    &resources.memory_allocator,
+                    BufferUsage {
+                        vertex_buffer: true,
+                        ..BufferUsage::empty()
+                    },
+                    false,
+                    [
+                        Vertex {
+                            position: [-0.5, -0.25],
+                            color: self.color, //[1.0, 0.0, 0.0, 1.0],
+                        },
+                        Vertex {
+                            position: [0.0, 0.5],
+                            color: self.color, //[0.0, 1.0, 0.0, 1.0],
+                        },
+                        Vertex {
+                            position: [0.25, -0.1],
+                            color: self.color, //[0.0, 0.0, 1.0, 1.0],
+                        },
+                    ]
+                    .iter()
+                    .cloned(),
+                )
+                .expect("failed to create buffer")
+            })
+            .clone()
+    }
+
+    pub(crate) fn read_color_id(&mut self, pos: Pos2) -> Option<ColorId> {
+        // todo
+        None
+    }
+
+    pub(crate) fn hover_object(&mut self, id: Option<ColorId>) {
+        // todo
+    }
+
+    pub(crate) fn toggle_select_object(&mut self, id: Option<ColorId>, exclusive: bool) {
+        // todo
+    }
+
+    pub(crate) fn get_object(&mut self, id: Option<ColorId>) -> Option<&SceneObject> {
+        // todo
+        None
+    }
+
+    pub(crate) fn deselect_all_objects(&mut self) {
+        // todo
+    }
+
+    pub(crate) fn render(
+        &mut self,
+        info: PaintCallbackInfo,
+        ctx: &mut CallbackContext,
+        model_rotation: Quaternion<f32>,
+        camera_position: Vec2,
+    ) {
+        let pipeline = self.pipeline(&ctx.resources);
+        let vertex_buffer = self.vertex_buffer(&ctx.resources);
+
+        ctx.builder
+            .bind_pipeline_graphics(pipeline)
+            .bind_vertex_buffers(0, vertex_buffer.clone())
+            .draw(vertex_buffer.len() as u32, 1, 0, 0)
+            .unwrap();
+    }
+}
+
+#[repr(C)]
+#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
+struct Vertex {
+    position: [f32; 2],
+    color: [f32; 4],
+}
+vulkano::impl_vertex!(Vertex, position, color);
+
+mod vs {
+    vulkano_shaders::shader! {
+        ty: "vertex",
+        src: "
+#version 450
+layout(location = 0) in vec2 position;
+layout(location = 1) in vec4 color;
+
+layout(location = 0) out vec4 v_color;
+void main() {
+    gl_Position = vec4(position, 0.0, 1.0);
+    v_color = color;
+}"
+    }
+}
+
+mod fs {
+    vulkano_shaders::shader! {
+        ty: "fragment",
+        src: "
+#version 450
+layout(location = 0) in vec4 v_color;
+
+layout(location = 0) out vec4 f_color;
+
+void main() {
+    f_color = v_color;
+}"
+    }
+}
+
+/*
+pub struct Scene {
     context: Context,
     camera_props: CameraProps,
     objects: Vec<SceneObject>,
@@ -350,7 +519,7 @@ impl Scene {
         let ambient_light = AmbientLight::new(&context, 1.0, Color::WHITE);
 
         Self {
-            context,
+            //context,
             camera_props,
             objects: gizmo,
             ambient_lights: vec![ambient_light],
@@ -367,7 +536,8 @@ impl Scene {
     }
 
     pub fn context(&self) -> &Context {
-        &self.context
+        //&self.context
+        todo!()
     }
 
     pub(crate) fn hover_object(&mut self, id: Option<ColorId>) {
@@ -674,3 +844,4 @@ impl Scene {
         )
     }
 }
+*/

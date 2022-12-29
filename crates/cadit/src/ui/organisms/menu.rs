@@ -1,6 +1,6 @@
 use eframe::egui::{InnerResponse, Ui};
 
-pub fn show(ui: &mut Ui, frame: &mut eframe::Frame) -> InnerResponse<()> {
+pub fn show(ui: &mut Ui) -> InnerResponse<()> {
     ui.horizontal(|ui| {
         ui.style_mut().visuals.button_frame = false;
 
@@ -33,7 +33,7 @@ pub fn show(ui: &mut Ui, frame: &mut eframe::Frame) -> InnerResponse<()> {
 
             if ui.button("Exit").clicked() {
                 println!("Exiting application");
-                frame.close();
+                // TODO: Actually close app
             }
         });
         ui.menu_button("Edit", |ui| if ui.button("Some edit stuff").clicked() {});

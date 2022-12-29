@@ -1,10 +1,13 @@
 use self::organisms::workspace::Workspace;
 use self::organisms::{menu, status_bar};
 use eframe::egui::{self};
-use eframe::{epaint::Vec2, NativeOptions};
 use egui_modal::Modal;
+use egui_winit_vulkano::Gui;
 use std::collections::VecDeque;
 use std::sync::Arc;
+use vulkano_util::renderer::VulkanoWindowRenderer;
+use winit::event::{Event, WindowEvent};
+use winit::event_loop::ControlFlow;
 
 mod atoms;
 mod math;
@@ -45,30 +48,67 @@ pub struct CaditUi {
     error_dialog: Option<String>,
 }
 impl CaditUi {
-    pub fn run() {
-        let mut options = NativeOptions::default();
-        options.initial_window_size = Some(Vec2::new(1760.0, 990.0));
-        eframe::run_native(
-            "Cadit",
-            options,
-            Box::new(|cc| {
-                let gl = cc.gl.clone().unwrap();
-                Box::new(Self {
-                    messages: MessageBus::new(),
-                    workspace: Workspace::new(gl),
-                    error_dialog: None,
-                })
-            }),
-        );
+    pub fn new() -> Self {
+        Self {
+            messages: MessageBus::new(),
+            workspace: Workspace::new(),
+            error_dialog: None,
+        }
     }
 
-    /*
-    pub fn run(self) {
-        let mut options = NativeOptions::default();
-        options.initial_window_size = Some(Vec2::new(1760.0, 990.0));
-        eframe::run_native("Cadit", options, Box::new(|_cc| Box::new(self)));
+    pub fn on_event(
+        &mut self,
+        event: Event<()>,
+        control_flow: &mut ControlFlow,
+        renderer: &mut VulkanoWindowRenderer,
+        gui: &mut Gui,
+    ) {
+        match event {
+            Event::WindowEvent { event, window_id } if window_id == renderer.window().id() => {
+                let _pass_events = !gui.update(&event);
+                match event {
+                    WindowEvent::Resized(_) => {
+                        renderer.resize();
+                    }
+                    WindowEvent::ScaleFactorChanged { .. } => {
+                        renderer.resize();
+                    }
+                    WindowEvent::CloseRequested => {
+                        *control_flow = ControlFlow::Exit;
+                    }
+                    _ => (),
+                }
+            }
+            Event::RedrawRequested(window_id) if window_id == renderer.window().id() => {
+                gui.immediate_ui(|gui| {
+                    let ctx = &gui.egui_ctx;
+                    egui::TopBottomPanel::top("menu")
+                        .height_range(MENU_HEIGHT..=MENU_HEIGHT)
+                        .show(ctx, |ui| menu::show(ui));
+
+                    egui::TopBottomPanel::bottom("status_bar")
+                        .height_range(STATUS_BAR_HEIGHT..=STATUS_BAR_HEIGHT)
+                        .show(ctx, |ui| status_bar::show(ui));
+
+                    egui::CentralPanel::default().show(ctx, |ui| {
+                        self.workspace.show(ctx, ui, &mut self.messages);
+                    });
+
+                    self.handle_messages();
+                    self.show_dialogs(ctx);
+                });
+
+                let before_future = renderer.acquire().unwrap();
+                let after_future =
+                    gui.draw_on_image(before_future, renderer.swapchain_image_view());
+                renderer.present(after_future, true);
+            }
+            Event::MainEventsCleared => {
+                renderer.window().request_redraw();
+            }
+            _ => (),
+        }
     }
-    */
 
     fn handle_messages(&mut self) {
         while let Some(message) = self.messages.pop() {
@@ -78,7 +118,7 @@ impl CaditUi {
         }
     }
 
-    fn show_dialogs(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn show_dialogs(&mut self, ctx: &egui::Context) {
         if let Some(error_dialog) = self.error_dialog.clone() {
             let err_modal = Modal::new(ctx, "error_modal");
 
@@ -96,23 +136,5 @@ impl CaditUi {
 
             err_modal.open();
         }
-    }
-}
-impl eframe::App for CaditUi {
-    fn update(&mut self, ctx: &eframe::egui::Context, frame: &mut eframe::Frame) {
-        egui::TopBottomPanel::top("menu")
-            .height_range(MENU_HEIGHT..=MENU_HEIGHT)
-            .show(ctx, |ui| menu::show(ui, frame));
-
-        egui::TopBottomPanel::bottom("status_bar")
-            .height_range(STATUS_BAR_HEIGHT..=STATUS_BAR_HEIGHT)
-            .show(ctx, |ui| status_bar::show(ui));
-
-        egui::CentralPanel::default().show(ctx, |ui| {
-            self.workspace.show(ctx, ui, &mut self.messages);
-        });
-
-        self.handle_messages();
-        self.show_dialogs(ctx, frame);
     }
 }

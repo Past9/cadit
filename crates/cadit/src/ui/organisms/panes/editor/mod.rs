@@ -1,3 +1,4 @@
+use egui_winit_vulkano::RenderResources;
 use three_d::Quaternion;
 
 use self::{assembly::AssemblyEditor, part::PartEditor};
@@ -20,9 +21,9 @@ pub struct EditorPane {
     editor: Box<dyn Editor>,
 }
 impl EditorPane {
-    pub fn part(gl: GlowContext) -> Self {
+    pub fn part() -> Self {
         Self {
-            editor: Box::new(PartEditor::new(gl)),
+            editor: Box::new(PartEditor::new()),
         }
     }
 

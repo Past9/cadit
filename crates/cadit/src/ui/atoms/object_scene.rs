@@ -1,5 +1,4 @@
 use super::scene::{ColorId, ColorIdSource, Scene, SceneObjectProps};
-use crate::ui::GlowContext;
 use eframe::{
     egui::{self, PointerButton},
     egui_glow,
@@ -7,6 +6,7 @@ use eframe::{
         mutex::Mutex, pos2, vec2, CircleShape, PaintCallback, Pos2, Rect, Rgba, Shape, Stroke, Vec2,
     },
 };
+use egui_winit_vulkano::{CallbackFn, RenderResources};
 use std::{fmt::Pointer, sync::Arc};
 use three_d::{
     Blend, BlendEquationType, BlendMultiplierType, InnerSpace, Quaternion, Rad, RenderStates,
@@ -41,16 +41,16 @@ pub struct ObjectScene {
 }
 impl ObjectScene {
     pub fn new(
-        gl: GlowContext,
         rotation: Quaternion<f32>,
         position: Vector2<f32>,
         allow_manual_rotate: bool,
         allow_manual_pan: bool,
+        color: [f32; 4],
     ) -> Self {
         let mut id_source = ColorIdSource::new();
 
         Self {
-            scene: Arc::new(Mutex::new(Scene::new(gl.clone(), &mut id_source))),
+            scene: Arc::new(Mutex::new(Scene::new(&mut id_source, color))),
             scene_rect: egui::Rect {
                 min: (0.0, 0.0).into(),
                 max: (0.0, 0.0).into(),
@@ -250,11 +250,9 @@ impl ObjectScene {
                 // Create the paint callback
                 let paint_callback = PaintCallback {
                     rect,
-                    callback: Arc::new(egui_glow::CallbackFn::new(move |info, painter| {
+                    callback: Arc::new(CallbackFn::new(move |info, ctx| {
                         let mut scene = scene.lock();
-                        let context = scene.context();
-                        let frame_input = crate::render::FrameInput::new(context, &info, painter);
-                        scene.render(frame_input, rotation, position);
+                        scene.render(info, ctx, rotation, position);
                     })),
                 };
 

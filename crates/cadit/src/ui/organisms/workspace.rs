@@ -1,5 +1,6 @@
 use eframe::egui::{self, Ui};
 use egui_dock::{DockArea, NodeIndex, StyleBuilder, Tree};
+use egui_winit_vulkano::RenderResources;
 
 use crate::{
     ui::MessageBus,
@@ -25,19 +26,18 @@ impl PaneToAdd {
 }
 
 pub(crate) struct Workspace {
-    gl: GlowContext,
     tree: Tree<PaneView>,
 }
 impl Workspace {
-    pub fn new(gl: GlowContext) -> Self {
-        let mut tree = Tree::new(vec![PaneView::new(EditorPane::part(gl.clone()))]);
+    pub fn new() -> Self {
+        let mut tree = Tree::new(vec![PaneView::new(EditorPane::part())]);
         tree.split_left(
             NodeIndex::root(),
             0.15,
             vec![PaneView::new(FeaturesPane::new())],
         );
 
-        Self { gl, tree }
+        Self { tree }
     }
 
     pub fn show(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, messages: &mut MessageBus) {
@@ -53,7 +53,6 @@ impl Workspace {
             .show(
                 ui.ctx(),
                 &mut PaneViewer {
-                    gl: self.gl.clone(),
                     messages,
                     panes_to_add: &mut panes_to_add,
                 },
@@ -67,7 +66,6 @@ impl Workspace {
 }
 
 struct PaneViewer<'a> {
-    gl: GlowContext,
     messages: &'a mut MessageBus,
     panes_to_add: &'a mut Vec<PaneToAdd>,
 }
@@ -94,7 +92,7 @@ impl<'a> egui_dock::TabViewer for PaneViewer<'a> {
 
         if ui.button("Part editor").clicked() {
             self.panes_to_add
-                .push(PaneToAdd::new(node, EditorPane::part(self.gl.clone())));
+                .push(PaneToAdd::new(node, EditorPane::part()));
         }
 
         if ui.button("Assembly editor").clicked() {

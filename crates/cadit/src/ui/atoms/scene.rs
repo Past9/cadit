@@ -13,17 +13,28 @@ use three_d::{
     DepthTexture, DepthTexture2D, FromCpuMaterial, FxaaEffect, Geometry, Gm, HasContext,
     InnerSpace, Interpolation, Light, Mat3, Mat4, Material, MaterialType, Mesh, PhysicalMaterial,
     Point3, PostMaterial, Program, Quaternion, RenderStates, RenderTarget, RendererError,
-    ScissorBox, Texture2D, Vec2, Vec3, Vector3, Viewport, Wrapping, WriteMask,
+    ScissorBox, Texture2D, Vec2, Vec3, Vector3, Wrapping, WriteMask,
 };
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
+    command_buffer::{
+        AutoCommandBufferBuilder, CommandBufferInheritanceInfo, CommandBufferUsage,
+        SecondaryAutoCommandBuffer,
+    },
+    format::Format,
+    image::{view::ImageView, AttachmentImage, SampleCount},
     pipeline::{
         graphics::{
-            depth_stencil::DepthStencilState, input_assembly::InputAssemblyState,
-            vertex_input::BuffersDefinition, viewport::ViewportState,
+            depth_stencil::{CompareOp, DepthState, DepthStencilState},
+            input_assembly::{InputAssemblyState, PrimitiveTopology},
+            multisample::MultisampleState,
+            rasterization::{CullMode, FrontFace, RasterizationState},
+            vertex_input::BuffersDefinition,
+            viewport::{Viewport, ViewportState},
         },
-        GraphicsPipeline, Pipeline,
+        GraphicsPipeline, Pipeline, StateMode,
     },
+    render_pass::Subpass,
 };
 
 use crate::{
@@ -314,7 +325,9 @@ impl three_d::Object for SceneObject {
 
 pub struct Scene {
     color: [f32; 4],
-    pipeline: Option<Arc<GraphicsPipeline>>,
+    scene_pipeline: Option<Arc<GraphicsPipeline>>,
+    scene_subpass: Option<Subpass>,
+    egui_pipeline: Option<Arc<GraphicsPipeline>>,
     vertex_buffer: Option<Arc<CpuAccessibleBuffer<[Vertex]>>>,
 }
 impl Scene {
@@ -322,15 +335,193 @@ impl Scene {
         // todo
         Self {
             color,
-            pipeline: None,
+            scene_pipeline: None,
+            scene_subpass: None,
+            egui_pipeline: None,
             vertex_buffer: None,
         }
     }
 
-    fn pipeline<'a>(&mut self, resources: &RenderResources<'a>) -> Arc<GraphicsPipeline> {
-        self.pipeline
+    fn scene_pipeline<'a>(&mut self, resources: &RenderResources<'a>) -> Arc<GraphicsPipeline> {
+        self.scene_pipeline
             .get_or_insert_with(|| {
-                println!("Build graphics pipeline");
+                println!("Build scene graphics pipeline");
+
+                /*
+                let render_pass =
+                    vulkano::ordered_passes_renderpass!(resources.queue.device().clone(),
+                        attachments: {
+                            final_color: {
+                                load: Clear,
+                                store: Store,
+                                format: Format::B8G8R8A8_SRGB,
+                                samples: 1,
+                            },
+                            depth: {
+                                load: Clear,
+                                store: DontCare,
+                                format: Format::D16_UNORM,
+                                samples: 1,
+                            }
+                        },
+                        passes: [
+                            {
+                                color: [final_color],
+                                depth_stencil: {depth},
+                                input: []
+                            }
+                        ]
+                    )
+                    .unwrap();
+                    */
+
+                let device = resources.queue.device();
+
+                let msaa_samples = SampleCount::Sample8;
+
+                let render_pass = vulkano::ordered_passes_renderpass!(
+                    resources.queue.device().clone(),
+                    attachments: {
+                        msaa: {
+                            load: Clear,
+                            store: Store,
+                            format: Format::B8G8R8A8_SRGB,
+                            samples: msaa_samples,
+                        },
+                        color: {
+                            load: Clear,
+                            store: Store,
+                            format: Format::B8G8R8A8_SRGB,
+                            samples: 1,
+                        },
+                        depth: {
+                            load: Clear,
+                            store: DontCare,
+                            format: Format::D32_SFLOAT,
+                            samples: msaa_samples,
+                        }
+                    },
+                    passes: [
+                        {
+                            color: [msaa],
+                            depth_stencil: {depth},
+                            input: [],
+                            resolve: [color]
+                        }/*,
+                        {
+                            color: [msaa],
+                            depth_stencil: {depth},
+                            input: [],
+                            resolve: [color]
+                        },
+                        {
+                            color: [msaa],
+                            depth_stencil: {depth},
+                            input: [],
+                            resolve: [color]
+                        }
+                        */
+                    ]
+                )
+                .unwrap();
+
+                /*
+                let depth_buffer = ImageView::new_default(
+                    AttachmentImage::transient_input_attachment(
+                        &resources.memory_allocator,
+                        [1, 1],
+                        Format::D16_UNORM,
+                    )
+                    .unwrap(),
+                )
+                .unwrap();
+                */
+
+                let vs = vs::load(device.clone()).expect("failed to create shader module");
+                let fs = fs::load(device.clone()).expect("failed to create shader module");
+
+                let scene_subpass = Subpass::from(render_pass.clone(), 0).unwrap();
+
+                self.scene_subpass = Some(scene_subpass.clone());
+
+                println!("Subpass num samples {:?}", scene_subpass.num_samples());
+
+                let pipeline = GraphicsPipeline::start()
+                    .vertex_input_state(BuffersDefinition::new().vertex::<Vertex>())
+                    .vertex_shader(vs.entry_point("main").unwrap(), ())
+                    .input_assembly_state(
+                        InputAssemblyState::new().topology(PrimitiveTopology::TriangleList),
+                    )
+                    .rasterization_state(RasterizationState {
+                        front_face: StateMode::Fixed(FrontFace::Clockwise),
+                        cull_mode: StateMode::Fixed(CullMode::None),
+                        ..RasterizationState::default()
+                    })
+                    .multisample_state(MultisampleState {
+                        rasterization_samples: msaa_samples,
+                        ..Default::default()
+                    })
+                    .depth_stencil_state(DepthStencilState {
+                        depth: Some(DepthState {
+                            enable_dynamic: false,
+                            write_enable: StateMode::Fixed(true),
+                            compare_op: StateMode::Fixed(CompareOp::Greater),
+                        }),
+                        ..DepthStencilState::default()
+                    })
+                    //.viewport_state(ViewportState::viewport_dynamic_scissor_dynamic(1))
+                    .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
+                    .fragment_shader(fs.entry_point("main").unwrap(), ())
+                    .render_pass(scene_subpass.clone())
+                    .build(device.clone())
+                    .unwrap();
+
+                pipeline
+            })
+            .clone()
+    }
+
+    fn render_scene<'a>(
+        &mut self,
+        viewport_dimensions: [u32; 2],
+        resources: &RenderResources<'a>,
+    ) -> SecondaryAutoCommandBuffer {
+        let vertex_buffer = self.vertex_buffer(resources);
+        let pipeline = self.scene_pipeline(resources);
+        let subpass = self.scene_subpass.clone().unwrap();
+
+        let mut builder = AutoCommandBufferBuilder::secondary(
+            resources.command_buffer_allocator,
+            resources.queue.queue_family_index(),
+            CommandBufferUsage::MultipleSubmit,
+            CommandBufferInheritanceInfo {
+                render_pass: Some(subpass.clone().into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        builder
+            .bind_pipeline_graphics(pipeline)
+            .set_viewport(
+                0,
+                [Viewport {
+                    origin: [0.0, 0.0],
+                    dimensions: [viewport_dimensions[0] as f32, viewport_dimensions[1] as f32],
+                    depth_range: 0.0..1.0,
+                }],
+            )
+            .bind_vertex_buffers(0, vertex_buffer.clone())
+            .draw(vertex_buffer.len() as u32, 1, 0, 0)
+            .unwrap();
+
+        builder.build().unwrap()
+    }
+
+    fn egui_pipeline<'a>(&mut self, resources: &RenderResources<'a>) -> Arc<GraphicsPipeline> {
+        self.egui_pipeline
+            .get_or_insert_with(|| {
+                println!("Build egui graphics pipeline");
 
                 let vs = vs::load(resources.queue.device().clone())
                     .expect("failed to create shader module");
@@ -415,14 +606,21 @@ impl Scene {
         model_rotation: Quaternion<f32>,
         camera_position: Vec2,
     ) {
-        let pipeline = self.pipeline(&ctx.resources);
-        let vertex_buffer = self.vertex_buffer(&ctx.resources);
+        self.render_scene(
+            [info.viewport.width() as u32, info.viewport.height() as u32],
+            &ctx.resources,
+        );
 
+        //let pipeline = self.egui_pipeline(&ctx.resources);
+        //let vertex_buffer = self.vertex_buffer(&ctx.resources);
+
+        /*
         ctx.builder
             .bind_pipeline_graphics(pipeline)
             .bind_vertex_buffers(0, vertex_buffer.clone())
             .draw(vertex_buffer.len() as u32, 1, 0, 0)
             .unwrap();
+            */
     }
 }
 

@@ -372,7 +372,11 @@ impl Scene {
 
     pub(crate) fn hover_object(&mut self, id: Option<ColorId>) {
         self.objects.iter_mut().for_each(|obj| {
-            obj.hovered = if let Some(id) = id && id == obj.id && obj.hoverable { true } else { false };
+            obj.hovered = if let Some(id) = id {
+                id == obj.id && obj.hoverable
+            } else {
+                false
+            };
         });
     }
 

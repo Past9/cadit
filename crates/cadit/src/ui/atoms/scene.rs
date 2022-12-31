@@ -37,7 +37,7 @@ use vulkano::{
             rasterization::{CullMode, FrontFace, RasterizationState},
             render_pass,
             vertex_input::BuffersDefinition,
-            viewport::{Viewport, ViewportState},
+            viewport::{Scissor, Viewport, ViewportState},
         },
         GraphicsPipeline, Pipeline, PipelineBindPoint, StateMode,
     },
@@ -529,7 +529,6 @@ impl Scene {
                 }),
                 ..DepthStencilState::default()
             })
-            //.viewport_state(ViewportState::viewport_dynamic_scissor_dynamic(1))
             .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
             .fragment_shader(fs.entry_point("main").unwrap(), ())
             .render_pass(scene_subpass.clone())
@@ -556,8 +555,8 @@ impl Scene {
     }
 
     fn update_viewport<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>) {
-        let sf = info.pixels_per_point;
-        let dimensions = [info.viewport.width() * sf, info.viewport.height() * sf];
+        let vp = info.viewport_in_pixels();
+        let dimensions = [vp.width_px, vp.height_px];
         if dimensions != self.scene_viewport.dimensions {
             self.scene_viewport.dimensions = dimensions;
             self.scene_images = SceneImages::new(
@@ -580,6 +579,8 @@ impl Scene {
         )
         .unwrap();
 
+        let vp = info.clip_rect_in_pixels();
+
         scene_builder
             .begin_render_pass(
                 RenderPassBeginInfo {
@@ -590,6 +591,14 @@ impl Scene {
             )
             .unwrap()
             .set_viewport(0, [self.scene_viewport.clone()])
+            .set_scissor(
+                0,
+                [Scissor {
+                    //origin: [vp.left_px as u32, vp.top_px as u32],
+                    origin: [0, 0],
+                    dimensions: [vp.width_px as u32, vp.height_px as u32],
+                }],
+            )
             .bind_pipeline_graphics(self.scene_pipeline.clone())
             .bind_vertex_buffers(0, self.scene_vertex_buffer.clone())
             .draw(self.scene_vertex_buffer.len() as u32, 1, 0, 0)
@@ -605,35 +614,6 @@ impl Scene {
             .unwrap()
             .wait(None)
             .unwrap();
-
-        /*
-               let mut builder = AutoCommandBufferBuilder::secondary(
-            resources.command_buffer_allocator,
-            resources.queue.queue_family_index(),
-            CommandBufferUsage::MultipleSubmit,
-            CommandBufferInheritanceInfo {
-                render_pass: Some(self.scene_subpass.clone().into()),
-                ..Default::default()
-            },
-        )
-        .unwrap();
-
-        builder
-            .bind_pipeline_graphics(pipeline)
-            .set_viewport(
-                0,
-                [Viewport {
-                    origin: [0.0, 0.0],
-                    dimensions: [viewport_dimensions[0] as f32, viewport_dimensions[1] as f32],
-                    depth_range: 0.0..1.0,
-                }],
-            )
-            .bind_vertex_buffers(0, vertex_buffer.clone())
-            .draw(vertex_buffer.len() as u32, 1, 0, 0)
-            .unwrap();
-
-        builder.build().unwrap()
-        */
     }
 
     pub(crate) fn render(
@@ -644,21 +624,6 @@ impl Scene {
         camera_position: Vec2,
     ) {
         self.render_scene(info, &ctx.resources);
-
-        //let pipeline = self.egui_pipeline(&ctx.resources);
-        //let vertex_buffer = self.vertex_buffer(&ctx.resources);
-
-        /*
-        RenderingAttachmentInfo {
-            image_view: todo!(),
-            image_layout: todo!(),
-            resolve_info: todo!(),
-            load_op: todo!(),
-            store_op: todo!(),
-            clear_value: todo!(),
-            _ne: todo!(),
-        };
-        */
 
         let vertex_buffer = CpuAccessibleBuffer::from_iter(
             &ctx.resources.memory_allocator,
@@ -736,8 +701,20 @@ impl Scene {
         )
         .unwrap();
 
+        let vp = info.clip_rect_in_pixels();
+
+        println!("CRIP {} {}", vp.left_px, vp.top_px);
+
         ctx.builder
             .bind_pipeline_graphics(pipeline.clone())
+            .set_scissor(
+                0,
+                [Scissor {
+                    //origin: [vp.left_px as u32, vp.top_px as u32],
+                    origin: [vp.left_px as u32, vp.top_px as u32],
+                    dimensions: [vp.width_px as u32, vp.height_px as u32],
+                }],
+            )
             .bind_descriptor_sets(
                 PipelineBindPoint::Graphics,
                 pipeline.layout().clone(),
@@ -753,30 +730,7 @@ impl Scene {
             )
             .bind_vertex_buffers(0, vertex_buffer.clone())
             .draw(vertex_buffer.len() as u32, 1, 0, 0)
-            /*
-            .begin_rendering(RenderingInfo {
-                //render_area_offset: todo!(),
-                //render_area_extent: todo!(),
-                //layer_count: todo!(),
-                //view_mask: todo!(),
-                color_attachments: vec![Some(RenderingAttachmentInfo::image_view(
-                    self.scene_images.view.clone(),
-                ))],
-                //depth_attachment: todo!(),
-                //stencil_attachment: todo!(),
-                //contents: todo!(),
-                ..Default::default()
-            })
-            */
             .unwrap();
-
-        /*
-        ctx.builder
-            .bind_pipeline_graphics(pipeline)
-            .bind_vertex_buffers(0, vertex_buffer.clone())
-            .draw(vertex_buffer.len() as u32, 1, 0, 0)
-            .unwrap();
-            */
     }
 
     /*
@@ -973,6 +927,7 @@ void main() {
     // Load the value at the current pixel.
     vec3 in_diffuse = subpassLoad(u_diffuse).rgb;
     f_color.rgb = in_diffuse; //push_constants.color.rgb * in_diffuse;
+    f_color.g = 1.0;
     f_color.a = 1.0;
     //f_color = vec4(1.0, 1.0, 1.0, 1.0);
 }",

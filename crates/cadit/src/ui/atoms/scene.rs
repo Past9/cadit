@@ -18,17 +18,19 @@ use three_d::{
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
     command_buffer::{
-        AutoCommandBufferBuilder, CommandBufferInheritanceInfo, CommandBufferUsage,
-        PrimaryCommandBufferAbstract, RenderPassBeginInfo, SecondaryAutoCommandBuffer,
-        SubpassContents,
+        AutoCommandBufferBuilder, BlitImageInfo, CommandBufferInheritanceInfo, CommandBufferUsage,
+        CopyImageInfo, PrimaryCommandBufferAbstract, RenderPassBeginInfo, RenderingAttachmentInfo,
+        RenderingInfo, SecondaryAutoCommandBuffer, SubpassContents,
     },
+    descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet},
     format::Format,
     image::{
-        view::ImageView, AttachmentImage, ImageDimensions, ImageUsage, SampleCount, SampleCounts,
-        StorageImage, SwapchainImage,
+        view::ImageView, AttachmentImage, ImageAccess, ImageDimensions, ImageLayout, ImageUsage,
+        ImageViewAbstract, SampleCount, SampleCounts, StorageImage, SwapchainImage,
     },
     pipeline::{
         graphics::{
+            color_blend::{AttachmentBlend, BlendFactor, BlendOp, ColorBlendState},
             depth_stencil::{CompareOp, DepthState, DepthStencilState},
             input_assembly::{InputAssemblyState, PrimitiveTopology},
             multisample::MultisampleState,
@@ -37,7 +39,7 @@ use vulkano::{
             vertex_input::BuffersDefinition,
             viewport::{Viewport, ViewportState},
         },
-        GraphicsPipeline, Pipeline, StateMode,
+        GraphicsPipeline, Pipeline, PipelineBindPoint, StateMode,
     },
     render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass},
     sync::GpuFuture,
@@ -47,6 +49,8 @@ use crate::{
     error::CaditResult,
     render::{FrameInput, Palette, PhysicalMaterialOverride},
 };
+
+use self::egui_fs::ty::PushConstants;
 
 use super::camera::{CameraMode, CameraProps};
 
@@ -329,7 +333,7 @@ impl three_d::Object for SceneObject {
     }
 }
 
-const MSAA_SAMPLES: SampleCount = SampleCount::Sample8;
+const MSAA_SAMPLES: SampleCount = SampleCount::Sample2;
 const IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
 
 pub struct DeferredScene {
@@ -409,7 +413,7 @@ pub struct Scene {
     scene_pipeline: Arc<GraphicsPipeline>,
     scene_subpass: Subpass,
     scene_viewport: Viewport,
-    scene_vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
+    scene_vertex_buffer: Arc<CpuAccessibleBuffer<[SceneVertex]>>,
     scene_images: SceneImages,
     //egui_pipeline: Option<Arc<GraphicsPipeline>>,
 }
@@ -461,17 +465,35 @@ impl Scene {
             },
             false,
             [
-                Vertex {
-                    position: [-0.5, -0.25],
-                    color: color, //[1.0, 0.0, 0.0, 1.0],
+                SceneVertex {
+                    position: [-0.98, -0.98],
+                    //color: color, //[1.0, 0.0, 0.0, 1.0],
+                    color: [1.0, 0.0, 0.0, 1.0],
                 },
-                Vertex {
-                    position: [0.0, 0.5],
-                    color: color, //[0.0, 1.0, 0.0, 1.0],
+                SceneVertex {
+                    position: [-0.98, 0.98],
+                    //color: color, //[0.0, 1.0, 0.0, 1.0],
+                    color: [0.0, 1.0, 0.0, 1.0],
                 },
-                Vertex {
-                    position: [0.25, -0.1],
-                    color: color, //[0.0, 0.0, 1.0, 1.0],
+                SceneVertex {
+                    position: [0.98, -0.98],
+                    //color: color, //[0.0, 0.0, 1.0, 1.0],
+                    color: [0.0, 0.0, 1.0, 1.0],
+                },
+                SceneVertex {
+                    position: [0.98, -0.98],
+                    //color: color, //[0.0, 0.0, 1.0, 1.0],
+                    color: [0.0, 0.0, 1.0, 1.0],
+                },
+                SceneVertex {
+                    position: [-0.98, 0.98],
+                    //color: color, //[0.0, 1.0, 0.0, 1.0],
+                    color: [0.0, 1.0, 0.0, 1.0],
+                },
+                SceneVertex {
+                    position: [0.98, 0.98],
+                    //color: color, //[1.0, 0.0, 0.0, 1.0],
+                    color: [1.0, 0.0, 0.0, 1.0],
                 },
             ]
             .iter()
@@ -485,13 +507,13 @@ impl Scene {
         let fs = fs::load(device.clone()).unwrap();
 
         let scene_pipeline = GraphicsPipeline::start()
-            .vertex_input_state(BuffersDefinition::new().vertex::<Vertex>())
+            .vertex_input_state(BuffersDefinition::new().vertex::<SceneVertex>())
             .vertex_shader(vs.entry_point("main").unwrap(), ())
             .input_assembly_state(
                 InputAssemblyState::new().topology(PrimitiveTopology::TriangleList),
             )
             .rasterization_state(RasterizationState {
-                front_face: StateMode::Fixed(FrontFace::Clockwise),
+                front_face: StateMode::Fixed(FrontFace::CounterClockwise),
                 cull_mode: StateMode::Fixed(CullMode::None),
                 ..RasterizationState::default()
             })
@@ -560,7 +582,7 @@ impl Scene {
         scene_builder
             .begin_render_pass(
                 RenderPassBeginInfo {
-                    clear_values: vec![Some([0.0, 0.0, 1.0, 1.0].into()), None],
+                    clear_values: vec![Some([0.0, 0.0, 0.15, 1.0].into()), None],
                     ..RenderPassBeginInfo::framebuffer(self.scene_images.framebuffer.clone())
                 },
                 SubpassContents::Inline,
@@ -676,6 +698,128 @@ impl Scene {
         //let vertex_buffer = self.vertex_buffer(&ctx.resources);
 
         /*
+        RenderingAttachmentInfo {
+            image_view: todo!(),
+            image_layout: todo!(),
+            resolve_info: todo!(),
+            load_op: todo!(),
+            store_op: todo!(),
+            clear_value: todo!(),
+            _ne: todo!(),
+        };
+        */
+
+        let vertex_buffer = CpuAccessibleBuffer::from_iter(
+            &ctx.resources.memory_allocator,
+            BufferUsage {
+                vertex_buffer: true,
+                ..Default::default()
+            },
+            false,
+            [
+                EguiVertex {
+                    position: [-1.0, -1.0],
+                },
+                EguiVertex {
+                    position: [-1.0, 1.0],
+                },
+                EguiVertex {
+                    position: [1.0, -1.0],
+                },
+                EguiVertex {
+                    position: [1.0, -1.0],
+                },
+                EguiVertex {
+                    position: [-1.0, 1.0],
+                },
+                EguiVertex {
+                    position: [1.0, 1.0],
+                },
+            ],
+        )
+        .unwrap();
+
+        let pipeline = {
+            let queue = ctx.resources.queue.clone();
+            let subpass = ctx.resources.subpass.clone();
+
+            let egui_vs =
+                egui_vs::load(queue.device().clone()).expect("failed to create shader module");
+            let egui_fs =
+                egui_fs::load(queue.device().clone()).expect("failed to create shader module");
+
+            GraphicsPipeline::start()
+                .vertex_input_state(BuffersDefinition::new().vertex::<EguiVertex>())
+                .vertex_shader(egui_vs.entry_point("main").unwrap(), ())
+                .input_assembly_state(InputAssemblyState::new())
+                .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
+                .fragment_shader(egui_fs.entry_point("main").unwrap(), ())
+                .rasterization_state(RasterizationState {
+                    front_face: StateMode::Fixed(FrontFace::CounterClockwise),
+                    cull_mode: StateMode::Fixed(CullMode::None),
+                    ..Default::default()
+                })
+                .color_blend_state(ColorBlendState::new(subpass.num_color_attachments()).blend(
+                    AttachmentBlend {
+                        color_op: BlendOp::Add,
+                        color_source: BlendFactor::One,
+                        color_destination: BlendFactor::One,
+                        alpha_op: BlendOp::Max,
+                        alpha_source: BlendFactor::One,
+                        alpha_destination: BlendFactor::One,
+                    },
+                ))
+                .render_pass(subpass.clone())
+                .build(queue.device().clone())
+                .unwrap()
+        };
+
+        let access = self.scene_images.view.clone() as Arc<dyn ImageViewAbstract>;
+
+        let layout = pipeline.layout().set_layouts().get(0).unwrap();
+
+        let descriptor_set = PersistentDescriptorSet::new(
+            ctx.resources.descriptor_set_allocator,
+            layout.clone(),
+            [WriteDescriptorSet::image_view(0, access)],
+        )
+        .unwrap();
+
+        ctx.builder
+            .bind_pipeline_graphics(pipeline.clone())
+            .bind_descriptor_sets(
+                PipelineBindPoint::Graphics,
+                pipeline.layout().clone(),
+                0,
+                descriptor_set,
+            )
+            .push_constants(
+                pipeline.layout().clone(),
+                0,
+                PushConstants {
+                    color: [1.0, 0.0, 0.0, 1.0],
+                },
+            )
+            .bind_vertex_buffers(0, vertex_buffer.clone())
+            .draw(vertex_buffer.len() as u32, 1, 0, 0)
+            /*
+            .begin_rendering(RenderingInfo {
+                //render_area_offset: todo!(),
+                //render_area_extent: todo!(),
+                //layer_count: todo!(),
+                //view_mask: todo!(),
+                color_attachments: vec![Some(RenderingAttachmentInfo::image_view(
+                    self.scene_images.view.clone(),
+                ))],
+                //depth_attachment: todo!(),
+                //stencil_attachment: todo!(),
+                //contents: todo!(),
+                ..Default::default()
+            })
+            */
+            .unwrap();
+
+        /*
         ctx.builder
             .bind_pipeline_graphics(pipeline)
             .bind_vertex_buffers(0, vertex_buffer.clone())
@@ -750,11 +894,11 @@ impl SceneImages {
 
 #[repr(C)]
 #[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
-struct Vertex {
+struct SceneVertex {
     position: [f32; 2],
     color: [f32; 4],
 }
-vulkano::impl_vertex!(Vertex, position, color);
+vulkano::impl_vertex!(SceneVertex, position, color);
 
 mod vs {
     vulkano_shaders::shader! {
@@ -784,6 +928,58 @@ layout(location = 0) out vec4 f_color;
 void main() {
     f_color = v_color;
 }"
+    }
+}
+
+#[repr(C)]
+#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
+struct EguiVertex {
+    position: [f32; 2],
+}
+vulkano::impl_vertex!(EguiVertex, position);
+
+mod egui_vs {
+    vulkano_shaders::shader! {
+        ty: "vertex",
+        src: "
+#version 450
+
+layout(location = 0) in vec2 position;
+
+void main() {
+    gl_Position = vec4(position, 0.0, 1.0);
+}"
+    }
+}
+
+mod egui_fs {
+    vulkano_shaders::shader! {
+        ty: "fragment",
+        src: "
+#version 450
+
+// The `color_input` parameter of the `draw` method.
+layout(input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput u_diffuse;
+
+layout(push_constant) uniform PushConstants {
+    // The `ambient_color` parameter of the `draw` method.
+    vec4 color;
+} push_constants;
+
+layout(location = 0) out vec4 f_color;
+
+void main() {
+    // Load the value at the current pixel.
+    vec3 in_diffuse = subpassLoad(u_diffuse).rgb;
+    f_color.rgb = in_diffuse; //push_constants.color.rgb * in_diffuse;
+    f_color.a = 1.0;
+    //f_color = vec4(1.0, 1.0, 1.0, 1.0);
+}",
+        types_meta: {
+            use bytemuck::{Pod, Zeroable};
+
+            #[derive(Clone, Copy, Zeroable, Pod)]
+        },
     }
 }
 

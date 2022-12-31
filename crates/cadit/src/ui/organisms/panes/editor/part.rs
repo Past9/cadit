@@ -22,7 +22,7 @@ impl PartEditor {
         let rotation = gizmo.rotation();
         Self {
             gizmo,
-            scene: ObjectScene::new(rotation, vec2(0.0, 0.0), true, true, [0.0, 0.0, 1.0, 1.0]),
+            scene: ObjectScene::new(rotation, vec2(0.0, 0.0), true, true, [0.0, 1.0, 0.0, 1.0]),
         }
     }
 }

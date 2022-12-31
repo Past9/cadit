@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 use egui_winit_vulkano::Gui;
 use ui::CaditUi;
+use vulkano::device::Features;
 use vulkano_util::{
     context::{VulkanoConfig, VulkanoContext},
     window::{VulkanoWindows, WindowDescriptor},
@@ -13,7 +14,13 @@ mod ui;
 
 fn main() {
     let event_loop = EventLoop::new();
-    let context = VulkanoContext::new(VulkanoConfig::default());
+    let context = VulkanoContext::new(VulkanoConfig {
+        device_features: Features {
+            dynamic_rendering: true,
+            ..Default::default()
+        },
+        ..Default::default()
+    });
     let mut windows = VulkanoWindows::default();
     windows.create_window(
         &event_loop,

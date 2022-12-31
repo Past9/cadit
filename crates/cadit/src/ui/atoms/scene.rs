@@ -333,7 +333,7 @@ impl three_d::Object for SceneObject {
     }
 }
 
-const MSAA_SAMPLES: SampleCount = SampleCount::Sample2;
+const MSAA_SAMPLES: SampleCount = SampleCount::Sample8;
 const IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
 
 pub struct DeferredScene {
@@ -408,7 +408,7 @@ impl DeferredScene {
 
 pub struct Scene {
     color: [f32; 4],
-    scene_dimensions: [f32; 2],
+    //scene_dimensions: [f32; 2],
     scene_render_pass: Arc<RenderPass>,
     scene_pipeline: Arc<GraphicsPipeline>,
     scene_subpass: Subpass,
@@ -473,25 +473,25 @@ impl Scene {
                 SceneVertex {
                     position: [-0.98, 0.98],
                     //color: color, //[0.0, 1.0, 0.0, 1.0],
-                    color: [0.0, 1.0, 0.0, 1.0],
+                    color: [1.0, 0.0, 0.0, 1.0],
                 },
                 SceneVertex {
                     position: [0.98, -0.98],
                     //color: color, //[0.0, 0.0, 1.0, 1.0],
-                    color: [0.0, 0.0, 1.0, 1.0],
+                    color: [1.0, 0.0, 0.0, 1.0],
                 },
                 SceneVertex {
                     position: [0.98, -0.98],
                     //color: color, //[0.0, 0.0, 1.0, 1.0],
-                    color: [0.0, 0.0, 1.0, 1.0],
+                    color: [1.0, 0.0, 0.0, 1.0],
                 },
                 SceneVertex {
                     position: [-0.98, 0.98],
                     //color: color, //[0.0, 1.0, 0.0, 1.0],
-                    color: [0.0, 1.0, 0.0, 1.0],
+                    color: [1.0, 0.0, 0.0, 1.0],
                 },
                 SceneVertex {
-                    position: [0.98, 0.98],
+                    position: [0.8, 0.9],
                     //color: color, //[1.0, 0.0, 0.0, 1.0],
                     color: [1.0, 0.0, 0.0, 1.0],
                 },
@@ -544,7 +544,7 @@ impl Scene {
 
         Self {
             color,
-            scene_dimensions,
+            //scene_dimensions,
             scene_render_pass,
             scene_pipeline,
             scene_subpass,
@@ -556,9 +556,10 @@ impl Scene {
     }
 
     fn update_viewport<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>) {
-        let dimensions = [info.viewport.width(), info.viewport.height()];
-        if dimensions != self.scene_dimensions {
-            self.scene_dimensions = dimensions;
+        let sf = info.pixels_per_point;
+        let dimensions = [info.viewport.width() * sf, info.viewport.height() * sf];
+        if dimensions != self.scene_viewport.dimensions {
+            self.scene_viewport.dimensions = dimensions;
             self.scene_images = SceneImages::new(
                 self.scene_render_pass.clone(),
                 resources,
@@ -635,56 +636,6 @@ impl Scene {
         */
     }
 
-    /*
-    fn egui_pipeline<'a>(&mut self, resources: &RenderResources<'a>) -> Arc<GraphicsPipeline> {
-        self.egui_pipeline
-            .get_or_insert_with(|| {
-                println!("Build egui graphics pipeline");
-
-                let vs = vs::load(resources.queue.device().clone())
-                    .expect("failed to create shader module");
-                let fs = fs::load(resources.queue.device().clone())
-                    .expect("failed to create shader module");
-
-                let pipeline = GraphicsPipeline::start()
-                    .vertex_input_state(BuffersDefinition::new().vertex::<Vertex>())
-                    .vertex_shader(vs.entry_point("main").unwrap(), ())
-                    .input_assembly_state(InputAssemblyState::new())
-                    .fragment_shader(fs.entry_point("main").unwrap(), ())
-                    .viewport_state(ViewportState::viewport_dynamic_scissor_dynamic(1))
-                    .depth_stencil_state(DepthStencilState::simple_depth_test())
-                    .render_pass(resources.subpass.clone())
-                    .build(resources.queue.device().clone())
-                    .unwrap();
-
-                pipeline
-            })
-            .clone()
-    }
-    */
-
-    pub(crate) fn read_color_id(&mut self, pos: Pos2) -> Option<ColorId> {
-        // todo
-        None
-    }
-
-    pub(crate) fn hover_object(&mut self, id: Option<ColorId>) {
-        // todo
-    }
-
-    pub(crate) fn toggle_select_object(&mut self, id: Option<ColorId>, exclusive: bool) {
-        // todo
-    }
-
-    pub(crate) fn get_object(&mut self, id: Option<ColorId>) -> Option<&SceneObject> {
-        // todo
-        None
-    }
-
-    pub(crate) fn deselect_all_objects(&mut self) {
-        // todo
-    }
-
     pub(crate) fn render(
         &mut self,
         info: &PaintCallbackInfo,
@@ -752,7 +703,7 @@ impl Scene {
                 .vertex_input_state(BuffersDefinition::new().vertex::<EguiVertex>())
                 .vertex_shader(egui_vs.entry_point("main").unwrap(), ())
                 .input_assembly_state(InputAssemblyState::new())
-                .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
+                .viewport_state(ViewportState::viewport_dynamic_scissor_dynamic(1))
                 .fragment_shader(egui_fs.entry_point("main").unwrap(), ())
                 .rasterization_state(RasterizationState {
                     front_face: StateMode::Fixed(FrontFace::CounterClockwise),
@@ -826,6 +777,56 @@ impl Scene {
             .draw(vertex_buffer.len() as u32, 1, 0, 0)
             .unwrap();
             */
+    }
+
+    /*
+    fn egui_pipeline<'a>(&mut self, resources: &RenderResources<'a>) -> Arc<GraphicsPipeline> {
+        self.egui_pipeline
+            .get_or_insert_with(|| {
+                println!("Build egui graphics pipeline");
+
+                let vs = vs::load(resources.queue.device().clone())
+                    .expect("failed to create shader module");
+                let fs = fs::load(resources.queue.device().clone())
+                    .expect("failed to create shader module");
+
+                let pipeline = GraphicsPipeline::start()
+                    .vertex_input_state(BuffersDefinition::new().vertex::<Vertex>())
+                    .vertex_shader(vs.entry_point("main").unwrap(), ())
+                    .input_assembly_state(InputAssemblyState::new())
+                    .fragment_shader(fs.entry_point("main").unwrap(), ())
+                    .viewport_state(ViewportState::viewport_dynamic_scissor_dynamic(1))
+                    .depth_stencil_state(DepthStencilState::simple_depth_test())
+                    .render_pass(resources.subpass.clone())
+                    .build(resources.queue.device().clone())
+                    .unwrap();
+
+                pipeline
+            })
+            .clone()
+    }
+    */
+
+    pub(crate) fn read_color_id(&mut self, pos: Pos2) -> Option<ColorId> {
+        // todo
+        None
+    }
+
+    pub(crate) fn hover_object(&mut self, id: Option<ColorId>) {
+        // todo
+    }
+
+    pub(crate) fn toggle_select_object(&mut self, id: Option<ColorId>, exclusive: bool) {
+        // todo
+    }
+
+    pub(crate) fn get_object(&mut self, id: Option<ColorId>) -> Option<&SceneObject> {
+        // todo
+        None
+    }
+
+    pub(crate) fn deselect_all_objects(&mut self) {
+        // todo
     }
 }
 

@@ -22,7 +22,9 @@ use vulkano::{
         SecondaryAutoCommandBuffer,
     },
     format::Format,
-    image::{view::ImageView, AttachmentImage, SampleCount},
+    image::{
+        view::ImageView, AttachmentImage, ImageUsage, SampleCount, SampleCounts, SwapchainImage,
+    },
     pipeline::{
         graphics::{
             depth_stencil::{CompareOp, DepthState, DepthStencilState},
@@ -34,7 +36,7 @@ use vulkano::{
         },
         GraphicsPipeline, Pipeline, StateMode,
     },
-    render_pass::Subpass,
+    render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass},
 };
 
 use crate::{
@@ -323,6 +325,9 @@ impl three_d::Object for SceneObject {
     }
 }
 
+const MSAA_SAMPLES: SampleCount = SampleCount::Sample8;
+const IMAGE_FORMAT: Format = Format::B8G8R8A8_SRGB;
+
 pub struct Scene {
     color: [f32; 4],
     scene_pipeline: Option<Arc<GraphicsPipeline>>,
@@ -377,28 +382,26 @@ impl Scene {
 
                 let device = resources.queue.device();
 
-                let msaa_samples = SampleCount::Sample8;
-
                 let render_pass = vulkano::ordered_passes_renderpass!(
                     resources.queue.device().clone(),
                     attachments: {
                         msaa: {
                             load: Clear,
                             store: Store,
-                            format: Format::B8G8R8A8_SRGB,
-                            samples: msaa_samples,
+                            format: IMAGE_FORMAT,
+                            samples: MSAA_SAMPLES,
                         },
                         color: {
                             load: Clear,
                             store: Store,
-                            format: Format::B8G8R8A8_SRGB,
+                            format: IMAGE_FORMAT,
                             samples: 1,
                         },
                         depth: {
                             load: Clear,
                             store: DontCare,
                             format: Format::D32_SFLOAT,
-                            samples: msaa_samples,
+                            samples: MSAA_SAMPLES,
                         }
                     },
                     passes: [
@@ -458,7 +461,7 @@ impl Scene {
                         ..RasterizationState::default()
                     })
                     .multisample_state(MultisampleState {
-                        rasterization_samples: msaa_samples,
+                        rasterization_samples: MSAA_SAMPLES,
                         ..Default::default()
                     })
                     .depth_stencil_state(DepthStencilState {
@@ -479,6 +482,54 @@ impl Scene {
                 pipeline
             })
             .clone()
+    }
+
+    fn build_framebuffers(
+        resources: &RenderResources,
+        image_format: Format,
+        images: &[Arc<SwapchainImage>],
+        render_pass: Arc<RenderPass>,
+        viewport: &mut Viewport,
+        dimensions: [u32; 2],
+    ) -> Vec<Arc<Framebuffer>> {
+        let msaa_attachment = ImageView::new_default(
+            AttachmentImage::transient_multisampled(
+                &resources.memory_allocator,
+                dimensions,
+                MSAA_SAMPLES,
+                IMAGE_FORMAT,
+            )
+            .unwrap(),
+        )
+        .unwrap();
+
+        let depth_attachment = ImageView::new_default(
+            AttachmentImage::multisampled_with_usage(
+                &resources.memory_allocator,
+                dimensions,
+                MSAA_SAMPLES,
+                IMAGE_FORMAT,
+                ImageUsage {
+                    depth_stencil_attachment: true,
+                    transient_attachment: true,
+                    ..Default::default()
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+
+        let view = ImageView::new_default
+        let framebuffer = Framebuffer::new(
+            render_pass.clone(),
+            FramebufferCreateInfo {
+                attachments: vec![msaa_attachment.clone(), view, depth_attachment.clone()],
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        todo!()
     }
 
     fn render_scene<'a>(

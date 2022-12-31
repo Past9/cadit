@@ -1,9 +1,11 @@
-use super::scene::{ColorId, ColorIdSource, Scene, SceneObjectProps};
+use super::scene::{ColorId, ColorIdSource, DeferredScene, Scene, SceneObjectProps};
 use eframe::{
     egui::{self, PointerButton},
     egui_glow,
     epaint::{
-        mutex::Mutex, pos2, vec2, CircleShape, PaintCallback, Pos2, Rect, Rgba, Shape, Stroke, Vec2,
+        mutex::{Mutex, MutexGuard},
+        pos2, vec2, CircleShape, PaintCallback, PaintCallbackInfo, Pos2, Rect, Rgba, Shape, Stroke,
+        Vec2,
     },
 };
 use egui_winit_vulkano::{CallbackFn, RenderResources};
@@ -28,9 +30,8 @@ pub struct PointerButtonDown {
 }
 
 pub struct ObjectScene {
-    scene: Arc<Mutex<Scene>>,
+    scene: Arc<Mutex<DeferredScene>>,
     scene_rect: egui::Rect,
-    id_source: ColorIdSource,
     rotation: Quaternion<f32>,
     position: Vector2<f32>,
     pointer_buttons_down: Vec<PointerButtonDown>,
@@ -38,6 +39,7 @@ pub struct ObjectScene {
     rotated: bool,
     allow_manual_rotate: bool,
     allow_manual_pan: bool,
+    color: [f32; 4],
 }
 impl ObjectScene {
     pub fn new(
@@ -47,15 +49,13 @@ impl ObjectScene {
         allow_manual_pan: bool,
         color: [f32; 4],
     ) -> Self {
-        let mut id_source = ColorIdSource::new();
-
+        let id_source = ColorIdSource::new();
         Self {
-            scene: Arc::new(Mutex::new(Scene::new(&mut id_source, color))),
+            scene: Arc::new(Mutex::new(DeferredScene::empty(id_source, color))),
             scene_rect: egui::Rect {
                 min: (0.0, 0.0).into(),
                 max: (0.0, 0.0).into(),
             },
-            id_source,
             rotation,
             position,
             pointer_buttons_down: Vec::new(),
@@ -63,6 +63,7 @@ impl ObjectScene {
             rotated: false,
             allow_manual_rotate,
             allow_manual_pan,
+            color,
         }
     }
 
@@ -251,8 +252,9 @@ impl ObjectScene {
                 let paint_callback = PaintCallback {
                     rect,
                     callback: Arc::new(CallbackFn::new(move |info, ctx| {
-                        let mut scene = scene.lock();
-                        scene.render(info, ctx, rotation, position);
+                        scene.lock().render(&info, ctx, rotation, position);
+                        //let mut scene = scene.lock().scene(info, &ctx.resources);
+                        //scene.render(info, ctx, rotation, position);
                     })),
                 };
 

@@ -19,11 +19,13 @@ use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
     command_buffer::{
         AutoCommandBufferBuilder, CommandBufferInheritanceInfo, CommandBufferUsage,
-        SecondaryAutoCommandBuffer,
+        PrimaryCommandBufferAbstract, RenderPassBeginInfo, SecondaryAutoCommandBuffer,
+        SubpassContents,
     },
     format::Format,
     image::{
-        view::ImageView, AttachmentImage, ImageUsage, SampleCount, SampleCounts, SwapchainImage,
+        view::ImageView, AttachmentImage, ImageDimensions, ImageUsage, SampleCount, SampleCounts,
+        StorageImage, SwapchainImage,
     },
     pipeline::{
         graphics::{
@@ -31,12 +33,14 @@ use vulkano::{
             input_assembly::{InputAssemblyState, PrimitiveTopology},
             multisample::MultisampleState,
             rasterization::{CullMode, FrontFace, RasterizationState},
+            render_pass,
             vertex_input::BuffersDefinition,
             viewport::{Viewport, ViewportState},
         },
         GraphicsPipeline, Pipeline, StateMode,
     },
     render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass},
+    sync::GpuFuture,
 };
 
 use crate::{
@@ -326,227 +330,266 @@ impl three_d::Object for SceneObject {
 }
 
 const MSAA_SAMPLES: SampleCount = SampleCount::Sample8;
-const IMAGE_FORMAT: Format = Format::B8G8R8A8_SRGB;
+const IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
 
-pub struct Scene {
+pub struct DeferredScene {
+    id_source: ColorIdSource,
     color: [f32; 4],
-    scene_pipeline: Option<Arc<GraphicsPipeline>>,
-    scene_subpass: Option<Subpass>,
-    egui_pipeline: Option<Arc<GraphicsPipeline>>,
-    vertex_buffer: Option<Arc<CpuAccessibleBuffer<[Vertex]>>>,
+    scene: Option<Scene>,
 }
-impl Scene {
-    pub fn new(id_source: &mut ColorIdSource, color: [f32; 4]) -> Self {
-        // todo
+impl DeferredScene {
+    pub fn empty(id_source: ColorIdSource, color: [f32; 4]) -> Self {
         Self {
+            id_source,
             color,
-            scene_pipeline: None,
-            scene_subpass: None,
-            egui_pipeline: None,
-            vertex_buffer: None,
+            scene: None,
         }
     }
 
-    fn scene_pipeline<'a>(&mut self, resources: &RenderResources<'a>) -> Arc<GraphicsPipeline> {
-        self.scene_pipeline
-            .get_or_insert_with(|| {
-                println!("Build scene graphics pipeline");
-
-                /*
-                let render_pass =
-                    vulkano::ordered_passes_renderpass!(resources.queue.device().clone(),
-                        attachments: {
-                            final_color: {
-                                load: Clear,
-                                store: Store,
-                                format: Format::B8G8R8A8_SRGB,
-                                samples: 1,
-                            },
-                            depth: {
-                                load: Clear,
-                                store: DontCare,
-                                format: Format::D16_UNORM,
-                                samples: 1,
-                            }
-                        },
-                        passes: [
-                            {
-                                color: [final_color],
-                                depth_stencil: {depth},
-                                input: []
-                            }
-                        ]
-                    )
-                    .unwrap();
-                    */
-
-                let device = resources.queue.device();
-
-                let render_pass = vulkano::ordered_passes_renderpass!(
-                    resources.queue.device().clone(),
-                    attachments: {
-                        msaa: {
-                            load: Clear,
-                            store: Store,
-                            format: IMAGE_FORMAT,
-                            samples: MSAA_SAMPLES,
-                        },
-                        color: {
-                            load: Clear,
-                            store: Store,
-                            format: IMAGE_FORMAT,
-                            samples: 1,
-                        },
-                        depth: {
-                            load: Clear,
-                            store: DontCare,
-                            format: Format::D32_SFLOAT,
-                            samples: MSAA_SAMPLES,
-                        }
-                    },
-                    passes: [
-                        {
-                            color: [msaa],
-                            depth_stencil: {depth},
-                            input: [],
-                            resolve: [color]
-                        }/*,
-                        {
-                            color: [msaa],
-                            depth_stencil: {depth},
-                            input: [],
-                            resolve: [color]
-                        },
-                        {
-                            color: [msaa],
-                            depth_stencil: {depth},
-                            input: [],
-                            resolve: [color]
-                        }
-                        */
-                    ]
-                )
-                .unwrap();
-
-                /*
-                let depth_buffer = ImageView::new_default(
-                    AttachmentImage::transient_input_attachment(
-                        &resources.memory_allocator,
-                        [1, 1],
-                        Format::D16_UNORM,
-                    )
-                    .unwrap(),
-                )
-                .unwrap();
-                */
-
-                let vs = vs::load(device.clone()).expect("failed to create shader module");
-                let fs = fs::load(device.clone()).expect("failed to create shader module");
-
-                let scene_subpass = Subpass::from(render_pass.clone(), 0).unwrap();
-
-                self.scene_subpass = Some(scene_subpass.clone());
-
-                println!("Subpass num samples {:?}", scene_subpass.num_samples());
-
-                let pipeline = GraphicsPipeline::start()
-                    .vertex_input_state(BuffersDefinition::new().vertex::<Vertex>())
-                    .vertex_shader(vs.entry_point("main").unwrap(), ())
-                    .input_assembly_state(
-                        InputAssemblyState::new().topology(PrimitiveTopology::TriangleList),
-                    )
-                    .rasterization_state(RasterizationState {
-                        front_face: StateMode::Fixed(FrontFace::Clockwise),
-                        cull_mode: StateMode::Fixed(CullMode::None),
-                        ..RasterizationState::default()
-                    })
-                    .multisample_state(MultisampleState {
-                        rasterization_samples: MSAA_SAMPLES,
-                        ..Default::default()
-                    })
-                    .depth_stencil_state(DepthStencilState {
-                        depth: Some(DepthState {
-                            enable_dynamic: false,
-                            write_enable: StateMode::Fixed(true),
-                            compare_op: StateMode::Fixed(CompareOp::Greater),
-                        }),
-                        ..DepthStencilState::default()
-                    })
-                    //.viewport_state(ViewportState::viewport_dynamic_scissor_dynamic(1))
-                    .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
-                    .fragment_shader(fs.entry_point("main").unwrap(), ())
-                    .render_pass(scene_subpass.clone())
-                    .build(device.clone())
-                    .unwrap();
-
-                pipeline
-            })
-            .clone()
+    pub fn require_scene<'a>(&mut self, resources: &RenderResources<'a>) -> &Scene {
+        self.scene
+            .get_or_insert_with(|| Scene::new(&mut self.id_source, self.color, resources))
     }
 
-    fn build_framebuffers(
-        resources: &RenderResources,
-        image_format: Format,
-        images: &[Arc<SwapchainImage>],
-        render_pass: Arc<RenderPass>,
-        viewport: &mut Viewport,
-        dimensions: [u32; 2],
-    ) -> Vec<Arc<Framebuffer>> {
-        let msaa_attachment = ImageView::new_default(
-            AttachmentImage::transient_multisampled(
-                &resources.memory_allocator,
-                dimensions,
-                MSAA_SAMPLES,
-                IMAGE_FORMAT,
-            )
-            .unwrap(),
-        )
-        .unwrap();
-
-        let depth_attachment = ImageView::new_default(
-            AttachmentImage::multisampled_with_usage(
-                &resources.memory_allocator,
-                dimensions,
-                MSAA_SAMPLES,
-                IMAGE_FORMAT,
-                ImageUsage {
-                    depth_stencil_attachment: true,
-                    transient_attachment: true,
-                    ..Default::default()
-                },
-            )
-            .unwrap(),
-        )
-        .unwrap();
-
-        let view = ImageView::new_default
-        let framebuffer = Framebuffer::new(
-            render_pass.clone(),
-            FramebufferCreateInfo {
-                attachments: vec![msaa_attachment.clone(), view, depth_attachment.clone()],
-                ..Default::default()
-            },
-        )
-        .unwrap();
-
-        todo!()
+    pub fn require_scene_mut<'a>(&mut self, resources: &RenderResources<'a>) -> &mut Scene {
+        self.scene
+            .get_or_insert_with(|| Scene::new(&mut self.id_source, self.color, resources))
     }
 
-    fn render_scene<'a>(
+    pub(crate) fn read_color_id(&mut self, pos: Pos2) -> Option<ColorId> {
+        if let Some(ref mut scene) = self.scene {
+            scene.read_color_id(pos)
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn hover_object(&mut self, id: Option<ColorId>) {
+        if let Some(ref mut scene) = self.scene {
+            scene.hover_object(id)
+        }
+    }
+
+    pub(crate) fn toggle_select_object(&mut self, id: Option<ColorId>, exclusive: bool) {
+        if let Some(ref mut scene) = self.scene {
+            scene.toggle_select_object(id, exclusive);
+        }
+    }
+
+    pub(crate) fn get_object(&mut self, id: Option<ColorId>) -> Option<&SceneObject> {
+        if let Some(ref mut scene) = self.scene {
+            scene.get_object(id)
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn deselect_all_objects(&mut self) {
+        if let Some(ref mut scene) = self.scene {
+            scene.deselect_all_objects();
+        }
+    }
+
+    pub(crate) fn render(
         &mut self,
-        viewport_dimensions: [u32; 2],
-        resources: &RenderResources<'a>,
-    ) -> SecondaryAutoCommandBuffer {
-        let vertex_buffer = self.vertex_buffer(resources);
-        let pipeline = self.scene_pipeline(resources);
-        let subpass = self.scene_subpass.clone().unwrap();
+        info: &PaintCallbackInfo,
+        ctx: &mut CallbackContext,
+        model_rotation: Quaternion<f32>,
+        camera_position: Vec2,
+    ) {
+        self.require_scene_mut(&ctx.resources)
+            .render(info, ctx, model_rotation, camera_position);
+    }
+}
 
-        let mut builder = AutoCommandBufferBuilder::secondary(
+pub struct Scene {
+    color: [f32; 4],
+    scene_dimensions: [f32; 2],
+    scene_render_pass: Arc<RenderPass>,
+    scene_pipeline: Arc<GraphicsPipeline>,
+    scene_subpass: Subpass,
+    scene_viewport: Viewport,
+    scene_vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
+    scene_images: SceneImages,
+    //egui_pipeline: Option<Arc<GraphicsPipeline>>,
+}
+impl Scene {
+    pub fn new<'a>(
+        id_source: &mut ColorIdSource,
+        color: [f32; 4],
+        resources: &RenderResources<'a>,
+    ) -> Self {
+        let device = resources.queue.device().clone();
+        let scene_dimensions = [0.0, 0.0];
+        let scene_render_pass = vulkano::single_pass_renderpass!(
+            device.clone(),
+            attachments: {
+                intermediary: {
+                    load: Clear,
+                    store: DontCare,
+                    format: IMAGE_FORMAT,
+                    samples: MSAA_SAMPLES,
+                },
+                color: {
+                    load: DontCare,
+                    store: Store,
+                    format: IMAGE_FORMAT,
+                    samples: 1,
+                }
+            },
+            pass: {
+                color: [intermediary],
+                depth_stencil: {},
+                resolve: [color]
+            }
+        )
+        .unwrap();
+
+        let scene_images = SceneImages::new(
+            scene_render_pass.clone(),
+            resources,
+            scene_dimensions,
+            MSAA_SAMPLES,
+            IMAGE_FORMAT,
+        );
+
+        let scene_vertex_buffer = CpuAccessibleBuffer::from_iter(
+            &resources.memory_allocator,
+            BufferUsage {
+                vertex_buffer: true,
+                ..BufferUsage::empty()
+            },
+            false,
+            [
+                Vertex {
+                    position: [-0.5, -0.25],
+                    color: color, //[1.0, 0.0, 0.0, 1.0],
+                },
+                Vertex {
+                    position: [0.0, 0.5],
+                    color: color, //[0.0, 1.0, 0.0, 1.0],
+                },
+                Vertex {
+                    position: [0.25, -0.1],
+                    color: color, //[0.0, 0.0, 1.0, 1.0],
+                },
+            ]
+            .iter()
+            .cloned(),
+        )
+        .expect("failed to create buffer");
+
+        let scene_subpass = Subpass::from(scene_render_pass.clone(), 0).unwrap();
+
+        let vs = vs::load(device.clone()).unwrap();
+        let fs = fs::load(device.clone()).unwrap();
+
+        let scene_pipeline = GraphicsPipeline::start()
+            .vertex_input_state(BuffersDefinition::new().vertex::<Vertex>())
+            .vertex_shader(vs.entry_point("main").unwrap(), ())
+            .input_assembly_state(
+                InputAssemblyState::new().topology(PrimitiveTopology::TriangleList),
+            )
+            .rasterization_state(RasterizationState {
+                front_face: StateMode::Fixed(FrontFace::Clockwise),
+                cull_mode: StateMode::Fixed(CullMode::None),
+                ..RasterizationState::default()
+            })
+            .multisample_state(MultisampleState {
+                rasterization_samples: MSAA_SAMPLES,
+                ..Default::default()
+            })
+            .depth_stencil_state(DepthStencilState {
+                depth: Some(DepthState {
+                    enable_dynamic: false,
+                    write_enable: StateMode::Fixed(true),
+                    compare_op: StateMode::Fixed(CompareOp::Greater),
+                }),
+                ..DepthStencilState::default()
+            })
+            //.viewport_state(ViewportState::viewport_dynamic_scissor_dynamic(1))
+            .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
+            .fragment_shader(fs.entry_point("main").unwrap(), ())
+            .render_pass(scene_subpass.clone())
+            .build(device.clone())
+            .unwrap();
+
+        let scene_viewport = Viewport {
+            origin: [0.0, 0.0],
+            dimensions: scene_dimensions,
+            depth_range: 0.0..1.0,
+        };
+
+        Self {
+            color,
+            scene_dimensions,
+            scene_render_pass,
+            scene_pipeline,
+            scene_subpass,
+            scene_vertex_buffer,
+            scene_viewport,
+            scene_images,
+            //egui_pipeline: todo!(),
+        }
+    }
+
+    fn update_viewport<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>) {
+        let dimensions = [info.viewport.width(), info.viewport.height()];
+        if dimensions != self.scene_dimensions {
+            self.scene_dimensions = dimensions;
+            self.scene_images = SceneImages::new(
+                self.scene_render_pass.clone(),
+                resources,
+                dimensions,
+                MSAA_SAMPLES,
+                IMAGE_FORMAT,
+            )
+        }
+    }
+
+    fn render_scene<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>) {
+        self.update_viewport(info, resources);
+
+        let mut scene_builder = AutoCommandBufferBuilder::primary(
+            resources.command_buffer_allocator,
+            resources.queue.queue_family_index(),
+            CommandBufferUsage::MultipleSubmit,
+        )
+        .unwrap();
+
+        scene_builder
+            .begin_render_pass(
+                RenderPassBeginInfo {
+                    clear_values: vec![Some([0.0, 0.0, 1.0, 1.0].into()), None],
+                    ..RenderPassBeginInfo::framebuffer(self.scene_images.framebuffer.clone())
+                },
+                SubpassContents::Inline,
+            )
+            .unwrap()
+            .set_viewport(0, [self.scene_viewport.clone()])
+            .bind_pipeline_graphics(self.scene_pipeline.clone())
+            .bind_vertex_buffers(0, self.scene_vertex_buffer.clone())
+            .draw(self.scene_vertex_buffer.len() as u32, 1, 0, 0)
+            .unwrap()
+            .end_render_pass()
+            .unwrap();
+
+        let command_buffer = scene_builder.build().unwrap();
+
+        let finished = command_buffer.execute(resources.queue.clone()).unwrap();
+        finished
+            .then_signal_fence_and_flush()
+            .unwrap()
+            .wait(None)
+            .unwrap();
+
+        /*
+               let mut builder = AutoCommandBufferBuilder::secondary(
             resources.command_buffer_allocator,
             resources.queue.queue_family_index(),
             CommandBufferUsage::MultipleSubmit,
             CommandBufferInheritanceInfo {
-                render_pass: Some(subpass.clone().into()),
+                render_pass: Some(self.scene_subpass.clone().into()),
                 ..Default::default()
             },
         )
@@ -567,8 +610,10 @@ impl Scene {
             .unwrap();
 
         builder.build().unwrap()
+        */
     }
 
+    /*
     fn egui_pipeline<'a>(&mut self, resources: &RenderResources<'a>) -> Arc<GraphicsPipeline> {
         self.egui_pipeline
             .get_or_insert_with(|| {
@@ -594,39 +639,7 @@ impl Scene {
             })
             .clone()
     }
-
-    fn vertex_buffer(&mut self, resources: &RenderResources) -> Arc<CpuAccessibleBuffer<[Vertex]>> {
-        self.vertex_buffer
-            .get_or_insert_with(|| {
-                println!("Build vertex buffer");
-                CpuAccessibleBuffer::from_iter(
-                    &resources.memory_allocator,
-                    BufferUsage {
-                        vertex_buffer: true,
-                        ..BufferUsage::empty()
-                    },
-                    false,
-                    [
-                        Vertex {
-                            position: [-0.5, -0.25],
-                            color: self.color, //[1.0, 0.0, 0.0, 1.0],
-                        },
-                        Vertex {
-                            position: [0.0, 0.5],
-                            color: self.color, //[0.0, 1.0, 0.0, 1.0],
-                        },
-                        Vertex {
-                            position: [0.25, -0.1],
-                            color: self.color, //[0.0, 0.0, 1.0, 1.0],
-                        },
-                    ]
-                    .iter()
-                    .cloned(),
-                )
-                .expect("failed to create buffer")
-            })
-            .clone()
-    }
+    */
 
     pub(crate) fn read_color_id(&mut self, pos: Pos2) -> Option<ColorId> {
         // todo
@@ -652,15 +665,12 @@ impl Scene {
 
     pub(crate) fn render(
         &mut self,
-        info: PaintCallbackInfo,
+        info: &PaintCallbackInfo,
         ctx: &mut CallbackContext,
         model_rotation: Quaternion<f32>,
         camera_position: Vec2,
     ) {
-        self.render_scene(
-            [info.viewport.width() as u32, info.viewport.height() as u32],
-            &ctx.resources,
-        );
+        self.render_scene(info, &ctx.resources);
 
         //let pipeline = self.egui_pipeline(&ctx.resources);
         //let vertex_buffer = self.vertex_buffer(&ctx.resources);
@@ -672,6 +682,69 @@ impl Scene {
             .draw(vertex_buffer.len() as u32, 1, 0, 0)
             .unwrap();
             */
+    }
+}
+
+struct SceneImages {
+    framebuffer: Arc<Framebuffer>,
+    intermediary: Arc<ImageView<AttachmentImage>>,
+    view: Arc<ImageView<StorageImage>>,
+}
+impl SceneImages {
+    fn new(
+        scene_render_pass: Arc<RenderPass>,
+        resources: &RenderResources,
+        dimensions: [f32; 2],
+        samples: SampleCount,
+        format: Format,
+    ) -> Self {
+        println!("rebuild framebuffers {:?}", dimensions);
+
+        let dimensions = [
+            match dimensions[0] as u32 > 0 {
+                true => dimensions[0] as u32,
+                false => 1,
+            },
+            match dimensions[1] as u32 > 0 {
+                true => dimensions[1] as u32,
+                false => 1,
+            },
+        ];
+
+        let intermediary = ImageView::new_default(
+            AttachmentImage::multisampled(&resources.memory_allocator, dimensions, samples, format)
+                .unwrap(),
+        )
+        .unwrap();
+
+        let image = StorageImage::new(
+            &resources.memory_allocator,
+            ImageDimensions::Dim2d {
+                width: dimensions[0],
+                height: dimensions[1],
+                array_layers: 1,
+            },
+            format,
+            Some(resources.queue.queue_family_index()),
+        )
+        .unwrap();
+
+        let view = ImageView::new_default(image.clone()).unwrap();
+
+        let framebuffer = Framebuffer::new(
+            scene_render_pass,
+            FramebufferCreateInfo {
+                attachments: vec![intermediary.clone(), view.clone()],
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        Self {
+            framebuffer,
+            intermediary,
+            view,
+        }
     }
 }
 

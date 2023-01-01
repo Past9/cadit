@@ -4,7 +4,7 @@ use eframe::epaint::PaintCallbackInfo;
 use egui_winit_vulkano::RenderResources;
 use vulkano::{image::ImageViewAbstract, pipeline::graphics::viewport::Viewport};
 
-mod scene;
+mod pbr_scene;
 
 trait Scene {
     fn render<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>);

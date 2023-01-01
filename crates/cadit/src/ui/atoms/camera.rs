@@ -1,5 +1,4 @@
-use three_d::{vec3, Angle, Camera, Deg, InnerSpace, Vec3, Viewport};
-
+/*
 #[derive(Clone, Copy, PartialEq)]
 pub enum CameraMode {
     Perspective,
@@ -7,8 +6,8 @@ pub enum CameraMode {
 }
 
 pub struct CameraProps {
-    position: Vec3,
-    target: Vec3,
+    position: Vector3<f32>,
+    target: Vector3<f32>,
     fov_y: Deg<f32>,
     mode: CameraMode,
     viewport: Viewport,
@@ -16,8 +15,8 @@ pub struct CameraProps {
 }
 impl CameraProps {
     pub fn new(
-        position: Vec3,
-        target: Vec3,
+        position: Vector3<f32>,
+        target: Vector3<f32>,
         fov_y: Deg<f32>,
         mode: CameraMode,
         viewport: Viewport,
@@ -112,3 +111,4 @@ impl CameraProps {
         )
     }
 }
+*/

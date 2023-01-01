@@ -1,4 +1,4 @@
-use crate::ui::atoms::scene::SceneObjectProps;
+use cgmath::Quaternion;
 
 use super::Editor;
 
@@ -17,11 +17,13 @@ impl Editor for AssemblyEditor {
         ui.label("Edit assembly here");
     }
 
+    /*
     fn clicked(&self) -> Option<SceneObjectProps> {
         None
     }
+    */
 
-    fn set_rotation(&mut self, _rotation: three_d::Quaternion<f32>) {
+    fn set_rotation(&mut self, _rotation: Quaternion<f32>) {
         // nothing
     }
 

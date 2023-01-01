@@ -1,19 +1,11 @@
-use super::scene::{ColorId, ColorIdSource, DeferredScene, Scene, SceneObjectProps};
+use super::scene::{ColorId, DeferredScene, SceneObjectProps};
+use cgmath::{InnerSpace, Quaternion, Rad, Rotation3, Vector2, Vector3};
 use eframe::{
     egui::{self, PointerButton},
-    egui_glow,
-    epaint::{
-        mutex::{Mutex, MutexGuard},
-        pos2, vec2, CircleShape, PaintCallback, PaintCallbackInfo, Pos2, Rect, Rgba, Shape, Stroke,
-        Vec2,
-    },
+    epaint::{mutex::Mutex, PaintCallback, Pos2, Rect, Rgba, Vec2},
 };
-use egui_winit_vulkano::{CallbackFn, RenderResources};
-use std::{fmt::Pointer, sync::Arc};
-use three_d::{
-    Blend, BlendEquationType, BlendMultiplierType, InnerSpace, Quaternion, Rad, RenderStates,
-    Rotation3, Vector2, Vector3,
-};
+use egui_winit_vulkano::CallbackFn;
+use std::sync::Arc;
 
 const ROTATION_SENSITIVITY: f32 = 0.007;
 const PAN_SENSITIVITY: f32 = 0.01;
@@ -49,9 +41,8 @@ impl ObjectScene {
         allow_manual_pan: bool,
         color: [f32; 4],
     ) -> Self {
-        let id_source = ColorIdSource::new();
         Self {
-            scene: Arc::new(Mutex::new(DeferredScene::empty(id_source, color))),
+            scene: Arc::new(Mutex::new(DeferredScene::empty(color))),
             scene_rect: egui::Rect {
                 min: (0.0, 0.0).into(),
                 max: (0.0, 0.0).into(),

@@ -1,32 +1,19 @@
-use std::{io::Cursor, mem::transmute, sync::Arc};
-
 use bytemuck::{Pod, Zeroable};
-use byteorder::{BigEndian, ReadBytesExt};
-use eframe::{
-    epaint::{PaintCallbackInfo, Pos2},
-    glow,
-};
+use cgmath::{Quaternion, Vector2};
+use eframe::epaint::{PaintCallbackInfo, Pos2};
 use egui_winit_vulkano::{CallbackContext, RenderResources};
-use three_d::{
-    apply_effect, degrees, vec3, AmbientLight, Angle, AxisAlignedBoundingBox, Blend, Camera,
-    ClearState, Color, ColorTexture, Context, CpuMaterial, CpuModel, Cull, Deg, DepthTest,
-    DepthTexture, DepthTexture2D, FromCpuMaterial, FxaaEffect, Geometry, Gm, HasContext,
-    InnerSpace, Interpolation, Light, Mat3, Mat4, Material, MaterialType, Mesh, PhysicalMaterial,
-    Point3, PostMaterial, Program, Quaternion, RenderStates, RenderTarget, RendererError,
-    ScissorBox, Texture2D, Vec2, Vec3, Vector3, Wrapping, WriteMask,
-};
+use std::sync::Arc;
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
     command_buffer::{
-        AutoCommandBufferBuilder, BlitImageInfo, CommandBufferInheritanceInfo, CommandBufferUsage,
-        CopyImageInfo, PrimaryCommandBufferAbstract, RenderPassBeginInfo, RenderingAttachmentInfo,
-        RenderingInfo, SecondaryAutoCommandBuffer, SubpassContents,
+        AutoCommandBufferBuilder, CommandBufferUsage, PrimaryCommandBufferAbstract,
+        RenderPassBeginInfo, SubpassContents,
     },
     descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet},
     format::Format,
     image::{
-        view::ImageView, AttachmentImage, ImageAccess, ImageDimensions, ImageLayout, ImageUsage,
-        ImageViewAbstract, SampleCount, SampleCounts, StorageImage, SwapchainImage,
+        view::ImageView, AttachmentImage, ImageDimensions, ImageViewAbstract, SampleCount,
+        StorageImage,
     },
     pipeline::{
         graphics::{
@@ -35,9 +22,8 @@ use vulkano::{
             input_assembly::{InputAssemblyState, PrimitiveTopology},
             multisample::MultisampleState,
             rasterization::{CullMode, FrontFace, RasterizationState},
-            render_pass,
             vertex_input::BuffersDefinition,
-            viewport::{Scissor, Viewport, ViewportState},
+            viewport::{Viewport, ViewportState},
         },
         GraphicsPipeline, Pipeline, PipelineBindPoint, StateMode,
     },
@@ -45,17 +31,22 @@ use vulkano::{
     sync::GpuFuture,
 };
 
-use crate::{
-    error::CaditResult,
-    render::{FrameInput, Palette, PhysicalMaterialOverride},
-};
-
 use self::egui_fs::ty::PushConstants;
-
-use super::camera::{CameraMode, CameraProps};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ColorId(u32);
+
+pub(crate) struct SceneObject {}
+impl SceneObject {
+    pub fn props(&self) -> SceneObjectProps {
+        todo!()
+    }
+}
+pub struct SceneObjectProps {
+    pub name: String,
+}
+
+/*
 impl ColorId {
     fn none() -> Self {
         Self(0)
@@ -83,11 +74,6 @@ impl std::fmt::Display for ColorId {
 impl Default for ColorId {
     fn default() -> Self {
         Self::none()
-    }
-}
-impl FromCpuMaterial for ColorId {
-    fn from_cpu_material(_context: &Context, _cpu_material: &CpuMaterial) -> Self {
-        Self::default()
     }
 }
 impl Material for ColorId {
@@ -332,32 +318,28 @@ impl three_d::Object for SceneObject {
         self.physical_material.material_type()
     }
 }
+*/
 
 const MSAA_SAMPLES: SampleCount = SampleCount::Sample8;
 const IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
 
 pub struct DeferredScene {
-    id_source: ColorIdSource,
     color: [f32; 4],
     scene: Option<Scene>,
 }
 impl DeferredScene {
-    pub fn empty(id_source: ColorIdSource, color: [f32; 4]) -> Self {
-        Self {
-            id_source,
-            color,
-            scene: None,
-        }
+    pub fn empty(color: [f32; 4]) -> Self {
+        Self { color, scene: None }
     }
 
     pub fn require_scene<'a>(&mut self, resources: &RenderResources<'a>) -> &Scene {
         self.scene
-            .get_or_insert_with(|| Scene::new(&mut self.id_source, self.color, resources))
+            .get_or_insert_with(|| Scene::new(self.color, resources))
     }
 
     pub fn require_scene_mut<'a>(&mut self, resources: &RenderResources<'a>) -> &mut Scene {
         self.scene
-            .get_or_insert_with(|| Scene::new(&mut self.id_source, self.color, resources))
+            .get_or_insert_with(|| Scene::new(self.color, resources))
     }
 
     pub(crate) fn read_color_id(&mut self, pos: Pos2) -> Option<ColorId> {
@@ -399,7 +381,7 @@ impl DeferredScene {
         info: &PaintCallbackInfo,
         ctx: &mut CallbackContext,
         model_rotation: Quaternion<f32>,
-        camera_position: Vec2,
+        camera_position: Vector2<f32>,
     ) {
         self.require_scene_mut(&ctx.resources)
             .render(info, ctx, model_rotation, camera_position);
@@ -450,11 +432,7 @@ pub struct Scene {
     egui_vertex_buffer: Arc<CpuAccessibleBuffer<[EguiVertex]>>,
 }
 impl Scene {
-    pub fn new<'a>(
-        id_source: &mut ColorIdSource,
-        color: [f32; 4],
-        resources: &RenderResources<'a>,
-    ) -> Self {
+    pub fn new<'a>(color: [f32; 4], resources: &RenderResources<'a>) -> Self {
         let (
             scene_render_pass,
             scene_pipeline,
@@ -721,8 +699,8 @@ impl Scene {
         &mut self,
         info: &PaintCallbackInfo,
         ctx: &mut CallbackContext,
-        model_rotation: Quaternion<f32>,
-        camera_position: Vec2,
+        _model_rotation: Quaternion<f32>,
+        _camera_position: Vector2<f32>,
     ) {
         self.render_scene(info, &ctx.resources);
 
@@ -761,20 +739,20 @@ impl Scene {
             .unwrap();
     }
 
-    pub(crate) fn read_color_id(&mut self, pos: Pos2) -> Option<ColorId> {
+    pub(crate) fn read_color_id(&mut self, _pos: Pos2) -> Option<ColorId> {
         // todo
         None
     }
 
-    pub(crate) fn hover_object(&mut self, id: Option<ColorId>) {
+    pub(crate) fn hover_object(&mut self, _id: Option<ColorId>) {
         // todo
     }
 
-    pub(crate) fn toggle_select_object(&mut self, id: Option<ColorId>, exclusive: bool) {
+    pub(crate) fn toggle_select_object(&mut self, _id: Option<ColorId>, _exclusive: bool) {
         // todo
     }
 
-    pub(crate) fn get_object(&mut self, id: Option<ColorId>) -> Option<&SceneObject> {
+    pub(crate) fn get_object(&mut self, _id: Option<ColorId>) -> Option<&SceneObject> {
         // todo
         None
     }

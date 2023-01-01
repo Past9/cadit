@@ -1,9 +1,7 @@
-use egui_winit_vulkano::RenderResources;
-use three_d::Quaternion;
+use cgmath::Quaternion;
 
 use self::{assembly::AssemblyEditor, part::PartEditor};
 use super::Pane;
-use crate::ui::{atoms::scene::SceneObjectProps, GlowContext};
 
 pub mod assembly;
 //pub mod file;
@@ -12,7 +10,7 @@ pub mod part;
 trait Editor {
     fn title(&self) -> String;
     fn show(&mut self, ui: &mut eframe::egui::Ui);
-    fn clicked(&self) -> Option<SceneObjectProps>;
+    //fn clicked(&self) -> Option<SceneObjectProps>;
     fn set_rotation(&mut self, rotation: Quaternion<f32>);
     //fn animate_rotation(&mut self, rotation: Quaternion<f32>);
 }

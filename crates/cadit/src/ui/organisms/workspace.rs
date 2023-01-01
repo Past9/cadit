@@ -1,13 +1,9 @@
 use eframe::egui::{self, Ui};
 use egui_dock::{DockArea, NodeIndex, StyleBuilder, Tree};
-use egui_winit_vulkano::RenderResources;
 
 use crate::{
+    ui::organisms::panes::{editor::EditorPane, Pane},
     ui::MessageBus,
-    ui::{
-        organisms::panes::{editor::EditorPane, Pane},
-        GlowContext,
-    },
 };
 
 use super::panes::{features::FeaturesPane, PaneView};

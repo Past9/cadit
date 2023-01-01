@@ -1,14 +1,10 @@
-use crate::ui::{
-    atoms::{gizmo::Gizmo, object_scene::ObjectScene, scene::SceneObjectProps},
-    GlowContext,
-};
+use crate::ui::atoms::{gizmo::Gizmo, object_scene::ObjectScene};
+use cgmath::{Quaternion, Vector2};
 use eframe::{
     egui::{self, Layout},
     emath::{self, Align},
     epaint::Rect,
 };
-use egui_winit_vulkano::RenderResources;
-use three_d::*;
 
 use super::Editor;
 
@@ -22,7 +18,13 @@ impl PartEditor {
         let rotation = gizmo.rotation();
         Self {
             gizmo,
-            scene: ObjectScene::new(rotation, vec2(0.0, 0.0), true, true, [0.0, 1.0, 0.0, 1.0]),
+            scene: ObjectScene::new(
+                rotation,
+                Vector2::new(0.0, 0.0),
+                true,
+                true,
+                [0.0, 1.0, 0.0, 1.0],
+            ),
         }
     }
 }
@@ -56,7 +58,9 @@ impl Editor for PartEditor {
         self.gizmo.show(&mut gizmo_ui);
     }
 
+    /*
     fn clicked(&self) -> Option<SceneObjectProps> {
         self.scene.clicked()
     }
+    */
 }

@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use three_d::Quaternion;
+use cgmath::Quaternion;
 
 pub trait Interpolate {
     fn interpolate_to(&self, to: Self, t: f32) -> Self;

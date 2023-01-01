@@ -26,15 +26,18 @@ use vulkano::{
         GraphicsPipeline, StateMode,
     },
     render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass},
+    shader::ShaderModule,
     sync::GpuFuture,
 };
 
 use super::{Scene, SceneViewport};
 
-const MSAA_SAMPLES: SampleCount = SampleCount::Sample8;
+//const MSAA_SAMPLES: SampleCount = SampleCount::Sample8;
 const IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
 
 pub struct PbrScene {
+    vs: Arc<ShaderModule>,
+    fs: Arc<ShaderModule>,
     clear_color: [f32; 4],
     render_pass: Arc<RenderPass>,
     pipeline: Arc<GraphicsPipeline>,
@@ -52,39 +55,8 @@ impl PbrScene {
     ) -> Self {
         let device = resources.queue.device().clone();
 
-        let viewport = SceneViewport::zero();
-
-        let render_pass = vulkano::single_pass_renderpass!(
-            device.clone(),
-            attachments: {
-                intermediary: {
-                    load: Clear,
-                    store: DontCare,
-                    format: IMAGE_FORMAT,
-                    samples: MSAA_SAMPLES,
-                },
-                color: {
-                    load: DontCare,
-                    store: Store,
-                    format: IMAGE_FORMAT,
-                    samples: 1,
-                }
-            },
-            pass: {
-                color: [intermediary],
-                depth_stencil: {},
-                resolve: [color]
-            }
-        )
-        .unwrap();
-
-        let images = PbrSceneImages::new(
-            render_pass.clone(),
-            resources,
-            &viewport,
-            MSAA_SAMPLES,
-            IMAGE_FORMAT,
-        );
+        let vs = vs::load(device.clone()).unwrap();
+        let fs = fs::load(device.clone()).unwrap();
 
         let vertex_buffer = CpuAccessibleBuffer::from_iter(
             &resources.memory_allocator,
@@ -124,10 +96,92 @@ impl PbrScene {
         )
         .expect("failed to create buffer");
 
-        let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
+        let viewport = SceneViewport::zero();
 
-        let vs = vs::load(device.clone()).unwrap();
-        let fs = fs::load(device.clone()).unwrap();
+        let (render_pass, images, subpass, pipeline) =
+            Self::create_pipeline(vs.clone(), fs.clone(), resources, msaa_samples, &viewport);
+
+        Self {
+            vs,
+            fs,
+            clear_color,
+            render_pass,
+            pipeline,
+            subpass,
+            vertex_buffer,
+            viewport,
+            images,
+            msaa_samples,
+        }
+    }
+
+    fn create_pipeline<'a>(
+        vs: Arc<ShaderModule>,
+        fs: Arc<ShaderModule>,
+        resources: &RenderResources<'a>,
+        msaa_samples: SampleCount,
+        viewport: &SceneViewport,
+    ) -> (
+        Arc<RenderPass>,
+        PbrSceneImages,
+        Subpass,
+        Arc<GraphicsPipeline>,
+    ) {
+        let device = resources.queue.device();
+        let render_pass = {
+            if msaa_samples == SampleCount::Sample1 {
+                vulkano::single_pass_renderpass!(
+                    device.clone(),
+                    attachments: {
+                        color: {
+                            load: DontCare,
+                            store: Store,
+                            format: IMAGE_FORMAT,
+                            samples: 1,
+                        }
+                    },
+                    pass: {
+                        color: [color],
+                        depth_stencil: {}
+                    }
+                )
+                .unwrap()
+            } else {
+                vulkano::single_pass_renderpass!(
+                    device.clone(),
+                    attachments: {
+                        intermediary: {
+                            load: Clear,
+                            store: DontCare,
+                            format: IMAGE_FORMAT,
+                            samples: msaa_samples,
+                        },
+                        color: {
+                            load: DontCare,
+                            store: Store,
+                            format: IMAGE_FORMAT,
+                            samples: 1,
+                        }
+                    },
+                    pass: {
+                        color: [intermediary],
+                        depth_stencil: {},
+                        resolve: [color]
+                    }
+                )
+                .unwrap()
+            }
+        };
+
+        let images = PbrSceneImages::new(
+            render_pass.clone(),
+            resources,
+            &viewport,
+            msaa_samples,
+            IMAGE_FORMAT,
+        );
+
+        let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
 
         let pipeline = GraphicsPipeline::start()
             .vertex_input_state(BuffersDefinition::new().vertex::<SceneVertex>())
@@ -141,7 +195,7 @@ impl PbrScene {
                 ..RasterizationState::default()
             })
             .multisample_state(MultisampleState {
-                rasterization_samples: MSAA_SAMPLES,
+                rasterization_samples: msaa_samples,
                 ..Default::default()
             })
             .depth_stencil_state(DepthStencilState {
@@ -158,16 +212,7 @@ impl PbrScene {
             .build(device.clone())
             .unwrap();
 
-        Self {
-            clear_color,
-            render_pass,
-            pipeline,
-            subpass,
-            vertex_buffer,
-            viewport,
-            images,
-            msaa_samples,
-        }
+        (render_pass, images, subpass, pipeline)
     }
 
     fn update_viewport<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>) {
@@ -178,7 +223,7 @@ impl PbrScene {
                 self.render_pass.clone(),
                 resources,
                 &self.viewport,
-                MSAA_SAMPLES,
+                self.msaa_samples,
                 IMAGE_FORMAT,
             )
         }
@@ -231,7 +276,6 @@ impl Scene for PbrScene {
 
 struct PbrSceneImages {
     framebuffer: Arc<Framebuffer>,
-    intermediary: Arc<ImageView<AttachmentImage>>,
     view: Arc<ImageView<StorageImage>>,
 }
 impl PbrSceneImages {
@@ -259,11 +303,22 @@ impl PbrSceneImages {
             } + viewport.origin[1],
         ];
 
-        let intermediary = ImageView::new_default(
-            AttachmentImage::multisampled(&resources.memory_allocator, dimensions, samples, format)
+        let mut attachments: Vec<Arc<dyn ImageViewAbstract>> = Vec::new();
+
+        if samples != SampleCount::Sample1 {
+            let intermediary = ImageView::new_default(
+                AttachmentImage::multisampled(
+                    &resources.memory_allocator,
+                    dimensions,
+                    samples,
+                    format,
+                )
                 .unwrap(),
-        )
-        .unwrap();
+            )
+            .unwrap();
+
+            attachments.push(intermediary);
+        }
 
         let image = StorageImage::new(
             &resources.memory_allocator,
@@ -279,20 +334,18 @@ impl PbrSceneImages {
 
         let view = ImageView::new_default(image.clone()).unwrap();
 
+        attachments.push(view.clone());
+
         let framebuffer = Framebuffer::new(
             scene_render_pass,
             FramebufferCreateInfo {
-                attachments: vec![intermediary.clone(), view.clone()],
+                attachments,
                 ..Default::default()
             },
         )
         .unwrap();
 
-        Self {
-            framebuffer,
-            intermediary,
-            view,
-        }
+        Self { framebuffer, view }
     }
 }
 

@@ -452,6 +452,7 @@ impl Scene {
         let scene_images = SceneImages::new(
             scene_render_pass.clone(),
             resources,
+            [0.0, 0.0],
             scene_dimensions,
             MSAA_SAMPLES,
             IMAGE_FORMAT,
@@ -556,12 +557,16 @@ impl Scene {
 
     fn update_viewport<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>) {
         let vp = info.viewport_in_pixels();
+        let offset = [vp.left_px, vp.top_px];
         let dimensions = [vp.width_px, vp.height_px];
         if dimensions != self.scene_viewport.dimensions {
+            //self.scene_viewport.origin = [-200.0, -200.0];
+            self.scene_viewport.origin = offset;
             self.scene_viewport.dimensions = dimensions;
             self.scene_images = SceneImages::new(
                 self.scene_render_pass.clone(),
                 resources,
+                offset,
                 dimensions,
                 MSAA_SAMPLES,
                 IMAGE_FORMAT,
@@ -585,12 +590,21 @@ impl Scene {
             .begin_render_pass(
                 RenderPassBeginInfo {
                     clear_values: vec![Some([0.0, 0.0, 0.15, 1.0].into()), None],
+                    render_area_offset: [
+                        self.scene_viewport.origin[0] as u32,
+                        self.scene_viewport.origin[1] as u32,
+                    ],
+                    render_area_extent: [
+                        self.scene_viewport.dimensions[0] as u32,
+                        self.scene_viewport.dimensions[1] as u32,
+                    ],
                     ..RenderPassBeginInfo::framebuffer(self.scene_images.framebuffer.clone())
                 },
                 SubpassContents::Inline,
             )
             .unwrap()
             .set_viewport(0, [self.scene_viewport.clone()])
+            /*
             .set_scissor(
                 0,
                 [Scissor {
@@ -599,6 +613,7 @@ impl Scene {
                     dimensions: [vp.width_px as u32, vp.height_px as u32],
                 }],
             )
+            */
             .bind_pipeline_graphics(self.scene_pipeline.clone())
             .bind_vertex_buffers(0, self.scene_vertex_buffer.clone())
             .draw(self.scene_vertex_buffer.len() as u32, 1, 0, 0)
@@ -701,20 +716,30 @@ impl Scene {
         )
         .unwrap();
 
-        let vp = info.clip_rect_in_pixels();
-
-        println!("CRIP {} {}", vp.left_px, vp.top_px);
+        let cr = info.clip_rect_in_pixels();
 
         ctx.builder
             .bind_pipeline_graphics(pipeline.clone())
+            /*
+            .set_viewport(
+                0,
+                [Viewport {
+                    origin: [cr.left_px as f32, cr.top_px as f32],
+                    //origin: [100.0, 100.0],
+                    dimensions: [cr.width_px as f32 + 300.0, cr.height_px as f32],
+                    depth_range: 0.0..1.0,
+                }],
+            )
+            */
+            /*
             .set_scissor(
                 0,
                 [Scissor {
-                    //origin: [vp.left_px as u32, vp.top_px as u32],
-                    origin: [vp.left_px as u32, vp.top_px as u32],
-                    dimensions: [vp.width_px as u32, vp.height_px as u32],
+                    origin: [cr.left_px as u32, cr.top_px as u32],
+                    dimensions: [cr.width_px as u32, cr.height_px as u32],
                 }],
             )
+            */
             .bind_descriptor_sets(
                 PipelineBindPoint::Graphics,
                 pipeline.layout().clone(),
@@ -793,6 +818,7 @@ impl SceneImages {
     fn new(
         scene_render_pass: Arc<RenderPass>,
         resources: &RenderResources,
+        offset: [f32; 2],
         dimensions: [f32; 2],
         samples: SampleCount,
         format: Format,
@@ -803,11 +829,11 @@ impl SceneImages {
             match dimensions[0] as u32 > 0 {
                 true => dimensions[0] as u32,
                 false => 1,
-            },
+            } + offset[0] as u32,
             match dimensions[1] as u32 > 0 {
                 true => dimensions[1] as u32,
                 false => 1,
-            },
+            } + offset[1] as u32,
         ];
 
         let intermediary = ImageView::new_default(
@@ -927,7 +953,7 @@ void main() {
     // Load the value at the current pixel.
     vec3 in_diffuse = subpassLoad(u_diffuse).rgb;
     f_color.rgb = in_diffuse; //push_constants.color.rgb * in_diffuse;
-    f_color.g = 1.0;
+    f_color.g = 0.3;
     f_color.a = 1.0;
     //f_color = vec4(1.0, 1.0, 1.0, 1.0);
 }",

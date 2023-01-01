@@ -688,8 +688,6 @@ impl Scene {
         )
         .unwrap();
 
-        let vp = info.clip_rect_in_pixels();
-
         scene_builder
             .begin_render_pass(
                 RenderPassBeginInfo {
@@ -702,16 +700,6 @@ impl Scene {
             )
             .unwrap()
             .set_viewport(0, [self.scene_viewport.to_vulkan_viewport()])
-            /*
-            .set_scissor(
-                0,
-                [Scissor {
-                    //origin: [vp.left_px as u32, vp.top_px as u32],
-                    origin: [0, 0],
-                    dimensions: [vp.width_px as u32, vp.height_px as u32],
-                }],
-            )
-            */
             .bind_pipeline_graphics(self.scene_pipeline.clone())
             .bind_vertex_buffers(0, self.scene_vertex_buffer.clone())
             .draw(self.scene_vertex_buffer.len() as u32, 1, 0, 0)

@@ -253,8 +253,6 @@ impl ObjectScene {
                     rect,
                     callback: Arc::new(CallbackFn::new(move |info, ctx| {
                         scene.lock().render(&info, ctx, rotation, position);
-                        //let mut scene = scene.lock().scene(info, &ctx.resources);
-                        //scene.render(info, ctx, rotation, position);
                     })),
                 };
 

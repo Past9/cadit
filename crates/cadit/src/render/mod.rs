@@ -5,6 +5,7 @@ use egui_winit_vulkano::RenderResources;
 use vulkano::{image::ImageViewAbstract, pipeline::graphics::viewport::Viewport};
 
 pub mod egui_transfer;
+pub mod mesh;
 pub mod pbr_scene;
 
 pub trait Scene {

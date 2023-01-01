@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
-use bytemuck::{Pod, Zeroable};
 use eframe::epaint::PaintCallbackInfo;
 use egui_winit_vulkano::RenderResources;
 use vulkano::{
-    buffer::{BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
+    buffer::TypedBufferAccess,
     command_buffer::{
         AutoCommandBufferBuilder, CommandBufferUsage, PrimaryCommandBufferAbstract,
         RenderPassBeginInfo, SubpassContents,
@@ -30,9 +29,11 @@ use vulkano::{
     sync::GpuFuture,
 };
 
-use super::{Scene, SceneViewport};
+use super::{
+    mesh::{PbrMaterial, PbrSurfaceBuffers, PbrVertex, Surface, Vertex},
+    Scene, SceneViewport,
+};
 
-//const MSAA_SAMPLES: SampleCount = SampleCount::Sample8;
 const IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
 
 pub struct PbrScene {
@@ -43,7 +44,7 @@ pub struct PbrScene {
     pipeline: Arc<GraphicsPipeline>,
     subpass: Subpass,
     viewport: SceneViewport,
-    vertex_buffer: Arc<CpuAccessibleBuffer<[SceneVertex]>>,
+    geometry: PbrSurfaceBuffers,
     images: PbrSceneImages,
     msaa_samples: SampleCount,
 }
@@ -58,43 +59,22 @@ impl PbrScene {
         let vs = vs::load(device.clone()).unwrap();
         let fs = fs::load(device.clone()).unwrap();
 
-        let vertex_buffer = CpuAccessibleBuffer::from_iter(
-            &resources.memory_allocator,
-            BufferUsage {
-                vertex_buffer: true,
-                ..BufferUsage::empty()
-            },
-            false,
+        let buffers = Surface::new(
+            1,
             [
-                SceneVertex {
-                    position: [-0.98, -0.98],
-                    color: [1.0, 0.0, 0.0, 1.0],
-                },
-                SceneVertex {
-                    position: [-0.98, 0.98],
-                    color: [0.0, 1.0, 0.0, 1.0],
-                },
-                SceneVertex {
-                    position: [0.98, -0.98],
-                    color: [0.0, 0.0, 1.0, 1.0],
-                },
-                SceneVertex {
-                    position: [0.98, -0.98],
-                    color: [1.0, 0.0, 0.0, 1.0],
-                },
-                SceneVertex {
-                    position: [-0.98, 0.98],
-                    color: [1.0, 0.0, 0.0, 1.0],
-                },
-                SceneVertex {
-                    position: [0.8, 0.9],
-                    color: [1.0, 0.0, 0.0, 1.0],
-                },
-            ]
-            .iter()
-            .cloned(),
+                Vertex::new(-0.9, -0.9, 0.0),
+                Vertex::new(-0.9, 0.9, 0.0),
+                Vertex::new(0.9, -0.9, 0.0),
+                Vertex::new(0.8, 0.8, 0.0),
+            ],
+            [0, 1, 2, 2, 1, 3],
         )
-        .expect("failed to create buffer");
+        .as_pbr(
+            &PbrMaterial {
+                albedo: [0.0, 0.0, 1.0, 1.0],
+            },
+            &resources.memory_allocator,
+        );
 
         let viewport = SceneViewport::zero();
 
@@ -108,7 +88,7 @@ impl PbrScene {
             render_pass,
             pipeline,
             subpass,
-            vertex_buffer,
+            geometry: buffers,
             viewport,
             images,
             msaa_samples,
@@ -184,7 +164,7 @@ impl PbrScene {
         let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
 
         let pipeline = GraphicsPipeline::start()
-            .vertex_input_state(BuffersDefinition::new().vertex::<SceneVertex>())
+            .vertex_input_state(BuffersDefinition::new().vertex::<PbrVertex>())
             .vertex_shader(vs.entry_point("main").unwrap(), ())
             .input_assembly_state(
                 InputAssemblyState::new().topology(PrimitiveTopology::TriangleList),
@@ -253,8 +233,10 @@ impl Scene for PbrScene {
             .unwrap()
             .set_viewport(0, [self.viewport.to_vulkan_viewport()])
             .bind_pipeline_graphics(self.pipeline.clone())
-            .bind_vertex_buffers(0, self.vertex_buffer.clone())
-            .draw(self.vertex_buffer.len() as u32, 1, 0, 0)
+            .bind_vertex_buffers(0, self.geometry.vertex_buffer.clone())
+            .bind_index_buffer(self.geometry.index_buffer.clone())
+            //.draw(self.buffers.vertex_buffer.len() as u32, 1, 0, 0)
+            .draw_indexed(self.geometry.index_buffer.len() as u32, 1, 0, 0, 0)
             .unwrap()
             .end_render_pass()
             .unwrap();
@@ -349,6 +331,7 @@ impl PbrSceneImages {
     }
 }
 
+/*
 #[repr(C)]
 #[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
 struct SceneVertex {
@@ -356,19 +339,20 @@ struct SceneVertex {
     color: [f32; 4],
 }
 vulkano::impl_vertex!(SceneVertex, position, color);
+*/
 
 mod vs {
     vulkano_shaders::shader! {
         ty: "vertex",
         src: "
 #version 450
-layout(location = 0) in vec2 position;
-layout(location = 1) in vec4 color;
+layout(location = 0) in vec3 position;
+layout(location = 1) in vec4 albedo;
 
 layout(location = 0) out vec4 v_color;
 void main() {
-    gl_Position = vec4(position, 0.0, 1.0);
-    v_color = color;
+    gl_Position = vec4(position, 1.0);
+    v_color = albedo;
 }"
     }
 }

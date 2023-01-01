@@ -4,9 +4,10 @@ use eframe::epaint::PaintCallbackInfo;
 use egui_winit_vulkano::RenderResources;
 use vulkano::{image::ImageViewAbstract, pipeline::graphics::viewport::Viewport};
 
-mod pbr_scene;
+pub mod egui_transfer;
+pub mod pbr_scene;
 
-trait Scene {
+pub trait Scene {
     fn render<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>);
     fn view(&self) -> Arc<dyn ImageViewAbstract>;
 }

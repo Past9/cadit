@@ -1,37 +1,15 @@
-use bytemuck::{Pod, Zeroable};
 use cgmath::{Quaternion, Vector2};
 use eframe::epaint::{PaintCallbackInfo, Pos2};
 use egui_winit_vulkano::{CallbackContext, RenderResources};
 use std::sync::Arc;
 use vulkano::{
-    buffer::{BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
-    command_buffer::{
-        AutoCommandBufferBuilder, CommandBufferUsage, PrimaryCommandBufferAbstract,
-        RenderPassBeginInfo, SubpassContents,
-    },
-    descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet},
     format::Format,
-    image::{
-        view::ImageView, AttachmentImage, ImageDimensions, ImageViewAbstract, SampleCount,
-        StorageImage,
-    },
-    pipeline::{
-        graphics::{
-            color_blend::{AttachmentBlend, BlendFactor, BlendOp, ColorBlendState},
-            depth_stencil::{CompareOp, DepthState, DepthStencilState},
-            input_assembly::{InputAssemblyState, PrimitiveTopology},
-            multisample::MultisampleState,
-            rasterization::{CullMode, FrontFace, RasterizationState},
-            vertex_input::BuffersDefinition,
-            viewport::{Viewport, ViewportState},
-        },
-        GraphicsPipeline, Pipeline, PipelineBindPoint, StateMode,
-    },
-    render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass},
-    sync::GpuFuture,
+    image::{view::ImageView, AttachmentImage, ImageDimensions, SampleCount, StorageImage},
+    pipeline::graphics::viewport::Viewport,
+    render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass},
 };
 
-use self::egui_fs::ty::PushConstants;
+use crate::render::{egui_transfer::EguiTransfer, pbr_scene::PbrScene, Scene};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ColorId(u32);
@@ -325,21 +303,21 @@ const IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
 
 pub struct DeferredScene {
     color: [f32; 4],
-    scene: Option<Scene>,
+    scene: Option<EguiScene>,
 }
 impl DeferredScene {
     pub fn empty(color: [f32; 4]) -> Self {
         Self { color, scene: None }
     }
 
-    pub fn require_scene<'a>(&mut self, resources: &RenderResources<'a>) -> &Scene {
+    pub fn require_scene<'a>(&mut self, resources: &RenderResources<'a>) -> &EguiScene {
         self.scene
-            .get_or_insert_with(|| Scene::new(self.color, resources))
+            .get_or_insert_with(|| EguiScene::new(self.color, resources))
     }
 
-    pub fn require_scene_mut<'a>(&mut self, resources: &RenderResources<'a>) -> &mut Scene {
+    pub fn require_scene_mut<'a>(&mut self, resources: &RenderResources<'a>) -> &mut EguiScene {
         self.scene
-            .get_or_insert_with(|| Scene::new(self.color, resources))
+            .get_or_insert_with(|| EguiScene::new(self.color, resources))
     }
 
     pub(crate) fn read_color_id(&mut self, pos: Pos2) -> Option<ColorId> {
@@ -418,281 +396,16 @@ impl SceneViewport {
     }
 }
 
-pub struct Scene {
-    color: [f32; 4],
-    scene_render_pass: Arc<RenderPass>,
-    scene_pipeline: Arc<GraphicsPipeline>,
-    scene_subpass: Subpass,
-    scene_viewport: SceneViewport,
-    scene_vertex_buffer: Arc<CpuAccessibleBuffer<[SceneVertex]>>,
-    scene_images: SceneImages,
-
-    // Egui stuff
-    egui_pipeline: Arc<GraphicsPipeline>,
-    egui_vertex_buffer: Arc<CpuAccessibleBuffer<[EguiVertex]>>,
+pub struct EguiScene {
+    scene: PbrScene,
+    transfer: EguiTransfer,
 }
-impl Scene {
+impl EguiScene {
     pub fn new<'a>(color: [f32; 4], resources: &RenderResources<'a>) -> Self {
-        let (
-            scene_render_pass,
-            scene_pipeline,
-            scene_subpass,
-            scene_vertex_buffer,
-            scene_viewport,
-            scene_images,
-        ) = {
-            let device = resources.queue.device().clone();
-            //let scene_dimensions = [0.0, 0.0];
+        let scene = PbrScene::new(color, resources, MSAA_SAMPLES);
+        let transfer = EguiTransfer::new(resources);
 
-            let scene_viewport = SceneViewport::zero();
-
-            let scene_render_pass = vulkano::single_pass_renderpass!(
-                device.clone(),
-                attachments: {
-                    intermediary: {
-                        load: Clear,
-                        store: DontCare,
-                        format: IMAGE_FORMAT,
-                        samples: MSAA_SAMPLES,
-                    },
-                    color: {
-                        load: DontCare,
-                        store: Store,
-                        format: IMAGE_FORMAT,
-                        samples: 1,
-                    }
-                },
-                pass: {
-                    color: [intermediary],
-                    depth_stencil: {},
-                    resolve: [color]
-                }
-            )
-            .unwrap();
-
-            let scene_images = SceneImages::new(
-                scene_render_pass.clone(),
-                resources,
-                &scene_viewport,
-                MSAA_SAMPLES,
-                IMAGE_FORMAT,
-            );
-
-            let scene_vertex_buffer = CpuAccessibleBuffer::from_iter(
-                &resources.memory_allocator,
-                BufferUsage {
-                    vertex_buffer: true,
-                    ..BufferUsage::empty()
-                },
-                false,
-                [
-                    SceneVertex {
-                        position: [-0.98, -0.98],
-                        color: [1.0, 0.0, 0.0, 1.0],
-                    },
-                    SceneVertex {
-                        position: [-0.98, 0.98],
-                        color: [0.0, 1.0, 0.0, 1.0],
-                    },
-                    SceneVertex {
-                        position: [0.98, -0.98],
-                        color: [0.0, 0.0, 1.0, 1.0],
-                    },
-                    SceneVertex {
-                        position: [0.98, -0.98],
-                        color: [1.0, 0.0, 0.0, 1.0],
-                    },
-                    SceneVertex {
-                        position: [-0.98, 0.98],
-                        color: [1.0, 0.0, 0.0, 1.0],
-                    },
-                    SceneVertex {
-                        position: [0.8, 0.9],
-                        color: [1.0, 0.0, 0.0, 1.0],
-                    },
-                ]
-                .iter()
-                .cloned(),
-            )
-            .expect("failed to create buffer");
-
-            let scene_subpass = Subpass::from(scene_render_pass.clone(), 0).unwrap();
-
-            let vs = vs::load(device.clone()).unwrap();
-            let fs = fs::load(device.clone()).unwrap();
-
-            let scene_pipeline = GraphicsPipeline::start()
-                .vertex_input_state(BuffersDefinition::new().vertex::<SceneVertex>())
-                .vertex_shader(vs.entry_point("main").unwrap(), ())
-                .input_assembly_state(
-                    InputAssemblyState::new().topology(PrimitiveTopology::TriangleList),
-                )
-                .rasterization_state(RasterizationState {
-                    front_face: StateMode::Fixed(FrontFace::CounterClockwise),
-                    cull_mode: StateMode::Fixed(CullMode::None),
-                    ..RasterizationState::default()
-                })
-                .multisample_state(MultisampleState {
-                    rasterization_samples: MSAA_SAMPLES,
-                    ..Default::default()
-                })
-                .depth_stencil_state(DepthStencilState {
-                    depth: Some(DepthState {
-                        enable_dynamic: false,
-                        write_enable: StateMode::Fixed(true),
-                        compare_op: StateMode::Fixed(CompareOp::Greater),
-                    }),
-                    ..DepthStencilState::default()
-                })
-                .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
-                .fragment_shader(fs.entry_point("main").unwrap(), ())
-                .render_pass(scene_subpass.clone())
-                .build(device.clone())
-                .unwrap();
-
-            (
-                scene_render_pass,
-                scene_pipeline,
-                scene_subpass,
-                scene_vertex_buffer,
-                scene_viewport,
-                scene_images,
-            )
-        };
-
-        let (egui_pipeline, egui_vertex_buffer) = {
-            let egui_vertex_buffer = CpuAccessibleBuffer::from_iter(
-                &resources.memory_allocator,
-                BufferUsage {
-                    vertex_buffer: true,
-                    ..Default::default()
-                },
-                false,
-                [
-                    EguiVertex {
-                        position: [-1.0, -1.0],
-                    },
-                    EguiVertex {
-                        position: [-1.0, 1.0],
-                    },
-                    EguiVertex {
-                        position: [1.0, -1.0],
-                    },
-                    EguiVertex {
-                        position: [1.0, -1.0],
-                    },
-                    EguiVertex {
-                        position: [-1.0, 1.0],
-                    },
-                    EguiVertex {
-                        position: [1.0, 1.0],
-                    },
-                ],
-            )
-            .unwrap();
-
-            let egui_pipeline = {
-                let queue = resources.queue.clone();
-                let subpass = resources.subpass.clone();
-
-                let egui_vs =
-                    egui_vs::load(queue.device().clone()).expect("failed to create shader module");
-                let egui_fs =
-                    egui_fs::load(queue.device().clone()).expect("failed to create shader module");
-
-                GraphicsPipeline::start()
-                    .vertex_input_state(BuffersDefinition::new().vertex::<EguiVertex>())
-                    .vertex_shader(egui_vs.entry_point("main").unwrap(), ())
-                    .input_assembly_state(InputAssemblyState::new())
-                    .viewport_state(ViewportState::viewport_dynamic_scissor_dynamic(1))
-                    .fragment_shader(egui_fs.entry_point("main").unwrap(), ())
-                    .rasterization_state(RasterizationState {
-                        front_face: StateMode::Fixed(FrontFace::CounterClockwise),
-                        cull_mode: StateMode::Fixed(CullMode::None),
-                        ..Default::default()
-                    })
-                    .color_blend_state(ColorBlendState::new(subpass.num_color_attachments()).blend(
-                        AttachmentBlend {
-                            color_op: BlendOp::Add,
-                            color_source: BlendFactor::One,
-                            color_destination: BlendFactor::One,
-                            alpha_op: BlendOp::Max,
-                            alpha_source: BlendFactor::One,
-                            alpha_destination: BlendFactor::One,
-                        },
-                    ))
-                    .render_pass(subpass.clone())
-                    .build(queue.device().clone())
-                    .unwrap()
-            };
-
-            (egui_pipeline, egui_vertex_buffer)
-        };
-
-        Self {
-            color,
-            scene_render_pass,
-            scene_pipeline,
-            scene_subpass,
-            scene_vertex_buffer,
-            scene_viewport,
-            scene_images,
-            egui_pipeline,
-            egui_vertex_buffer,
-        }
-    }
-
-    fn update_viewport<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>) {
-        let vp = SceneViewport::from_info(info);
-        if vp != self.scene_viewport {
-            self.scene_viewport = vp;
-            self.scene_images = SceneImages::new(
-                self.scene_render_pass.clone(),
-                resources,
-                &self.scene_viewport,
-                MSAA_SAMPLES,
-                IMAGE_FORMAT,
-            )
-        }
-    }
-
-    fn render_scene<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>) {
-        self.update_viewport(info, resources);
-
-        let mut scene_builder = AutoCommandBufferBuilder::primary(
-            resources.command_buffer_allocator,
-            resources.queue.queue_family_index(),
-            CommandBufferUsage::MultipleSubmit,
-        )
-        .unwrap();
-
-        scene_builder
-            .begin_render_pass(
-                RenderPassBeginInfo {
-                    clear_values: vec![Some([0.0, 0.0, 0.15, 1.0].into()), None],
-                    render_area_offset: self.scene_viewport.origin,
-                    render_area_extent: self.scene_viewport.dimensions,
-                    ..RenderPassBeginInfo::framebuffer(self.scene_images.framebuffer.clone())
-                },
-                SubpassContents::Inline,
-            )
-            .unwrap()
-            .set_viewport(0, [self.scene_viewport.to_vulkan_viewport()])
-            .bind_pipeline_graphics(self.scene_pipeline.clone())
-            .bind_vertex_buffers(0, self.scene_vertex_buffer.clone())
-            .draw(self.scene_vertex_buffer.len() as u32, 1, 0, 0)
-            .unwrap()
-            .end_render_pass()
-            .unwrap();
-
-        let command_buffer = scene_builder.build().unwrap();
-
-        let finished = command_buffer.execute(resources.queue.clone()).unwrap();
-        finished
-            .then_signal_fence_and_flush()
-            .unwrap()
-            .wait(None)
-            .unwrap();
+        Self { scene, transfer }
     }
 
     pub(crate) fn render(
@@ -702,41 +415,8 @@ impl Scene {
         _model_rotation: Quaternion<f32>,
         _camera_position: Vector2<f32>,
     ) {
-        self.render_scene(info, &ctx.resources);
-
-        let egui_descriptor_set = PersistentDescriptorSet::new(
-            ctx.resources.descriptor_set_allocator,
-            self.egui_pipeline
-                .layout()
-                .set_layouts()
-                .get(0)
-                .unwrap()
-                .clone(),
-            [WriteDescriptorSet::image_view(
-                0,
-                self.scene_images.view.clone() as Arc<dyn ImageViewAbstract>,
-            )],
-        )
-        .unwrap();
-
-        ctx.builder
-            .bind_pipeline_graphics(self.egui_pipeline.clone())
-            .bind_descriptor_sets(
-                PipelineBindPoint::Graphics,
-                self.egui_pipeline.layout().clone(),
-                0,
-                egui_descriptor_set.clone(),
-            )
-            .push_constants(
-                self.egui_pipeline.layout().clone(),
-                0,
-                PushConstants {
-                    color: [1.0, 0.0, 0.0, 1.0],
-                },
-            )
-            .bind_vertex_buffers(0, self.egui_vertex_buffer.clone())
-            .draw(self.egui_vertex_buffer.len() as u32, 1, 0, 0)
-            .unwrap();
+        self.scene.render(info, &ctx.resources);
+        self.transfer.transfer(self.scene.view(), ctx);
     }
 
     pub(crate) fn read_color_id(&mut self, _pos: Pos2) -> Option<ColorId> {
@@ -826,98 +506,6 @@ impl SceneImages {
             intermediary,
             view,
         }
-    }
-}
-
-#[repr(C)]
-#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
-struct SceneVertex {
-    position: [f32; 2],
-    color: [f32; 4],
-}
-vulkano::impl_vertex!(SceneVertex, position, color);
-
-mod vs {
-    vulkano_shaders::shader! {
-        ty: "vertex",
-        src: "
-#version 450
-layout(location = 0) in vec2 position;
-layout(location = 1) in vec4 color;
-
-layout(location = 0) out vec4 v_color;
-void main() {
-    gl_Position = vec4(position, 0.0, 1.0);
-    v_color = color;
-}"
-    }
-}
-
-mod fs {
-    vulkano_shaders::shader! {
-        ty: "fragment",
-        src: "
-#version 450
-layout(location = 0) in vec4 v_color;
-
-layout(location = 0) out vec4 f_color;
-
-void main() {
-    f_color = v_color;
-}"
-    }
-}
-
-#[repr(C)]
-#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
-struct EguiVertex {
-    position: [f32; 2],
-}
-vulkano::impl_vertex!(EguiVertex, position);
-
-mod egui_vs {
-    vulkano_shaders::shader! {
-        ty: "vertex",
-        src: "
-#version 450
-
-layout(location = 0) in vec2 position;
-
-void main() {
-    gl_Position = vec4(position, 0.0, 1.0);
-}"
-    }
-}
-
-mod egui_fs {
-    vulkano_shaders::shader! {
-        ty: "fragment",
-        src: "
-#version 450
-
-// The `color_input` parameter of the `draw` method.
-layout(input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput u_diffuse;
-
-layout(push_constant) uniform PushConstants {
-    // The `ambient_color` parameter of the `draw` method.
-    vec4 color;
-} push_constants;
-
-layout(location = 0) out vec4 f_color;
-
-void main() {
-    // Load the value at the current pixel.
-    vec3 in_diffuse = subpassLoad(u_diffuse).rgb;
-    f_color.rgb = in_diffuse; //push_constants.color.rgb * in_diffuse;
-    f_color.g = 0.3;
-    f_color.a = 1.0;
-    //f_color = vec4(1.0, 1.0, 1.0, 1.0);
-}",
-        types_meta: {
-            use bytemuck::{Pod, Zeroable};
-
-            #[derive(Clone, Copy, Zeroable, Pod)]
-        },
     }
 }
 

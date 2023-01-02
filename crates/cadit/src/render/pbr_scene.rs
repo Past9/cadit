@@ -1,6 +1,6 @@
 use std::{f32::consts::PI, sync::Arc};
 
-use cgmath::{InnerSpace, Rad};
+use cgmath::{Deg, InnerSpace, Rad};
 use eframe::epaint::PaintCallbackInfo;
 use egui_winit_vulkano::RenderResources;
 use vulkano::{
@@ -85,6 +85,7 @@ impl PbrScene {
             dimensions: [0, 0],
         };
 
+        /*
         let camera = Camera::create_orthographic(
             scissor.dimensions,
             point3(0.0, 0.0, -5.0),
@@ -94,15 +95,16 @@ impl PbrScene {
             1.0,
             11.0,
         );
+        */
 
         let camera = Camera::create_perspective(
             scissor.dimensions,
-            point3(1.0, 1.0, -3.0),
+            point3(0.0, 0.0, -3.0),
             vec3(0.0, 0.0, 1.0),
             vec3(0.0, -1.0, 0.0).normalize(),
-            Rad(PI / 2.0),
-            0.5,
-            10.5,
+            Deg(70.0).into(),
+            1.0,
+            1000.0,
         );
 
         let (render_pass, images, subpass, pipeline) =
@@ -300,13 +302,6 @@ impl Scene for PbrScene {
             .unwrap()
             .wait(None)
             .unwrap();
-
-        let vert = vec4(-0.9, -0.9, 0.0, 1.0);
-        let view = self.camera.view_matrix();
-        println!("VIEW {:#?}", view * vert);
-        let pers = self.camera.perspective_matrix();
-        println!("PERS {:#?}", pers * view * vert);
-        //println!("PERS2 {:#?}", view * pers * vert);
     }
 
     fn view(&self) -> Arc<dyn ImageViewAbstract> {

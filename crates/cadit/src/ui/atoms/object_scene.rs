@@ -122,14 +122,6 @@ impl ObjectScene {
                                 if let Some(rotation_drag) = self.secondary_drag() {
                                     let Vec2 { x: dx, y: dy } = *pos - rotation_drag.last_position;
 
-                                    println!(
-                                        "start {} {}, {} {}",
-                                        rotation_drag.start_position.x,
-                                        rotation_drag.start_position.y,
-                                        rect.left_top().x,
-                                        rect.left_top().y
-                                    );
-
                                     if dy != 0.0 || dx != 0.0 {
                                         self.rotation = Quaternion::from_axis_angle(
                                             Vec3::new(-dy, dx, 0.0).normalize(),

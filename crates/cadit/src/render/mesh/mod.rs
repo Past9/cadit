@@ -6,8 +6,6 @@ use vulkano::{
     memory::allocator::MemoryAllocator,
 };
 
-use super::cgmath_types::{point3, Point3};
-
 pub struct SceneObjectId(u32);
 impl From<u32> for SceneObjectId {
     fn from(value: u32) -> Self {

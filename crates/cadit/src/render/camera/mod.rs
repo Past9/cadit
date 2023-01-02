@@ -176,12 +176,12 @@ impl Camera {
 
         let c2r0 = 0.0;
         let c2r1 = 0.0;
-        let c2r2 = -(far - near); //-(far + near) / (near - far);
+        let c2r2 = 1.0 / (far - near);
         let c2r3 = 1.0;
 
         let c3r0 = 0.0;
         let c3r1 = 0.0;
-        let c3r2 = (2.0 * far * near) / (near - far);
+        let c3r2 = -near / (far - near);
         let c3r3 = 0.0;
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -228,6 +228,7 @@ impl Camera {
     }
 
     fn update_screen_to_ray_matrix(&mut self) {
+        return;
         let mut view_matrix = self.view_matrix;
         view_matrix[3] = vec4(0.0, 0.0, 0.0, 1.0);
         self.screen_to_ray_matrix = (self.perspective_matrix * view_matrix).invert().unwrap();

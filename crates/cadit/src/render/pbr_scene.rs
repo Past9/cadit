@@ -85,6 +85,7 @@ impl PbrScene {
             dimensions: [0, 0],
         };
 
+        /*
         let camera = Camera::create_orthographic(
             scissor.dimensions,
             point3(0.0, 0.0, -5.0),
@@ -94,18 +95,17 @@ impl PbrScene {
             1.0,
             11.0,
         );
+        */
 
-        /*
         let camera = Camera::create_perspective(
             scissor.dimensions,
-            point3(0.0, 0.0, -5.0),
+            point3(0.0, 0.0, -0.9),
             vec3(0.0, 0.0, 1.0),
             vec3(0.0, -1.0, 0.0).normalize(),
-            Rad(2.5),
-            0.1,
-            10000.0,
+            Rad(PI / 2.0),
+            0.5,
+            10.5,
         );
-        */
 
         let (render_pass, images, subpass, pipeline) =
             Self::create_pipeline(vs.clone(), fs.clone(), resources, msaa_samples, &scissor);

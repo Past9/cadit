@@ -1,10 +1,10 @@
-use cgmath::{EuclideanSpace, Matrix4, Point3, SquareMatrix};
+use cgmath::{EuclideanSpace, InnerSpace, SquareMatrix};
 use eframe::epaint::PaintCallbackInfo;
 use vulkano::pipeline::graphics::viewport::Viewport;
 
 use super::cgmath_types::*;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct CameraViewport {
     pub origin: [u32; 2],
     pub dimensions: [u32; 2],
@@ -69,33 +69,32 @@ pub struct Camera {
     projection_type: ProjectionType,
     near_dist: f32,
     far_dist: f32,
-    position: Vec3,
+    position: Point3,
     direction: Vec3,
     up: Vec3,
     view_matrix: Mat4,
-    projection_matrix: Mat4,
+    perspective_matrix: Mat4,
     screen_to_ray_matrix: Mat4,
     frustum: Frustum,
 }
 impl Camera {
     pub fn create_orthographic(
         viewport: CameraViewport,
-        position: Vec3,
+        position: Point3,
         direction: Vec3,
         up: Vec3,
-        height: f32,
         near_dist: f32,
         far_dist: f32,
     ) -> Self {
-        let mut camera = Camera::create(viewport);
+        let mut camera = Camera::create(viewport.clone());
         camera.orient(position, direction, up);
-        camera.set_orthograpic(height, near_dist, far_dist);
+        camera.set_orthograpic(viewport, near_dist, far_dist);
         camera
     }
 
     pub fn create_perspective(
         viewport: CameraViewport,
-        position: Vec3,
+        position: Point3,
         direction: Vec3,
         up: Vec3,
         fov_y: Rad,
@@ -108,12 +107,15 @@ impl Camera {
         camera
     }
 
-    pub fn set_orthograpic(&mut self, height: f32, near_dist: f32, far_dist: f32) {
+    pub fn set_orthograpic(&mut self, viewport: CameraViewport, near_dist: f32, far_dist: f32) {
+        self.viewport = viewport;
         self.near_dist = near_dist;
         self.far_dist = far_dist;
-        let width = height * self.viewport.aspect();
+        let width = self.viewport.dimensions[0] as f32;
+        let height = self.viewport.dimensions[1] as f32;
         self.projection_type = ProjectionType::Orthographic { height };
-        self.projection_matrix = cgmath::ortho(
+        println!("WH {} {}", width, height);
+        self.perspective_matrix = cgmath::ortho(
             -0.5 * width,
             0.5 * width,
             -0.5 * height,
@@ -121,6 +123,7 @@ impl Camera {
             near_dist,
             far_dist,
         );
+        println!("PM {:#?}", self.perspective_matrix);
         self.update_screen_to_ray_matrix();
         self.update_frustum();
     }
@@ -129,43 +132,64 @@ impl Camera {
         self.near_dist = near_dist;
         self.far_dist = far_dist;
         self.projection_type = ProjectionType::Perspective { fov_y };
-        self.projection_matrix =
+        self.perspective_matrix =
             cgmath::perspective(fov_y, self.viewport.aspect(), near_dist, far_dist);
         self.update_screen_to_ray_matrix();
         self.update_frustum();
     }
 
-    pub fn orient(&mut self, position: Vec3, direction: Vec3, up: Vec3) {
+    pub fn orient(&mut self, position: Point3, direction: Vec3, up: Vec3) {
         self.position = position;
         self.direction = direction;
         self.up = up;
-        self.view_matrix = Matrix4::look_at_rh(
-            Point3::from_vec(self.position),
-            Point3::from_vec(self.direction),
-            self.up,
-        );
+        self.view_matrix = Self::make_view_matrix(self.position, self.direction, self.up);
         self.update_screen_to_ray_matrix();
         self.update_frustum();
     }
 
-    pub fn set_viewport(&mut self, viewport: CameraViewport) {
-        self.viewport = viewport;
-        self.update_screen_to_ray_matrix();
-        self.update_frustum();
+    fn make_view_matrix(pos: Point3, dir: Vec3, up: Vec3) -> Mat4 {
+        let f = dir.normalize();
+        let s = f.cross(up).normalize();
+        let u = f.cross(s);
+
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        Mat4::new(
+            s.x.clone(), u.x.clone(), f.x.clone(), 0.0,
+            s.y.clone(), u.y.clone(), f.y.clone(), 0.0,
+            s.z.clone(), u.z.clone(), f.z.clone(), 0.0,
+            pos.dot(s), pos.dot(u), pos.dot(f), 1.0,
+        )
+    }
+
+    pub fn near_dist(&self) -> f32 {
+        self.near_dist
+    }
+
+    pub fn far_dist(&self) -> f32 {
+        self.far_dist
     }
 
     pub fn viewport(&self) -> &CameraViewport {
         &self.viewport
     }
 
+    pub fn view_matrix(&self) -> &Mat4 {
+        //println!("{:?} {:?} {:?}", self.position, self.direction, self.up);
+        &self.view_matrix
+    }
+
+    pub fn perspective_matrix(&self) -> &Mat4 {
+        &self.perspective_matrix
+    }
+
     fn update_screen_to_ray_matrix(&mut self) {
         let mut view_matrix = self.view_matrix;
         view_matrix[3] = vec4(0.0, 0.0, 0.0, 1.0);
-        self.screen_to_ray_matrix = (self.projection_matrix * view_matrix).invert().unwrap();
+        self.screen_to_ray_matrix = (self.perspective_matrix * view_matrix).invert().unwrap();
     }
 
     fn update_frustum(&mut self) {
-        let m = self.projection_matrix * self.view_matrix;
+        let m = self.perspective_matrix * self.view_matrix;
         self.frustum = Frustum {
             near: vec4(m.x.w + m.x.x, m.y.w + m.y.x, m.z.w + m.z.x, m.w.w + m.w.x),
             far: vec4(m.x.w - m.x.x, m.y.w - m.y.x, m.z.w - m.z.x, m.w.w - m.w.x),
@@ -182,11 +206,11 @@ impl Camera {
             projection_type: ProjectionType::Orthographic { height: 0.0 },
             near_dist: 0.0,
             far_dist: 0.0,
-            position: vec3(0.0, 0.0, 0.0),
+            position: point3(0.0, 0.0, 0.0),
             direction: vec3(0.0, 0.0, 0.0),
             up: vec3(0.0, 0.0, 0.0),
-            view_matrix: Matrix4::identity(),
-            projection_matrix: Matrix4::identity(),
+            view_matrix: Mat4::identity(),
+            perspective_matrix: Mat4::identity(),
             screen_to_ray_matrix: Mat4::identity(),
             frustum: Frustum::zero(),
         }

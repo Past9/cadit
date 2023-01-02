@@ -1,5 +1,6 @@
-use std::sync::Arc;
+use std::{f32::consts::PI, sync::Arc};
 
+use cgmath::{InnerSpace, Rad};
 use eframe::epaint::PaintCallbackInfo;
 use egui_winit_vulkano::RenderResources;
 use vulkano::{
@@ -22,7 +23,7 @@ use vulkano::{
             vertex_input::BuffersDefinition,
             viewport::ViewportState,
         },
-        GraphicsPipeline, StateMode,
+        GraphicsPipeline, Pipeline, StateMode,
     },
     render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass},
     shader::ShaderModule,
@@ -67,7 +68,7 @@ impl PbrScene {
                 Vertex::new(-0.9, -0.9, 0.5),
                 Vertex::new(-0.9, 0.9, 0.5),
                 Vertex::new(0.9, -0.9, 0.5),
-                Vertex::new(0.8, 0.8, 0.5),
+                Vertex::new(0.6, 0.6, 0.5),
             ],
             [0, 1, 2, 2, 1, 3],
         )
@@ -80,14 +81,12 @@ impl PbrScene {
 
         let camera = Camera::create_orthographic(
             CameraViewport::zero(),
-            vec3(0.0, 0.0, 0.0),
+            point3(0.0, 0.0, 0.0),
             vec3(0.0, 0.0, 1.0),
-            vec3(0.0, -1.0, 0.0),
-            0.0,
+            vec3(0.0, -1.0, 0.0).normalize(),
             0.1,
             1.0,
         );
-        //let viewport = CameraViewport::zero();
 
         let (render_pass, images, subpass, pipeline) = Self::create_pipeline(
             vs.clone(),
@@ -216,7 +215,8 @@ impl PbrScene {
         let existing_vp = self.camera.viewport();
         let vp = CameraViewport::from_info(info);
         if vp != *existing_vp {
-            self.camera.set_viewport(vp);
+            self.camera
+                .set_orthograpic(vp, self.camera.near_dist(), self.camera.far_dist());
             self.images = PbrSceneImages::new(
                 self.render_pass.clone(),
                 resources,
@@ -238,6 +238,11 @@ impl Scene for PbrScene {
         )
         .unwrap();
 
+        let push_constants = vs::ty::PushConstants {
+            view_matrix: self.camera.view_matrix().clone().into(),
+            perspective_matrix: self.camera.perspective_matrix().clone().into(),
+        };
+
         scene_builder
             .begin_render_pass(
                 RenderPassBeginInfo {
@@ -253,7 +258,7 @@ impl Scene for PbrScene {
             .bind_pipeline_graphics(self.pipeline.clone())
             .bind_vertex_buffers(0, self.geometry.vertex_buffer.clone())
             .bind_index_buffer(self.geometry.index_buffer.clone())
-            //.draw(self.buffers.vertex_buffer.len() as u32, 1, 0, 0)
+            .push_constants(self.pipeline.layout().clone(), 0, push_constants)
             .draw_indexed(self.geometry.index_buffer.len() as u32, 1, 0, 0, 0)
             .unwrap()
             .end_render_pass()
@@ -267,6 +272,10 @@ impl Scene for PbrScene {
             .unwrap()
             .wait(None)
             .unwrap();
+
+        let vert = vec4(-0.9, -0.9, 0.5, 1.0);
+        let view = self.camera.view_matrix();
+        println!("VERT {:#?}", view * vert);
     }
 
     fn view(&self) -> Arc<dyn ImageViewAbstract> {
@@ -367,11 +376,22 @@ mod vs {
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec4 albedo;
 
+layout(push_constant) uniform PushConstants {
+    mat4 view_matrix;
+    //mat4 model_matrix;
+    mat4 perspective_matrix;
+} push_constants;
+
 layout(location = 0) out vec4 v_color;
 void main() {
-    gl_Position = vec4(position, 1.0);
+    mat4 model_view_matrix = push_constants.view_matrix; // * push_constants.model_matrix;
+    //gl_Position = push_constants.perspective_matrix * model_view_matrix * vec4(position, 1.0);
+    gl_Position = model_view_matrix * vec4(position, 1.0);
     v_color = albedo;
-}"
+}",
+        types_meta: {
+            #[derive(Clone, Copy, bytemuck::Zeroable, bytemuck::Pod)]
+        },
     }
 }
 

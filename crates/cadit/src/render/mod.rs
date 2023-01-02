@@ -12,12 +12,18 @@ pub mod pbr_scene;
 pub mod cgmath_types {
     pub type Rad = cgmath::Rad<f32>;
 
+    pub type Point3 = cgmath::Point3<f32>;
+
     pub type Vec2 = cgmath::Vector2<f32>;
     pub type Vec3 = cgmath::Vector3<f32>;
     pub type Vec4 = cgmath::Vector4<f32>;
 
     pub type Mat3 = cgmath::Matrix3<f32>;
     pub type Mat4 = cgmath::Matrix4<f32>;
+
+    pub fn point3(x: f32, y: f32, z: f32) -> Point3 {
+        Point3::new(x, y, z)
+    }
 
     pub fn vec2(x: f32, y: f32) -> Vec2 {
         Vec2::new(x, y)

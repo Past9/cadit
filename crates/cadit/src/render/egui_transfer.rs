@@ -64,11 +64,11 @@ impl EguiTransfer {
                 egui_fs::load(queue.device().clone()).expect("failed to create shader module");
 
             GraphicsPipeline::start()
+                .input_assembly_state(InputAssemblyState::new())
                 .vertex_input_state(BuffersDefinition::new().vertex::<EguiVertex>())
                 .vertex_shader(egui_vs.entry_point("main").unwrap(), ())
-                .input_assembly_state(InputAssemblyState::new())
-                .viewport_state(ViewportState::viewport_dynamic_scissor_dynamic(1))
                 .fragment_shader(egui_fs.entry_point("main").unwrap(), ())
+                .viewport_state(ViewportState::viewport_dynamic_scissor_dynamic(1))
                 .rasterization_state(RasterizationState {
                     front_face: StateMode::Fixed(FrontFace::CounterClockwise),
                     cull_mode: StateMode::Fixed(CullMode::None),

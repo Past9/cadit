@@ -5,9 +5,8 @@ use egui_winit_vulkano::{CallbackContext, RenderResources};
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
     descriptor_set::{
-        self,
-        allocator::{DescriptorSetAllocator, StandardDescriptorSetAllocator},
-        DescriptorSet, DescriptorSetResources, PersistentDescriptorSet, WriteDescriptorSet,
+        self, allocator::StandardDescriptorSetAllocator, DescriptorSet, PersistentDescriptorSet,
+        WriteDescriptorSet,
     },
     image::ImageViewAbstract,
     pipeline::{
@@ -25,7 +24,7 @@ use vulkano::{
 pub struct EguiTransfer {
     pipeline: Arc<GraphicsPipeline>,
     quad: Arc<CpuAccessibleBuffer<[EguiVertex]>>,
-    descriptor_set: Option<Arc<PersistentDescriptorSet>>,
+    descriptor_set: Arc<PersistentDescriptorSet>,
 }
 impl EguiTransfer {
     pub fn new<'a>(resources: &RenderResources<'a>) -> Self {
@@ -87,10 +86,20 @@ impl EguiTransfer {
                 .unwrap()
         };
 
+        // Create an empty descriptor set. On the first call to Self::transfer(),
+        // this will be immediately replaced by one actually bound to the ImageView
+        // that we'll be transferring.
+        let descriptor_set = PersistentDescriptorSet::new(
+            resources.descriptor_set_allocator,
+            pipeline.layout().set_layouts().get(0).unwrap().clone(),
+            [],
+        )
+        .unwrap();
+
         Self {
             pipeline,
             quad: vertex_buffer,
-            descriptor_set: None,
+            descriptor_set,
         }
     }
 
@@ -113,24 +122,29 @@ impl EguiTransfer {
         view: Arc<dyn ImageViewAbstract>,
         allocator: &StandardDescriptorSetAllocator,
     ) -> Arc<PersistentDescriptorSet> {
-        if let Some(ref ds) = self.descriptor_set {
-            // If we already have a descriptor set, we need to check that the ImageView
-            // that it's bound to references the same one passed in as `view`. This may
-            // not be the case if the renderer that generated `view` has rebuilt its
-            // framebuffers (due to reposition or resizing, for example).
-            let binding = ds.resources().binding(0).unwrap();
-            let same_image = match binding {
-                descriptor_set::DescriptorBindingResources::ImageView(elements) => {
-                    let el = &elements.get(0).unwrap().as_ref().unwrap();
-                    *el == &view
+        // We need to ensure that our descriptor set is bound to an ImageView, and
+        // that that ImageView points to the same data passed in to `view`. This may
+        // not be the case if the renderer that generated `view` has rebuilt its
+        // framebuffers (due to reposition or resizing, for example).
+        let binding = self.descriptor_set.resources().binding(0).unwrap();
+        let same_image = match binding {
+            descriptor_set::DescriptorBindingResources::ImageView(elements) => {
+                if let Some(element) = &elements.get(0) {
+                    if let Some(element) = element.as_ref() {
+                        element == &view
+                    } else {
+                        false
+                    }
+                } else {
+                    false
                 }
-                _ => false,
-            };
-
-            // If the reference is still good, return it.
-            if same_image {
-                return ds.clone();
             }
+            _ => false,
+        };
+
+        // If the reference is still good, return it.
+        if same_image {
+            return self.descriptor_set.clone();
         }
 
         // If the reference was bad or we haven't created a descriptor set yet, create a
@@ -143,7 +157,7 @@ impl EguiTransfer {
         .unwrap();
 
         // Cache the descriptor set
-        self.descriptor_set = Some(ds.clone());
+        self.descriptor_set = ds.clone();
 
         // Return it
         ds

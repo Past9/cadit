@@ -263,7 +263,6 @@ impl Scene for PbrScene {
 
         let push_constants = vs::ty::PushConstants {
             view_matrix: self.camera.view_matrix().clone().into(),
-            //model_matrix: (Mat4::from(self.rotation) * Mat4::from_translation(self.position)).into(),
             model_matrix: (Mat4::from_translation(self.position) * Mat4::from(self.rotation))
                 .into(),
             perspective_matrix: self.camera.perspective_matrix().clone().into(),
@@ -280,7 +279,6 @@ impl Scene for PbrScene {
                 SubpassContents::Inline,
             )
             .unwrap()
-            //.set_viewport(0, [self.scissor().to_vulkan_viewport()])
             .set_viewport(
                 0,
                 [Viewport {
@@ -402,24 +400,7 @@ impl PbrSceneImages {
 mod vs {
     vulkano_shaders::shader! {
         ty: "vertex",
-        src: "
-#version 450
-layout(location = 0) in vec3 position;
-layout(location = 1) in vec4 albedo;
-
-layout(push_constant) uniform PushConstants {
-    mat4 view_matrix;
-    mat4 model_matrix;
-    mat4 perspective_matrix;
-} push_constants;
-
-layout(location = 0) out vec4 v_color;
-void main() {
-    mat4 model_view_matrix = push_constants.view_matrix * push_constants.model_matrix;
-    gl_Position = push_constants.perspective_matrix * model_view_matrix * vec4(position, 1.0);
-    //gl_Position = model_view_matrix * vec4(position, 1.0);
-    v_color = albedo;
-}",
+        path: "src/render/shaders/surface.vert",
         types_meta: {
             #[derive(Clone, Copy, bytemuck::Zeroable, bytemuck::Pod)]
         },
@@ -429,14 +410,6 @@ void main() {
 mod fs {
     vulkano_shaders::shader! {
         ty: "fragment",
-        src: "
-#version 450
-layout(location = 0) in vec4 v_color;
-
-layout(location = 0) out vec4 f_color;
-
-void main() {
-    f_color = v_color;
-}"
+        path: "src/render/shaders/surface.frag",
     }
 }

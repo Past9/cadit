@@ -1,6 +1,7 @@
 use cgmath::{EuclideanSpace, InnerSpace, SquareMatrix};
 
 use super::cgmath_types::*;
+use cgmath::Angle;
 
 #[derive(Debug, Clone)]
 pub enum ProjectionType {
@@ -102,8 +103,12 @@ impl Camera {
                 );
             }
             ProjectionType::Perspective { fov_y } => {
-                self.perspective_matrix =
-                    cgmath::perspective(fov_y, self.aspect(), self.near_dist, self.far_dist);
+                self.perspective_matrix = Self::make_perspective_matrix(
+                    fov_y,
+                    self.aspect(),
+                    self.near_dist,
+                    self.far_dist,
+                );
             }
         };
         self.update_screen_to_ray_matrix();
@@ -139,13 +144,45 @@ impl Camera {
 
         let c2r0 = 0.0;
         let c2r1 = 0.0;
-        let c2r2 = -2.0 / (far - near);
+        let c2r2 = 1.0 / (far - near);
         let c2r3 = 0.0;
 
         let c3r0 = (right + left) / (right - left);
         let c3r1 = (top + bottom) / (top - bottom);
-        let c3r2 = (far + near) / (far - near);
+        let c3r2 = -near / (far - near);
         let c3r3 = 1.0;
+
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        Mat4::new(
+            c0r0, c0r1, c0r2, c0r3,
+            c1r0, c1r1, c1r2, c1r3,
+            c2r0, c2r1, c2r2, c2r3,
+            c3r0, c3r1, c3r2, c3r3,
+        )
+    }
+
+    fn make_perspective_matrix(fov_y: Rad, aspect: f32, near: f32, far: f32) -> Mat4 {
+        let f = Rad::cot(fov_y / 2.0);
+
+        let c0r0 = f / aspect;
+        let c0r1 = 0.0;
+        let c0r2 = 0.0;
+        let c0r3 = 0.0;
+
+        let c1r0 = 0.0;
+        let c1r1 = f;
+        let c1r2 = 0.0;
+        let c1r3 = 0.0;
+
+        let c2r0 = 0.0;
+        let c2r1 = 0.0;
+        let c2r2 = -(far - near); //-(far + near) / (near - far);
+        let c2r3 = 1.0;
+
+        let c3r0 = 0.0;
+        let c3r1 = 0.0;
+        let c3r2 = (2.0 * far * near) / (near - far);
+        let c3r3 = 0.0;
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
         Mat4::new(
@@ -166,7 +203,7 @@ impl Camera {
             s.x.clone(), u.x.clone(), f.x.clone(), 0.0,
             s.y.clone(), u.y.clone(), f.y.clone(), 0.0,
             s.z.clone(), u.z.clone(), f.z.clone(), 0.0,
-            pos.dot(s), pos.dot(u), pos.dot(f), 1.0,
+            pos.dot(s), pos.dot(u), -pos.dot(f), 1.0,
         )
     }
 

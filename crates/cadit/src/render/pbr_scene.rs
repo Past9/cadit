@@ -66,10 +66,10 @@ impl PbrScene {
         let buffers = Surface::new(
             1,
             [
-                Vertex::new(-0.9, -0.9, 0.5),
-                Vertex::new(-0.9, 0.9, 0.5),
-                Vertex::new(0.9, -0.9, 0.5),
-                Vertex::new(0.6, 0.6, 0.5),
+                Vertex::new(-0.9, -0.9, 0.0),
+                Vertex::new(-0.9, 0.9, 0.0),
+                Vertex::new(0.9, -0.9, 0.0),
+                Vertex::new(0.6, 0.6, 0.0),
             ],
             [0, 1, 2, 2, 1, 3],
         )
@@ -87,13 +87,25 @@ impl PbrScene {
 
         let camera = Camera::create_orthographic(
             scissor.dimensions,
-            point3(0.0, 0.0, 0.0),
+            point3(0.0, 0.0, -5.0),
             vec3(0.0, 0.0, 1.0),
             vec3(0.0, -1.0, 0.0).normalize(),
             2.0,
-            0.1,
-            100000.0,
+            1.0,
+            11.0,
         );
+
+        /*
+        let camera = Camera::create_perspective(
+            scissor.dimensions,
+            point3(0.0, 0.0, -5.0),
+            vec3(0.0, 0.0, 1.0),
+            vec3(0.0, -1.0, 0.0).normalize(),
+            Rad(2.5),
+            0.1,
+            10000.0,
+        );
+        */
 
         let (render_pass, images, subpass, pipeline) =
             Self::create_pipeline(vs.clone(), fs.clone(), resources, msaa_samples, &scissor);
@@ -223,10 +235,7 @@ impl PbrScene {
 
         if new_scissor != self.scissor {
             self.scissor = new_scissor;
-            //self.camera.set_viewport_in_pixels(self.scissor.dimensions);
-
             self.camera.set_viewport_in_pixels(self.scissor.dimensions);
-
             self.images = PbrSceneImages::new(
                 self.render_pass.clone(),
                 resources,
@@ -294,9 +303,9 @@ impl Scene for PbrScene {
             .wait(None)
             .unwrap();
 
-        let vert = vec4(-0.9, -0.9, 0.5, 1.0);
+        let vert = vec4(-0.9, -0.9, 0.0, 1.0);
         let view = self.camera.view_matrix();
-        //println!("VIEW {:#?}", view * vert);
+        println!("VIEW {:#?}", view * vert);
         let pers = self.camera.perspective_matrix();
         println!("PERS {:#?}", pers * view * vert);
         //println!("PERS2 {:#?}", view * pers * vert);

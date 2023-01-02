@@ -1,4 +1,3 @@
-use cgmath::{Quaternion, Vector2};
 use eframe::epaint::{PaintCallbackInfo, Pos2};
 use egui_winit_vulkano::{CallbackContext, RenderResources};
 use std::sync::Arc;

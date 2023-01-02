@@ -2,12 +2,8 @@ use crate::{
     render::cgmath_types::vec3,
     ui::atoms::{gizmo::Gizmo, object_scene::ObjectScene},
 };
-use cgmath::{Quaternion, Vector2};
-use eframe::{
-    egui::{self, Layout},
-    emath::{self, Align},
-    epaint::Rect,
-};
+use cgmath::Quaternion;
+use eframe::egui;
 
 use super::Editor;
 
@@ -49,6 +45,7 @@ impl Editor for PartEditor {
             self.scene.set_rotation(self.gizmo.rotation());
         }
 
+        /*
         let scene_rect = self.scene.rect();
         let mut gizmo_ui = ui.child_ui(
             Rect::from_min_size(
@@ -58,7 +55,8 @@ impl Editor for PartEditor {
             Layout::top_down(Align::TOP),
         );
 
-        //self.gizmo.show(&mut gizmo_ui);
+        self.gizmo.show(&mut gizmo_ui);
+        */
     }
 
     /*

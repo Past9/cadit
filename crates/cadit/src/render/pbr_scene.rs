@@ -1,6 +1,6 @@
-use std::{f32::consts::PI, sync::Arc};
+use std::sync::Arc;
 
-use cgmath::{Deg, InnerSpace, Rad, Zero};
+use cgmath::{Deg, InnerSpace, Zero};
 use eframe::epaint::PaintCallbackInfo;
 use egui_winit_vulkano::RenderResources;
 use vulkano::{

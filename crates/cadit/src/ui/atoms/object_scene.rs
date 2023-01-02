@@ -1,7 +1,7 @@
 use crate::render::cgmath_types::{vec3, Quat, Vec3};
 
 use super::scene::{ColorId, DeferredScene, SceneObjectProps};
-use cgmath::{InnerSpace, Quaternion, Rad, Rotation3, Vector2};
+use cgmath::{InnerSpace, Quaternion, Rad, Rotation3};
 use eframe::{
     egui::{self, PointerButton},
     epaint::{mutex::Mutex, PaintCallback, Pos2, Rect, Rgba, Vec2},

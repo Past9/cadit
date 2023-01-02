@@ -30,8 +30,9 @@ use vulkano::{
 };
 
 use super::{
+    camera::CameraViewport,
     mesh::{PbrMaterial, PbrSurfaceBuffers, PbrVertex, Surface, Vertex},
-    Scene, SceneViewport,
+    Scene,
 };
 
 const IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
@@ -43,7 +44,7 @@ pub struct PbrScene {
     render_pass: Arc<RenderPass>,
     pipeline: Arc<GraphicsPipeline>,
     subpass: Subpass,
-    viewport: SceneViewport,
+    viewport: CameraViewport,
     geometry: PbrSurfaceBuffers,
     images: PbrSceneImages,
     msaa_samples: SampleCount,
@@ -62,10 +63,10 @@ impl PbrScene {
         let buffers = Surface::new(
             1,
             [
-                Vertex::new(-0.9, -0.9, 0.0),
-                Vertex::new(-0.9, 0.9, 0.0),
-                Vertex::new(0.9, -0.9, 0.0),
-                Vertex::new(0.8, 0.8, 0.0),
+                Vertex::new(-0.9, -0.9, 0.5),
+                Vertex::new(-0.9, 0.9, 0.5),
+                Vertex::new(0.9, -0.9, 0.5),
+                Vertex::new(0.8, 0.8, 0.5),
             ],
             [0, 1, 2, 2, 1, 3],
         )
@@ -76,7 +77,7 @@ impl PbrScene {
             &resources.memory_allocator,
         );
 
-        let viewport = SceneViewport::zero();
+        let viewport = CameraViewport::zero();
 
         let (render_pass, images, subpass, pipeline) =
             Self::create_pipeline(vs.clone(), fs.clone(), resources, msaa_samples, &viewport);
@@ -100,7 +101,7 @@ impl PbrScene {
         fs: Arc<ShaderModule>,
         resources: &RenderResources<'a>,
         msaa_samples: SampleCount,
-        viewport: &SceneViewport,
+        viewport: &CameraViewport,
     ) -> (
         Arc<RenderPass>,
         PbrSceneImages,
@@ -176,6 +177,7 @@ impl PbrScene {
             })
             .multisample_state(MultisampleState {
                 rasterization_samples: msaa_samples,
+                sample_shading: Some(0.5),
                 ..Default::default()
             })
             .depth_stencil_state(DepthStencilState {
@@ -196,7 +198,7 @@ impl PbrScene {
     }
 
     fn update_viewport<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>) {
-        let vp = SceneViewport::from_info(info);
+        let vp = CameraViewport::from_info(info);
         if vp != self.viewport {
             self.viewport = vp;
             self.images = PbrSceneImages::new(
@@ -264,7 +266,7 @@ impl PbrSceneImages {
     fn new(
         scene_render_pass: Arc<RenderPass>,
         resources: &RenderResources,
-        viewport: &SceneViewport,
+        viewport: &CameraViewport,
         samples: SampleCount,
         format: Format,
     ) -> Self {

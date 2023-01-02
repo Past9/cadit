@@ -17,6 +17,7 @@ fn main() {
     let context = VulkanoContext::new(VulkanoConfig {
         device_features: Features {
             dynamic_rendering: true,
+            sample_rate_shading: true,
             ..Default::default()
         },
         ..Default::default()

@@ -8,7 +8,7 @@ use vulkano::{
     image::ImageViewAbstract,
     pipeline::{
         graphics::{
-            color_blend::{AttachmentBlend, BlendFactor, BlendOp, ColorBlendState},
+            color_blend::ColorBlendState,
             input_assembly::InputAssemblyState,
             rasterization::{CullMode, FrontFace, RasterizationState},
             vertex_input::BuffersDefinition,
@@ -17,8 +17,6 @@ use vulkano::{
         GraphicsPipeline, Pipeline, PipelineBindPoint, StateMode,
     },
 };
-
-use self::egui_fs::ty::PushConstants;
 
 pub struct EguiTransfer {
     pipeline: Arc<GraphicsPipeline>,
@@ -76,6 +74,10 @@ impl EguiTransfer {
                     cull_mode: StateMode::Fixed(CullMode::None),
                     ..Default::default()
                 })
+                .color_blend_state(
+                    ColorBlendState::new(subpass.num_color_attachments()).blend_alpha(),
+                )
+                /*
                 .color_blend_state(ColorBlendState::new(subpass.num_color_attachments()).blend(
                     AttachmentBlend {
                         color_op: BlendOp::Add,
@@ -86,6 +88,7 @@ impl EguiTransfer {
                         alpha_destination: BlendFactor::One,
                     },
                 ))
+                */
                 .render_pass(subpass.clone())
                 .build(queue.device().clone())
                 .unwrap()
@@ -112,13 +115,6 @@ impl EguiTransfer {
                 self.pipeline.layout().clone(),
                 0,
                 egui_descriptor_set.clone(),
-            )
-            .push_constants(
-                self.pipeline.layout().clone(),
-                0,
-                PushConstants {
-                    color: [1.0, 0.0, 0.0, 1.0],
-                },
             )
             .bind_vertex_buffers(0, self.quad.clone())
             .draw(self.quad.len() as u32, 1, 0, 0)
@@ -153,27 +149,16 @@ mod egui_fs {
         src: "
 #version 450
 
-// The `color_input` parameter of the `draw` method.
+// The final rendered scene.
 layout(input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput u_diffuse;
-
-layout(push_constant) uniform PushConstants {
-    // The `ambient_color` parameter of the `draw` method.
-    vec4 color;
-} push_constants;
 
 layout(location = 0) out vec4 f_color;
 
 void main() {
     // Load the value at the current pixel.
-    vec3 in_diffuse = subpassLoad(u_diffuse).rgb;
-    f_color.rgb = in_diffuse; //push_constants.color.rgb * in_diffuse;
-    f_color.g = 0.3;
-    f_color.a = 1.0;
-    //f_color = vec4(1.0, 1.0, 1.0, 1.0);
+    f_color.rgba = subpassLoad(u_diffuse).rgba;
 }",
         types_meta: {
-            use bytemuck::{Pod, Zeroable};
-
             #[derive(Clone, Copy, Zeroable, Pod)]
         },
     }

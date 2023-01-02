@@ -1,5 +1,7 @@
+use crate::render::cgmath_types::Vec3;
+
 use super::scene::{ColorId, DeferredScene, SceneObjectProps};
-use cgmath::{InnerSpace, Quaternion, Rad, Rotation3, Vector2, Vector3};
+use cgmath::{InnerSpace, Quaternion, Rad, Rotation3, Vector2};
 use eframe::{
     egui::{self, PointerButton},
     epaint::{mutex::Mutex, PaintCallback, Pos2, Rect, Rgba, Vec2},
@@ -130,8 +132,8 @@ impl ObjectScene {
 
                                     if dy != 0.0 || dx != 0.0 {
                                         self.rotation = Quaternion::from_axis_angle(
-                                            Vector3::new(-dy, dx, 0.0).normalize(),
-                                            Rad(Vector3::new(dx, dy, 0.0).magnitude()
+                                            Vec3::new(-dy, dx, 0.0).normalize(),
+                                            Rad(Vec3::new(dx, dy, 0.0).magnitude()
                                                 * ROTATION_SENSITIVITY),
                                         ) * self.rotation;
                                         self.rotated = true;

@@ -160,7 +160,7 @@ impl Gizmo {
                 Vector2::new(0.0, 0.0),
                 false,
                 false,
-                [1.0, 0.0, 0.0, 1.0],
+                [0.0, 0.0, 0.0, 0.0],
             ),
             rotation: AnimatedValue::new(rotation),
         }

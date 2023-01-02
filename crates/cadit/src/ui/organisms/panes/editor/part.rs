@@ -23,7 +23,7 @@ impl PartEditor {
                 Vector2::new(0.0, 0.0),
                 true,
                 true,
-                [0.0, 1.0, 0.0, 1.0],
+                [0.0, 0.0, 0.0, 1.0],
             ),
         }
     }
@@ -55,7 +55,7 @@ impl Editor for PartEditor {
             Layout::top_down(Align::TOP),
         );
 
-        self.gizmo.show(&mut gizmo_ui);
+        //self.gizmo.show(&mut gizmo_ui);
     }
 
     /*

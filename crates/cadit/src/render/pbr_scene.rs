@@ -21,7 +21,7 @@ use vulkano::{
             multisample::MultisampleState,
             rasterization::{CullMode, FrontFace, RasterizationState},
             vertex_input::BuffersDefinition,
-            viewport::ViewportState,
+            viewport::{Scissor, Viewport, ViewportState},
         },
         GraphicsPipeline, Pipeline, StateMode,
     },
@@ -31,7 +31,7 @@ use vulkano::{
 };
 
 use super::{
-    camera::{Camera, CameraViewport},
+    camera::Camera,
     cgmath_types::*,
     mesh::{PbrMaterial, PbrSurfaceBuffers, PbrVertex, Surface, Vertex},
     Scene,
@@ -50,6 +50,7 @@ pub struct PbrScene {
     geometry: PbrSurfaceBuffers,
     images: PbrSceneImages,
     msaa_samples: SampleCount,
+    scissor: Scissor,
 }
 impl PbrScene {
     pub fn new<'a>(
@@ -79,22 +80,23 @@ impl PbrScene {
             &resources.memory_allocator,
         );
 
+        let scissor = Scissor {
+            origin: [0, 0],
+            dimensions: [0, 0],
+        };
+
         let camera = Camera::create_orthographic(
-            CameraViewport::zero(),
+            scissor.dimensions,
             point3(0.0, 0.0, 0.0),
             vec3(0.0, 0.0, 1.0),
             vec3(0.0, -1.0, 0.0).normalize(),
+            2.0,
             0.1,
-            1.0,
+            100000.0,
         );
 
-        let (render_pass, images, subpass, pipeline) = Self::create_pipeline(
-            vs.clone(),
-            fs.clone(),
-            resources,
-            msaa_samples,
-            &camera.viewport(),
-        );
+        let (render_pass, images, subpass, pipeline) =
+            Self::create_pipeline(vs.clone(), fs.clone(), resources, msaa_samples, &scissor);
 
         Self {
             vs,
@@ -107,6 +109,7 @@ impl PbrScene {
             camera,
             images,
             msaa_samples,
+            scissor,
         }
     }
 
@@ -115,7 +118,7 @@ impl PbrScene {
         fs: Arc<ShaderModule>,
         resources: &RenderResources<'a>,
         msaa_samples: SampleCount,
-        viewport: &CameraViewport,
+        scissor: &Scissor,
     ) -> (
         Arc<RenderPass>,
         PbrSceneImages,
@@ -171,7 +174,7 @@ impl PbrScene {
         let images = PbrSceneImages::new(
             render_pass.clone(),
             resources,
-            &viewport,
+            &scissor,
             msaa_samples,
             IMAGE_FORMAT,
         );
@@ -212,15 +215,22 @@ impl PbrScene {
     }
 
     fn update_viewport<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>) {
-        let existing_vp = self.camera.viewport();
-        let vp = CameraViewport::from_info(info);
-        if vp != *existing_vp {
-            self.camera
-                .set_orthograpic(vp, self.camera.near_dist(), self.camera.far_dist());
+        let vpip = info.viewport_in_pixels();
+        let new_scissor = Scissor {
+            origin: [vpip.left_px as u32, vpip.top_px as u32],
+            dimensions: [vpip.width_px as u32, vpip.height_px as u32],
+        };
+
+        if new_scissor != self.scissor {
+            self.scissor = new_scissor;
+            //self.camera.set_viewport_in_pixels(self.scissor.dimensions);
+
+            self.camera.set_viewport_in_pixels(self.scissor.dimensions);
+
             self.images = PbrSceneImages::new(
                 self.render_pass.clone(),
                 resources,
-                &self.camera.viewport(),
+                &self.scissor,
                 self.msaa_samples,
                 IMAGE_FORMAT,
             )
@@ -247,14 +257,25 @@ impl Scene for PbrScene {
             .begin_render_pass(
                 RenderPassBeginInfo {
                     clear_values: vec![Some(self.clear_color.into()), None],
-                    render_area_offset: self.camera.viewport().origin,
-                    render_area_extent: self.camera.viewport().dimensions,
+                    render_area_offset: self.scissor.origin,
+                    render_area_extent: self.scissor.dimensions,
                     ..RenderPassBeginInfo::framebuffer(self.images.framebuffer.clone())
                 },
                 SubpassContents::Inline,
             )
             .unwrap()
-            .set_viewport(0, [self.camera.viewport().to_vulkan_viewport()])
+            //.set_viewport(0, [self.scissor().to_vulkan_viewport()])
+            .set_viewport(
+                0,
+                [Viewport {
+                    origin: [self.scissor.origin[0] as f32, self.scissor.origin[1] as f32],
+                    dimensions: [
+                        self.scissor.dimensions[0] as f32,
+                        self.scissor.dimensions[1] as f32,
+                    ],
+                    depth_range: 0.0..1.0,
+                }],
+            )
             .bind_pipeline_graphics(self.pipeline.clone())
             .bind_vertex_buffers(0, self.geometry.vertex_buffer.clone())
             .bind_index_buffer(self.geometry.index_buffer.clone())
@@ -275,7 +296,10 @@ impl Scene for PbrScene {
 
         let vert = vec4(-0.9, -0.9, 0.5, 1.0);
         let view = self.camera.view_matrix();
-        println!("VERT {:#?}", view * vert);
+        //println!("VIEW {:#?}", view * vert);
+        let pers = self.camera.perspective_matrix();
+        println!("PERS {:#?}", pers * view * vert);
+        //println!("PERS2 {:#?}", view * pers * vert);
     }
 
     fn view(&self) -> Arc<dyn ImageViewAbstract> {
@@ -291,7 +315,7 @@ impl PbrSceneImages {
     fn new(
         scene_render_pass: Arc<RenderPass>,
         resources: &RenderResources,
-        viewport: &CameraViewport,
+        scissor: &Scissor,
         samples: SampleCount,
         format: Format,
     ) -> Self {
@@ -302,14 +326,14 @@ impl PbrSceneImages {
         //
         // TODO: Is there a way to do this that doesn't waste memory on the offset area?
         let dimensions = [
-            match viewport.dimensions[0] > 0 {
-                true => viewport.dimensions[0],
+            match scissor.dimensions[0] > 0 {
+                true => scissor.dimensions[0],
                 false => 1,
-            } + viewport.origin[0],
-            match viewport.dimensions[1] > 0 {
-                true => viewport.dimensions[1],
+            } + scissor.origin[0],
+            match scissor.dimensions[1] > 0 {
+                true => scissor.dimensions[1],
                 false => 1,
-            } + viewport.origin[1],
+            } + scissor.origin[1],
         ];
 
         let mut attachments: Vec<Arc<dyn ImageViewAbstract>> = Vec::new();
@@ -358,16 +382,6 @@ impl PbrSceneImages {
     }
 }
 
-/*
-#[repr(C)]
-#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
-struct SceneVertex {
-    position: [f32; 2],
-    color: [f32; 4],
-}
-vulkano::impl_vertex!(SceneVertex, position, color);
-*/
-
 mod vs {
     vulkano_shaders::shader! {
         ty: "vertex",
@@ -385,8 +399,8 @@ layout(push_constant) uniform PushConstants {
 layout(location = 0) out vec4 v_color;
 void main() {
     mat4 model_view_matrix = push_constants.view_matrix; // * push_constants.model_matrix;
-    //gl_Position = push_constants.perspective_matrix * model_view_matrix * vec4(position, 1.0);
-    gl_Position = model_view_matrix * vec4(position, 1.0);
+    gl_Position = push_constants.perspective_matrix * model_view_matrix * vec4(position, 1.0);
+    //gl_Position = model_view_matrix * vec4(position, 1.0);
     v_color = albedo;
 }",
         types_meta: {

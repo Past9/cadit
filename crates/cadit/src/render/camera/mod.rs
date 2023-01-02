@@ -1,6 +1,4 @@
 use cgmath::{EuclideanSpace, InnerSpace, SquareMatrix};
-use eframe::epaint::PaintCallbackInfo;
-use vulkano::{buffer::view, pipeline::graphics::viewport::Viewport};
 
 use super::cgmath_types::*;
 
@@ -54,9 +52,14 @@ impl Camera {
         near_dist: f32,
         far_dist: f32,
     ) -> Self {
-        let mut camera = Camera::create(viewport_in_pixels.clone(), near_dist, far_dist);
+        let mut camera = Camera::create(
+            viewport_in_pixels.clone(),
+            near_dist,
+            far_dist,
+            ProjectionType::Orthographic { height },
+        );
         camera.orient(position, direction, up);
-        camera.set_orthograpic(viewport_in_pixels, height);
+        camera.update_projection();
         camera
     }
 
@@ -69,9 +72,14 @@ impl Camera {
         near_dist: f32,
         far_dist: f32,
     ) -> Self {
-        let mut camera = Camera::create(viewport_in_pixels, near_dist, far_dist);
+        let mut camera = Camera::create(
+            viewport_in_pixels,
+            near_dist,
+            far_dist,
+            ProjectionType::Perspective { fov_y },
+        );
         camera.orient(position, direction, up);
-        camera.set_perspective(viewport_in_pixels, fov_y);
+        camera.update_projection();
         camera
     }
 
@@ -98,31 +106,6 @@ impl Camera {
                     cgmath::perspective(fov_y, self.aspect(), self.near_dist, self.far_dist);
             }
         };
-        self.update_screen_to_ray_matrix();
-        self.update_frustum();
-    }
-
-    pub fn set_orthograpic(&mut self, viewport_in_pixels: [u32; 2], height: f32) {
-        self.viewport_in_pixels = viewport_in_pixels;
-        self.projection_type = ProjectionType::Orthographic { height };
-        let width = height * self.aspect();
-        self.perspective_matrix = Self::make_ortho_matrix(
-            -0.5 * width,
-            0.5 * width,
-            -0.5 * height,
-            0.5 * height,
-            self.near_dist,
-            self.far_dist,
-        );
-        self.update_screen_to_ray_matrix();
-        self.update_frustum();
-    }
-
-    pub fn set_perspective(&mut self, viewport_in_pixels: [u32; 2], fov_y: Rad) {
-        self.viewport_in_pixels = viewport_in_pixels;
-        self.projection_type = ProjectionType::Perspective { fov_y };
-        self.perspective_matrix =
-            cgmath::perspective(fov_y, self.aspect(), self.near_dist, self.far_dist);
         self.update_screen_to_ray_matrix();
         self.update_frustum();
     }
@@ -225,10 +208,15 @@ impl Camera {
         };
     }
 
-    fn create(viewport_in_pixels: [u32; 2], near_dist: f32, far_dist: f32) -> Self {
+    fn create(
+        viewport_in_pixels: [u32; 2],
+        near_dist: f32,
+        far_dist: f32,
+        projection_type: ProjectionType,
+    ) -> Self {
         Camera {
             viewport_in_pixels,
-            projection_type: ProjectionType::Orthographic { height: 0.0 },
+            projection_type,
             near_dist,
             far_dist,
             position: point3(0.0, 0.0, 0.0),

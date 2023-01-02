@@ -30,7 +30,8 @@ use vulkano::{
 };
 
 use super::{
-    camera::CameraViewport,
+    camera::{Camera, CameraViewport},
+    cgmath_types::*,
     mesh::{PbrMaterial, PbrSurfaceBuffers, PbrVertex, Surface, Vertex},
     Scene,
 };
@@ -44,7 +45,7 @@ pub struct PbrScene {
     render_pass: Arc<RenderPass>,
     pipeline: Arc<GraphicsPipeline>,
     subpass: Subpass,
-    viewport: CameraViewport,
+    camera: Camera,
     geometry: PbrSurfaceBuffers,
     images: PbrSceneImages,
     msaa_samples: SampleCount,
@@ -77,10 +78,24 @@ impl PbrScene {
             &resources.memory_allocator,
         );
 
-        let viewport = CameraViewport::zero();
+        let camera = Camera::create_orthographic(
+            CameraViewport::zero(),
+            vec3(0.0, 0.0, 0.0),
+            vec3(0.0, 0.0, 1.0),
+            vec3(0.0, -1.0, 0.0),
+            0.0,
+            0.1,
+            1.0,
+        );
+        //let viewport = CameraViewport::zero();
 
-        let (render_pass, images, subpass, pipeline) =
-            Self::create_pipeline(vs.clone(), fs.clone(), resources, msaa_samples, &viewport);
+        let (render_pass, images, subpass, pipeline) = Self::create_pipeline(
+            vs.clone(),
+            fs.clone(),
+            resources,
+            msaa_samples,
+            &camera.viewport(),
+        );
 
         Self {
             vs,
@@ -90,7 +105,7 @@ impl PbrScene {
             pipeline,
             subpass,
             geometry: buffers,
-            viewport,
+            camera,
             images,
             msaa_samples,
         }
@@ -198,13 +213,14 @@ impl PbrScene {
     }
 
     fn update_viewport<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>) {
+        let existing_vp = self.camera.viewport();
         let vp = CameraViewport::from_info(info);
-        if vp != self.viewport {
-            self.viewport = vp;
+        if vp != *existing_vp {
+            self.camera.set_viewport(vp);
             self.images = PbrSceneImages::new(
                 self.render_pass.clone(),
                 resources,
-                &self.viewport,
+                &self.camera.viewport(),
                 self.msaa_samples,
                 IMAGE_FORMAT,
             )
@@ -226,14 +242,14 @@ impl Scene for PbrScene {
             .begin_render_pass(
                 RenderPassBeginInfo {
                     clear_values: vec![Some(self.clear_color.into()), None],
-                    render_area_offset: self.viewport.origin,
-                    render_area_extent: self.viewport.dimensions,
+                    render_area_offset: self.camera.viewport().origin,
+                    render_area_extent: self.camera.viewport().dimensions,
                     ..RenderPassBeginInfo::framebuffer(self.images.framebuffer.clone())
                 },
                 SubpassContents::Inline,
             )
             .unwrap()
-            .set_viewport(0, [self.viewport.to_vulkan_viewport()])
+            .set_viewport(0, [self.camera.viewport().to_vulkan_viewport()])
             .bind_pipeline_graphics(self.pipeline.clone())
             .bind_vertex_buffers(0, self.geometry.vertex_buffer.clone())
             .bind_index_buffer(self.geometry.index_buffer.clone())

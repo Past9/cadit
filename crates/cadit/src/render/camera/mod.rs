@@ -148,6 +148,16 @@ impl Camera {
         self.update_frustum();
     }
 
+    pub fn set_viewport(&mut self, viewport: CameraViewport) {
+        self.viewport = viewport;
+        self.update_screen_to_ray_matrix();
+        self.update_frustum();
+    }
+
+    pub fn viewport(&self) -> &CameraViewport {
+        &self.viewport
+    }
+
     fn update_screen_to_ray_matrix(&mut self) {
         let mut view_matrix = self.view_matrix;
         view_matrix[3] = vec4(0.0, 0.0, 0.0, 1.0);

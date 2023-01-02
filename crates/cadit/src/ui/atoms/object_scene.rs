@@ -1,4 +1,4 @@
-use crate::render::cgmath_types::Vec3;
+use crate::render::cgmath_types::{vec3, Quat, Vec3};
 
 use super::scene::{ColorId, DeferredScene, SceneObjectProps};
 use cgmath::{InnerSpace, Quaternion, Rad, Rotation3, Vector2};
@@ -26,8 +26,8 @@ pub struct PointerButtonDown {
 pub struct ObjectScene {
     scene: Arc<Mutex<DeferredScene>>,
     scene_rect: egui::Rect,
-    rotation: Quaternion<f32>,
-    position: Vector2<f32>,
+    rotation: Quat,
+    position: Vec3,
     pointer_buttons_down: Vec<PointerButtonDown>,
     clicked: Option<ColorId>,
     rotated: bool,
@@ -37,8 +37,8 @@ pub struct ObjectScene {
 }
 impl ObjectScene {
     pub fn new(
-        rotation: Quaternion<f32>,
-        position: Vector2<f32>,
+        rotation: Quat,
+        position: Vec3,
         allow_manual_rotate: bool,
         allow_manual_pan: bool,
         color: [f32; 4],
@@ -124,7 +124,7 @@ impl ObjectScene {
 
                                     if dy != 0.0 || dx != 0.0 {
                                         self.rotation = Quaternion::from_axis_angle(
-                                            Vec3::new(-dy, dx, 0.0).normalize(),
+                                            Vec3::new(dy, -dx, 0.0).normalize(),
                                             Rad(Vec3::new(dx, dy, 0.0).magnitude()
                                                 * ROTATION_SENSITIVITY),
                                         ) * self.rotation;
@@ -140,7 +140,7 @@ impl ObjectScene {
                                     let Vec2 { x: dx, y: dy } = *pos - pan_drag.last_position;
 
                                     if dy != 0.0 || dx != 0.0 {
-                                        self.position += Vector2::new(dx, dy) * PAN_SENSITIVITY;
+                                        self.position += vec3(dx, dy, 0.0) * PAN_SENSITIVITY;
                                     }
                                 }
                             }
@@ -237,7 +237,10 @@ impl ObjectScene {
                 let paint_callback = PaintCallback {
                     rect,
                     callback: Arc::new(CallbackFn::new(move |info, ctx| {
-                        scene.lock().render(&info, ctx, rotation, position);
+                        let mut scene = scene.lock();
+                        scene.set_rotation(rotation);
+                        scene.set_position(position);
+                        scene.render(&info, ctx, rotation, position);
                     })),
                 };
 

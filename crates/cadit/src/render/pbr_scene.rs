@@ -1,6 +1,6 @@
 use std::{f32::consts::PI, sync::Arc};
 
-use cgmath::{Deg, InnerSpace, Rad};
+use cgmath::{Deg, InnerSpace, Rad, Zero};
 use eframe::epaint::PaintCallbackInfo;
 use egui_winit_vulkano::RenderResources;
 use vulkano::{
@@ -51,6 +51,8 @@ pub struct PbrScene {
     images: PbrSceneImages,
     msaa_samples: SampleCount,
     scissor: Scissor,
+    rotation: Quat,
+    position: Vec3,
 }
 impl PbrScene {
     pub fn new<'a>(
@@ -122,6 +124,8 @@ impl PbrScene {
             images,
             msaa_samples,
             scissor,
+            rotation: Quat::zero(),
+            position: Vec3::zero(),
         }
     }
 
@@ -259,6 +263,9 @@ impl Scene for PbrScene {
 
         let push_constants = vs::ty::PushConstants {
             view_matrix: self.camera.view_matrix().clone().into(),
+            //model_matrix: (Mat4::from(self.rotation) * Mat4::from_translation(self.position)).into(),
+            model_matrix: (Mat4::from_translation(self.position) * Mat4::from(self.rotation))
+                .into(),
             perspective_matrix: self.camera.perspective_matrix().clone().into(),
         };
 
@@ -306,6 +313,14 @@ impl Scene for PbrScene {
 
     fn view(&self) -> Arc<dyn ImageViewAbstract> {
         self.images.view.clone()
+    }
+
+    fn set_rotation(&mut self, rotation: Quat) {
+        self.rotation = rotation;
+    }
+
+    fn set_position(&mut self, position: Vec3) {
+        self.position = position;
     }
 }
 
@@ -394,13 +409,13 @@ layout(location = 1) in vec4 albedo;
 
 layout(push_constant) uniform PushConstants {
     mat4 view_matrix;
-    //mat4 model_matrix;
+    mat4 model_matrix;
     mat4 perspective_matrix;
 } push_constants;
 
 layout(location = 0) out vec4 v_color;
 void main() {
-    mat4 model_view_matrix = push_constants.view_matrix; // * push_constants.model_matrix;
+    mat4 model_view_matrix = push_constants.view_matrix * push_constants.model_matrix;
     gl_Position = push_constants.perspective_matrix * model_view_matrix * vec4(position, 1.0);
     //gl_Position = model_view_matrix * vec4(position, 1.0);
     v_color = albedo;

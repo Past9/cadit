@@ -9,7 +9,12 @@ use vulkano::{
     render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass},
 };
 
-use crate::render::{egui_transfer::EguiTransfer, pbr_scene::PbrScene, Scene};
+use crate::render::{
+    cgmath_types::{Quat, Vec3},
+    egui_transfer::EguiTransfer,
+    pbr_scene::PbrScene,
+    Scene,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ColorId(u32);
@@ -83,11 +88,23 @@ impl DeferredScene {
         &mut self,
         info: &PaintCallbackInfo,
         ctx: &mut CallbackContext,
-        model_rotation: Quaternion<f32>,
-        camera_position: Vector2<f32>,
+        model_rotation: Quat,
+        camera_position: Vec3,
     ) {
         self.require_scene_mut(&ctx.resources)
             .render(info, ctx, model_rotation, camera_position);
+    }
+
+    pub(crate) fn set_rotation(&mut self, rotation: Quat) {
+        if let Some(ref mut scene) = self.scene {
+            scene.set_rotation(rotation);
+        }
+    }
+
+    pub(crate) fn set_position(&mut self, position: Vec3) {
+        if let Some(ref mut scene) = self.scene {
+            scene.set_position(position);
+        }
     }
 }
 
@@ -137,8 +154,8 @@ impl EguiScene {
         &mut self,
         info: &PaintCallbackInfo,
         ctx: &mut CallbackContext,
-        _model_rotation: Quaternion<f32>,
-        _camera_position: Vector2<f32>,
+        _model_rotation: Quat,
+        _camera_position: Vec3,
     ) {
         self.scene.render(info, &ctx.resources);
         self.transfer.transfer(self.scene.view(), ctx);
@@ -164,6 +181,14 @@ impl EguiScene {
 
     pub(crate) fn deselect_all_objects(&mut self) {
         // todo
+    }
+
+    fn set_rotation(&mut self, rotation: Quat) {
+        self.scene.set_rotation(rotation);
+    }
+
+    fn set_position(&mut self, position: Vec3) {
+        self.scene.set_position(position);
     }
 }
 

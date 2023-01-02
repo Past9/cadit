@@ -4,12 +4,16 @@ use eframe::epaint::PaintCallbackInfo;
 use egui_winit_vulkano::RenderResources;
 use vulkano::image::ImageViewAbstract;
 
+use self::cgmath_types::{Quat, Vec3};
+
 pub mod camera;
 pub mod egui_transfer;
 pub mod mesh;
 pub mod pbr_scene;
 
 pub mod cgmath_types {
+    pub type Quat = cgmath::Quaternion<f32>;
+
     pub type Rad = cgmath::Rad<f32>;
 
     pub type Point3 = cgmath::Point3<f32>;
@@ -41,4 +45,6 @@ pub mod cgmath_types {
 pub trait Scene {
     fn render<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>);
     fn view(&self) -> Arc<dyn ImageViewAbstract>;
+    fn set_rotation(&mut self, rotation: Quat);
+    fn set_position(&mut self, position: Vec3);
 }

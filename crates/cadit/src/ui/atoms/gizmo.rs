@@ -3,7 +3,7 @@ use std::time::Duration;
 use cgmath::{Deg, Quaternion, Rotation3, Vector2};
 use eframe::egui;
 
-use crate::ui::math::AnimatedValue;
+use crate::{render::cgmath_types::vec3, ui::math::AnimatedValue};
 
 use super::object_scene::ObjectScene;
 
@@ -157,7 +157,7 @@ impl Gizmo {
         Self {
             scene: ObjectScene::new(
                 rotation,
-                Vector2::new(0.0, 0.0),
+                vec3(0.0, 0.0, 0.0),
                 false,
                 false,
                 [0.0, 0.0, 0.0, 0.0],

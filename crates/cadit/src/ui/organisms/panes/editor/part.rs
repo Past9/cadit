@@ -1,4 +1,7 @@
-use crate::ui::atoms::{gizmo::Gizmo, object_scene::ObjectScene};
+use crate::{
+    render::cgmath_types::vec3,
+    ui::atoms::{gizmo::Gizmo, object_scene::ObjectScene},
+};
 use cgmath::{Quaternion, Vector2};
 use eframe::{
     egui::{self, Layout},
@@ -20,7 +23,7 @@ impl PartEditor {
             gizmo,
             scene: ObjectScene::new(
                 rotation,
-                Vector2::new(0.0, 0.0),
+                vec3(0.0, 0.0, 0.0),
                 true,
                 true,
                 [0.0, 0.0, 0.0, 1.0],

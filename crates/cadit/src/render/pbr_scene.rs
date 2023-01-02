@@ -85,7 +85,6 @@ impl PbrScene {
             dimensions: [0, 0],
         };
 
-        /*
         let camera = Camera::create_orthographic(
             scissor.dimensions,
             point3(0.0, 0.0, -5.0),
@@ -95,11 +94,10 @@ impl PbrScene {
             1.0,
             11.0,
         );
-        */
 
         let camera = Camera::create_perspective(
             scissor.dimensions,
-            point3(0.0, 0.0, -0.9),
+            point3(1.0, 1.0, -3.0),
             vec3(0.0, 0.0, 1.0),
             vec3(0.0, -1.0, 0.0).normalize(),
             Rad(PI / 2.0),

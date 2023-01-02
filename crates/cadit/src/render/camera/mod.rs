@@ -203,7 +203,7 @@ impl Camera {
             s.x.clone(), u.x.clone(), f.x.clone(), 0.0,
             s.y.clone(), u.y.clone(), f.y.clone(), 0.0,
             s.z.clone(), u.z.clone(), f.z.clone(), 0.0,
-            pos.dot(s), pos.dot(u), -pos.dot(f), 1.0,
+            -pos.dot(s), -pos.dot(u), -pos.dot(f), 1.0,
         )
     }
 
@@ -228,7 +228,6 @@ impl Camera {
     }
 
     fn update_screen_to_ray_matrix(&mut self) {
-        return;
         let mut view_matrix = self.view_matrix;
         view_matrix[3] = vec4(0.0, 0.0, 0.0, 1.0);
         self.screen_to_ray_matrix = (self.perspective_matrix * view_matrix).invert().unwrap();

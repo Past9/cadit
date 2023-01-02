@@ -95,18 +95,6 @@ impl EguiTransfer {
     }
 
     pub(crate) fn transfer(&mut self, view: Arc<dyn ImageViewAbstract>, ctx: &mut CallbackContext) {
-        if let Some(ref ds) = self.descriptor_set {
-            let binding = ds.resources().binding(0).unwrap();
-            let is_same = match binding {
-                descriptor_set::DescriptorBindingResources::ImageView(elements) => {
-                    let el = &elements.get(0).unwrap().as_ref().unwrap();
-                    *el == &view
-                }
-                _ => false,
-            };
-            println!("IS SAME {}", is_same);
-        }
-
         ctx.builder
             .bind_pipeline_graphics(self.pipeline.clone())
             .bind_descriptor_sets(

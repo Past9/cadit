@@ -4,7 +4,11 @@ use bytemuck::{Pod, Zeroable};
 use egui_winit_vulkano::{CallbackContext, RenderResources};
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
-    descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet},
+    descriptor_set::{
+        self,
+        allocator::{DescriptorSetAllocator, StandardDescriptorSetAllocator},
+        DescriptorSet, DescriptorSetResources, PersistentDescriptorSet, WriteDescriptorSet,
+    },
     image::ImageViewAbstract,
     pipeline::{
         graphics::{
@@ -21,6 +25,7 @@ use vulkano::{
 pub struct EguiTransfer {
     pipeline: Arc<GraphicsPipeline>,
     quad: Arc<CpuAccessibleBuffer<[EguiVertex]>>,
+    descriptor_set: Option<Arc<PersistentDescriptorSet>>,
 }
 impl EguiTransfer {
     pub fn new<'a>(resources: &RenderResources<'a>) -> Self {
@@ -77,18 +82,6 @@ impl EguiTransfer {
                 .color_blend_state(
                     ColorBlendState::new(subpass.num_color_attachments()).blend_alpha(),
                 )
-                /*
-                .color_blend_state(ColorBlendState::new(subpass.num_color_attachments()).blend(
-                    AttachmentBlend {
-                        color_op: BlendOp::Add,
-                        color_source: BlendFactor::One,
-                        color_destination: BlendFactor::One,
-                        alpha_op: BlendOp::Max,
-                        alpha_source: BlendFactor::One,
-                        alpha_destination: BlendFactor::One,
-                    },
-                ))
-                */
                 .render_pass(subpass.clone())
                 .build(queue.device().clone())
                 .unwrap()
@@ -97,16 +90,22 @@ impl EguiTransfer {
         Self {
             pipeline,
             quad: vertex_buffer,
+            descriptor_set: None,
         }
     }
 
     pub(crate) fn transfer(&mut self, view: Arc<dyn ImageViewAbstract>, ctx: &mut CallbackContext) {
-        let egui_descriptor_set = PersistentDescriptorSet::new(
-            ctx.resources.descriptor_set_allocator,
-            self.pipeline.layout().set_layouts().get(0).unwrap().clone(),
-            [WriteDescriptorSet::image_view(0, view)],
-        )
-        .unwrap();
+        if let Some(ref ds) = self.descriptor_set {
+            let binding = ds.resources().binding(0).unwrap();
+            let is_same = match binding {
+                descriptor_set::DescriptorBindingResources::ImageView(elements) => {
+                    let el = &elements.get(0).unwrap().as_ref().unwrap();
+                    *el == &view
+                }
+                _ => false,
+            };
+            println!("IS SAME {}", is_same);
+        }
 
         ctx.builder
             .bind_pipeline_graphics(self.pipeline.clone())
@@ -114,11 +113,52 @@ impl EguiTransfer {
                 PipelineBindPoint::Graphics,
                 self.pipeline.layout().clone(),
                 0,
-                egui_descriptor_set.clone(),
+                self.descriptor_set(view, ctx.resources.descriptor_set_allocator),
             )
             .bind_vertex_buffers(0, self.quad.clone())
             .draw(self.quad.len() as u32, 1, 0, 0)
             .unwrap();
+    }
+
+    fn descriptor_set(
+        &mut self,
+        view: Arc<dyn ImageViewAbstract>,
+        allocator: &StandardDescriptorSetAllocator,
+    ) -> Arc<PersistentDescriptorSet> {
+        if let Some(ref ds) = self.descriptor_set {
+            // If we already have a descriptor set, we need to check that the ImageView
+            // that it's bound to references the same one passed in as `view`. This may
+            // not be the case if the renderer that generated `view` has rebuilt its
+            // framebuffers (due to reposition or resizing, for example).
+            let binding = ds.resources().binding(0).unwrap();
+            let same_image = match binding {
+                descriptor_set::DescriptorBindingResources::ImageView(elements) => {
+                    let el = &elements.get(0).unwrap().as_ref().unwrap();
+                    *el == &view
+                }
+                _ => false,
+            };
+
+            // If the reference is still good, return it.
+            if same_image {
+                return ds.clone();
+            }
+        }
+
+        // If the reference was bad or we haven't created a descriptor set yet, create a
+        // new descriptor set with `view` bound to it.
+        let ds = PersistentDescriptorSet::new(
+            allocator,
+            self.pipeline.layout().set_layouts().get(0).unwrap().clone(),
+            [WriteDescriptorSet::image_view(0, view)],
+        )
+        .unwrap();
+
+        // Cache the descriptor set
+        self.descriptor_set = Some(ds.clone());
+
+        // Return it
+        ds
     }
 }
 

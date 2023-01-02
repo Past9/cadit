@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use egui_winit_vulkano::Gui;
 use ui::CaditUi;
-use vulkano::device::Features;
+use vulkano::device::{DeviceExtensions, Features};
 use vulkano_util::{
     context::{VulkanoConfig, VulkanoContext},
     window::{VulkanoWindows, WindowDescriptor},
@@ -18,6 +18,11 @@ fn main() {
         device_features: Features {
             dynamic_rendering: true,
             sample_rate_shading: true,
+            ..Default::default()
+        },
+        device_extensions: DeviceExtensions {
+            khr_push_descriptor: true,
+            khr_swapchain: true,
             ..Default::default()
         },
         ..Default::default()

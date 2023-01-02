@@ -53,6 +53,7 @@ pub struct PbrScene {
     scissor: Scissor,
     rotation: Quat,
     position: Vec3,
+    framebuffers_rebuilt: bool,
 }
 impl PbrScene {
     pub fn new<'a>(
@@ -126,7 +127,12 @@ impl PbrScene {
             scissor,
             rotation: Quat::zero(),
             position: Vec3::zero(),
+            framebuffers_rebuilt: true,
         }
+    }
+
+    pub fn framebuffers_rebuilt(&self) -> bool {
+        self.framebuffers_rebuilt
     }
 
     fn create_pipeline<'a>(
@@ -246,7 +252,11 @@ impl PbrScene {
                 &self.scissor,
                 self.msaa_samples,
                 IMAGE_FORMAT,
-            )
+            );
+
+            self.framebuffers_rebuilt = true;
+        } else {
+            self.framebuffers_rebuilt = false;
         }
     }
 }

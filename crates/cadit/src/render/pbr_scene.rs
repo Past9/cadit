@@ -261,11 +261,13 @@ impl Scene for PbrScene {
         )
         .unwrap();
 
+        let model_matrix = Mat4::from_translation(self.position) * Mat4::from(self.rotation);
+        let projection_matrix =
+            self.camera.perspective_matrix().clone() * self.camera.view_matrix().clone();
+
         let push_constants = vs::ty::PushConstants {
-            view_matrix: self.camera.view_matrix().clone().into(),
-            model_matrix: (Mat4::from_translation(self.position) * Mat4::from(self.rotation))
-                .into(),
-            perspective_matrix: self.camera.perspective_matrix().clone().into(),
+            model_matrix: model_matrix.into(),
+            projection_matrix: projection_matrix.into(),
         };
 
         scene_builder

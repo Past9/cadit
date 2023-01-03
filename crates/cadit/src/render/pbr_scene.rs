@@ -1,14 +1,19 @@
 use std::sync::Arc;
 
+use bytemuck::{Pod, Zeroable};
 use cgmath::{Deg, InnerSpace, Zero};
 use eframe::epaint::PaintCallbackInfo;
 use egui_winit_vulkano::RenderResources;
 use vulkano::{
-    buffer::TypedBufferAccess,
+    buffer::{
+        view::BufferView, BufferAccess, BufferContents, BufferUsage, CpuAccessibleBuffer,
+        TypedBufferAccess,
+    },
     command_buffer::{
         AutoCommandBufferBuilder, CommandBufferUsage, PrimaryCommandBufferAbstract,
         RenderPassBeginInfo, SubpassContents,
     },
+    descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet},
     format::Format,
     image::{
         view::ImageView, AttachmentImage, ImageDimensions, ImageViewAbstract, SampleCount,
@@ -23,7 +28,7 @@ use vulkano::{
             vertex_input::BuffersDefinition,
             viewport::{Scissor, Viewport, ViewportState},
         },
-        GraphicsPipeline, Pipeline, StateMode,
+        GraphicsPipeline, Pipeline, PipelineBindPoint, StateMode,
     },
     render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass},
     shader::ShaderModule,
@@ -33,8 +38,9 @@ use vulkano::{
 use super::{
     camera::Camera,
     cgmath_types::*,
+    lights::PointLight,
     mesh::{PbrMaterial, PbrSurfaceBuffers, PbrVertex, Surface, Vertex},
-    Scene,
+    Color, Scene,
 };
 
 const IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
@@ -96,18 +102,18 @@ impl PbrScene {
             vec3(0.0, -1.0, 0.0).normalize(),
             2.0,
             1.0,
-            11.0,
+            1000.0,
         );
         */
 
         let camera = Camera::create_perspective(
             scissor.dimensions,
-            point3(0.0, 0.0, -3.0),
+            point3(0.0, 0.0, -5.0),
             vec3(0.0, 0.0, 1.0),
             vec3(0.0, -1.0, 0.0).normalize(),
             Deg(70.0).into(),
             1.0,
-            1000.0,
+            6.0,
         );
 
         let (render_pass, images, subpass, pipeline) =
@@ -260,6 +266,17 @@ impl PbrScene {
         }
     }
 }
+
+/*
+#[repr(C)]
+#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
+struct Light {
+    position: [f32; 4],
+    color: [f32; 4],
+    intensity: f32,
+}
+*/
+
 impl Scene for PbrScene {
     fn render<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>) {
         self.update_viewport(info, resources);
@@ -279,6 +296,44 @@ impl Scene for PbrScene {
             model_matrix: model_matrix.into(),
             projection_matrix: projection_matrix.into(),
         };
+
+        let lights = vec![
+            PointLight::new(point3(3.0, 3.0, 0.0), Color::RED, 1.0),
+            PointLight::new(point3(-3.0, -3.0, 0.0), Color::GREEN, 1.0),
+        ];
+
+        let light_buffer = PointLight::buffer(&resources.memory_allocator, &lights);
+
+        /*
+        let mut light_buffer = CpuAccessibleBuffer::from_iter(
+            &resources.memory_allocator,
+            BufferUsage {
+                storage_buffer: true,
+                ..BufferUsage::default()
+            },
+            false,
+            [
+                Light {
+                    position: [0.0, 0.0, 0.0, 0.0],
+                    color: [1.0, 0.0, 0.0, 0.0],
+                    intensity: 0.0,
+                },
+                Light {
+                    position: [-3.0, 3.0, -4.0, 0.0],
+                    color: [0.0, 1.0, 0.0, 0.0],
+                    intensity: 10.0,
+                },
+            ],
+        )
+        .unwrap();
+        */
+
+        let light_descriptor_set = PersistentDescriptorSet::new(
+            resources.descriptor_set_allocator,
+            self.pipeline.layout().set_layouts().get(0).unwrap().clone(),
+            [WriteDescriptorSet::buffer(0, light_buffer)],
+        )
+        .unwrap();
 
         scene_builder
             .begin_render_pass(
@@ -305,6 +360,12 @@ impl Scene for PbrScene {
             .bind_pipeline_graphics(self.pipeline.clone())
             .bind_vertex_buffers(0, self.geometry.vertex_buffer.clone())
             .bind_index_buffer(self.geometry.index_buffer.clone())
+            .bind_descriptor_sets(
+                PipelineBindPoint::Graphics,
+                self.pipeline.layout().clone(),
+                0,
+                light_descriptor_set,
+            )
             .push_constants(self.pipeline.layout().clone(), 0, push_constants)
             .draw_indexed(self.geometry.index_buffer.len() as u32, 1, 0, 0, 0)
             .unwrap()

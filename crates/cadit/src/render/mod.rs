@@ -1,15 +1,88 @@
 use std::sync::Arc;
 
+use bytemuck::Pod;
 use eframe::epaint::PaintCallbackInfo;
 use egui_winit_vulkano::RenderResources;
-use vulkano::image::ImageViewAbstract;
+use vulkano::{
+    buffer::{BufferContents, CpuAccessibleBuffer},
+    image::ImageViewAbstract,
+    memory::allocator::MemoryAllocator,
+};
 
 use self::cgmath_types::{Quat, Vec3};
 
 pub mod camera;
 pub mod egui_transfer;
+pub mod lights;
 pub mod mesh;
 pub mod pbr_scene;
+
+#[derive(Clone, Copy, Debug)]
+pub struct Color([f32; 4]);
+impl Color {
+    pub const RED: Self = Self([1.0, 0.0, 0.0, 1.0]);
+    pub const GREEN: Self = Self([0.0, 1.0, 0.0, 1.0]);
+    pub const BLUE: Self = Self([0.0, 0.0, 1.0, 1.0]);
+
+    pub const YELLOW: Self = Self([1.0, 1.0, 0.0, 1.0]);
+    pub const MEGENTA: Self = Self([1.0, 0.0, 1.0, 1.0]);
+    pub const CYAN: Self = Self([0.0, 1.0, 1.0, 1.0]);
+
+    pub const BLACK: Self = Self([0.0, 0.0, 0.0, 1.0]);
+    pub const WHITE: Self = Self([1.0, 1.0, 1.0, 1.0]);
+
+    pub fn rgba(r: f32, g: f32, b: f32, a: f32) -> Self {
+        Self([r, g, b, a])
+    }
+
+    pub fn rgb(r: f32, g: f32, b: f32) -> Self {
+        Self::rgba(r, g, b, 1.0)
+    }
+
+    pub fn r(&self) -> f32 {
+        self.0[0]
+    }
+
+    pub fn g(&self) -> f32 {
+        self.0[1]
+    }
+
+    pub fn b(&self) -> f32 {
+        self.0[2]
+    }
+
+    pub fn a(&self) -> f32 {
+        self.0[3]
+    }
+
+    pub fn bytes(&self) -> &[f32; 4] {
+        &self.0
+    }
+
+    pub fn set_r(&mut self, r: f32) {
+        self.0[0] = r;
+    }
+
+    pub fn set_g(&mut self, g: f32) {
+        self.0[1] = g;
+    }
+
+    pub fn set_b(&mut self, b: f32) {
+        self.0[2] = b;
+    }
+
+    pub fn set_a(&mut self, a: f32) {
+        self.0[3] = a;
+    }
+}
+
+pub fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
+    Color::rgba(r, g, b, a)
+}
+
+pub fn rgb(r: f32, g: f32, b: f32) -> Color {
+    Color::rgb(r, g, b)
+}
 
 pub mod cgmath_types {
     pub type Quat = cgmath::Quaternion<f32>;

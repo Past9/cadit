@@ -1,12 +1,6 @@
 use eframe::epaint::{PaintCallbackInfo, Pos2};
 use egui_winit_vulkano::{CallbackContext, RenderResources};
-use std::sync::Arc;
-use vulkano::{
-    format::Format,
-    image::{view::ImageView, AttachmentImage, ImageDimensions, SampleCount, StorageImage},
-    pipeline::graphics::viewport::Viewport,
-    render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass},
-};
+use vulkano::{image::SampleCount, pipeline::graphics::viewport::Viewport};
 
 use crate::render::{
     cgmath_types::{Quat, Vec3},

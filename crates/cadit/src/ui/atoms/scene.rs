@@ -1,11 +1,19 @@
+use cgmath::{Deg, InnerSpace};
 use eframe::epaint::{PaintCallbackInfo, Pos2};
 use egui_winit_vulkano::{CallbackContext, RenderResources};
 use vulkano::{image::SampleCount, pipeline::graphics::viewport::Viewport};
 
 use crate::render::{
-    cgmath_types::{Quat, Vec3},
+    camera::Camera,
+    cgmath_types::{point3, vec3, Quat, Vec3},
     egui_transfer::EguiTransfer,
+    lights::{AmbientLight, DirectionalLight, PointLight},
+    mesh::{Surface, Vertex},
+    model::{Material, Model, ModelSurface},
     renderer::Renderer,
+    rgb,
+    scene::{Scene, SceneLights},
+    Color,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -23,30 +31,20 @@ pub struct SceneObjectProps {
 
 const MSAA_SAMPLES: SampleCount = SampleCount::Sample8;
 
-pub struct DeferredRenderer {
+pub struct GuiRenderer {
     color: [f32; 4],
-    renderer: Option<EguiRenderer>,
+    internal: Option<InternalGuiRenderer>,
 }
-impl DeferredRenderer {
+impl GuiRenderer {
     pub fn empty(color: [f32; 4]) -> Self {
         Self {
             color,
-            renderer: None,
+            internal: None,
         }
     }
 
-    pub fn require_scene<'a>(&mut self, resources: &RenderResources<'a>) -> &EguiRenderer {
-        self.renderer
-            .get_or_insert_with(|| EguiRenderer::new(self.color, resources))
-    }
-
-    pub fn require_scene_mut<'a>(&mut self, resources: &RenderResources<'a>) -> &mut EguiRenderer {
-        self.renderer
-            .get_or_insert_with(|| EguiRenderer::new(self.color, resources))
-    }
-
     pub(crate) fn read_color_id(&mut self, pos: Pos2) -> Option<ColorId> {
-        if let Some(ref mut renderer) = self.renderer {
+        if let Some(ref mut renderer) = self.internal {
             renderer.read_color_id(pos)
         } else {
             None
@@ -54,19 +52,19 @@ impl DeferredRenderer {
     }
 
     pub(crate) fn hover_object(&mut self, id: Option<ColorId>) {
-        if let Some(ref mut renderer) = self.renderer {
+        if let Some(ref mut renderer) = self.internal {
             renderer.hover_object(id)
         }
     }
 
     pub(crate) fn toggle_select_object(&mut self, id: Option<ColorId>, exclusive: bool) {
-        if let Some(ref mut renderer) = self.renderer {
+        if let Some(ref mut renderer) = self.internal {
             renderer.toggle_select_object(id, exclusive);
         }
     }
 
     pub(crate) fn get_object(&mut self, id: Option<ColorId>) -> Option<&SceneObject> {
-        if let Some(ref mut renderer) = self.renderer {
+        if let Some(ref mut renderer) = self.internal {
             renderer.get_object(id)
         } else {
             None
@@ -74,7 +72,7 @@ impl DeferredRenderer {
     }
 
     pub(crate) fn deselect_all_objects(&mut self) {
-        if let Some(ref mut renderer) = self.renderer {
+        if let Some(ref mut renderer) = self.internal {
             renderer.deselect_all_objects();
         }
     }
@@ -86,20 +84,45 @@ impl DeferredRenderer {
         model_rotation: Quat,
         camera_position: Vec3,
     ) {
-        self.require_scene_mut(&ctx.resources)
-            .render(info, ctx, model_rotation, camera_position);
+        self.require_internal_mut(&ctx.resources).render(
+            info,
+            ctx,
+            model_rotation,
+            camera_position,
+        );
     }
 
     pub(crate) fn set_rotation(&mut self, rotation: Quat) {
-        if let Some(ref mut scene) = self.renderer {
-            scene.set_rotation(rotation);
+        if let Some(ref mut internal) = self.internal {
+            internal
+                .scene_renderer
+                .scene_mut()
+                .orientation_mut()
+                .set_rotation(rotation);
         }
     }
 
-    pub(crate) fn set_position(&mut self, position: Vec3) {
-        if let Some(ref mut scene) = self.renderer {
-            scene.set_position(position);
+    pub(crate) fn set_position(&mut self, offset: Vec3) {
+        if let Some(ref mut internal) = self.internal {
+            internal
+                .scene_renderer
+                .scene_mut()
+                .orientation_mut()
+                .set_offset(offset);
         }
+    }
+
+    fn require_internal<'a>(&mut self, resources: &RenderResources<'a>) -> &InternalGuiRenderer {
+        self.internal
+            .get_or_insert_with(|| InternalGuiRenderer::new(resources))
+    }
+
+    fn require_internal_mut<'a>(
+        &mut self,
+        resources: &RenderResources<'a>,
+    ) -> &mut InternalGuiRenderer {
+        self.internal
+            .get_or_insert_with(|| InternalGuiRenderer::new(resources))
     }
 }
 
@@ -133,16 +156,68 @@ impl GuiViewport {
     }
 }
 
-pub struct EguiRenderer {
-    renderer: Renderer,
+struct InternalGuiRenderer {
+    scene_renderer: Renderer,
     transfer: EguiTransfer,
 }
-impl EguiRenderer {
-    pub fn new<'a>(color: [f32; 4], resources: &RenderResources<'a>) -> Self {
-        let renderer = Renderer::new(color, resources, MSAA_SAMPLES);
+impl InternalGuiRenderer {
+    pub fn new<'a>(resources: &RenderResources<'a>) -> Self {
+        let renderer = Renderer::new(
+            Scene::new(
+                rgb(0.0, 0.05, 0.08),
+                SceneLights::new(
+                    vec![
+                        AmbientLight::new(Color::BLUE, 1.0),
+                        AmbientLight::new(Color::YELLOW, 1.0),
+                    ],
+                    vec![
+                        DirectionalLight::new(vec3(-1.0, 1.0, 1.0), Color::MAGENTA, 1.0),
+                        DirectionalLight::new(vec3(1.0, -1.0, 1.0), Color::CYAN, 1.0),
+                    ],
+                    vec![
+                        PointLight::new(point3(3.0, 3.0, 0.0), Color::RED, 1.0),
+                        PointLight::new(point3(-3.0, -3.0, 0.0), Color::GREEN, 1.0),
+                    ],
+                ),
+                Camera::create_perspective(
+                    [0, 0],
+                    point3(0.0, 0.0, -5.0),
+                    vec3(0.0, 0.0, 1.0),
+                    vec3(0.0, -1.0, 0.0).normalize(),
+                    Deg(70.0).into(),
+                    1.0,
+                    6.0,
+                ),
+                vec![Model::new(
+                    vec![ModelSurface::new(
+                        0.into(),
+                        Surface::new(
+                            [
+                                Vertex::new(-0.9, -0.9, 0.0),
+                                Vertex::new(-0.9, 0.9, 0.0),
+                                Vertex::new(0.9, -0.9, 0.0),
+                                Vertex::new(0.6, 0.6, 0.0),
+                            ],
+                            [0, 1, 2, 2, 1, 3],
+                        ),
+                        Material {
+                            diffuse: rgb(0.3, 0.15, 0.0),
+                            roughness: 0.5,
+                        },
+                    )],
+                    vec![],
+                    vec![],
+                )],
+            ),
+            resources,
+            SampleCount::Sample8,
+        );
         let transfer = EguiTransfer::new(resources);
 
-        Self { renderer, transfer }
+        Self {
+            scene_renderer: renderer,
+            transfer,
+        }
     }
 
     pub(crate) fn render(
@@ -152,8 +227,8 @@ impl EguiRenderer {
         _model_rotation: Quat,
         _camera_position: Vec3,
     ) {
-        self.renderer.render(info, &ctx.resources);
-        self.transfer.transfer(self.renderer.view(), ctx);
+        self.scene_renderer.render(info, &ctx.resources);
+        self.transfer.transfer(self.scene_renderer.view(), ctx);
     }
 
     pub(crate) fn read_color_id(&mut self, _pos: Pos2) -> Option<ColorId> {
@@ -178,11 +253,21 @@ impl EguiRenderer {
         // todo
     }
 
-    fn set_rotation(&mut self, rotation: Quat) {
-        self.renderer.set_rotation(rotation);
+    pub(crate) fn scene_mut(&mut self) -> &mut Scene {
+        self.scene_renderer.scene_mut()
     }
 
-    fn set_position(&mut self, position: Vec3) {
-        self.renderer.set_position(position);
+    fn set_rotation(&mut self, rotation: Quat) {
+        self.scene_renderer
+            .scene_mut()
+            .orientation_mut()
+            .set_rotation(rotation);
+    }
+
+    fn set_offset(&mut self, offset: Vec3) {
+        self.scene_renderer
+            .scene_mut()
+            .orientation_mut()
+            .set_offset(offset)
     }
 }

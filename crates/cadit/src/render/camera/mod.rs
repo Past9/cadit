@@ -64,6 +64,10 @@ impl Camera {
         camera
     }
 
+    pub fn projection_matrix(&self) -> Mat4 {
+        self.perspective_matrix() * self.view_matrix()
+    }
+
     pub fn create_perspective(
         viewport_in_pixels: [u32; 2],
         position: Point3,

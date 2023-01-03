@@ -1,7 +1,5 @@
 #version 450
 
-layout(location = 0) in vec4 albedo;
-
 struct PointLight {
     vec3 position;
     vec3 color;
@@ -34,7 +32,7 @@ layout(std430, set = 0, binding = 2) readonly buffer DirectionalLightBuffer {
 layout(location = 0) out vec4 f_color;
 
 void main() {
-    f_color = vec4(ambientLightBuffer.lights[1].color.rgb, 1.0);
+    f_color = vec4(pointLightBuffer.lights[0].color.rgb, 1.0);
     f_color = vec4(directionalLightBuffer.lights[1].color.rgb, 1.0);
-    f_color = vec4(pointLightBuffer.lights[1].color.rgb, 1.0);
+    f_color = vec4(ambientLightBuffer.lights[1].color.rgb, 1.0);
 }

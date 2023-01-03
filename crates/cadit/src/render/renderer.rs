@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
-use cgmath::{Deg, InnerSpace, Zero};
 use eframe::epaint::PaintCallbackInfo;
 use egui_winit_vulkano::RenderResources;
 use vulkano::{
-    buffer::TypedBufferAccess,
+    buffer::{CpuAccessibleBuffer, TypedBufferAccess},
     command_buffer::{
         AutoCommandBufferBuilder, CommandBufferUsage, PrimaryCommandBufferAbstract,
         RenderPassBeginInfo, SubpassContents,
@@ -32,34 +31,34 @@ use vulkano::{
 };
 
 use super::{
-    camera::Camera,
     cgmath_types::*,
     lights::{AmbientLight, DirectionalLight, PointLight},
-    mesh::{PbrMaterial, PbrSurfaceBuffers, PbrVertex, Surface, Vertex},
+    mesh::Vertex,
+    scene::Scene,
     Color,
 };
 
 const IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
 
 pub struct Renderer {
+    scene: Scene,
     vs: Arc<ShaderModule>,
     fs: Arc<ShaderModule>,
-    clear_color: [f32; 4],
     render_pass: Arc<RenderPass>,
     pipeline: Arc<GraphicsPipeline>,
     subpass: Subpass,
-    camera: Camera,
-    geometry: PbrSurfaceBuffers,
     images: RendererImages,
     msaa_samples: SampleCount,
     scissor: Scissor,
-    rotation: Quat,
-    position: Vec3,
     framebuffers_rebuilt: bool,
+
+    // buffers
+    vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
+    index_buffer: Arc<CpuAccessibleBuffer<[u32]>>,
 }
 impl Renderer {
     pub fn new<'a>(
-        clear_color: [f32; 4],
+        scene: Scene,
         resources: &RenderResources<'a>,
         msaa_samples: SampleCount,
     ) -> Self {
@@ -68,67 +67,31 @@ impl Renderer {
         let vs = vs::load(device.clone()).unwrap();
         let fs = fs::load(device.clone()).unwrap();
 
-        let buffers = Surface::new(
-            [
-                Vertex::new(-0.9, -0.9, 0.0),
-                Vertex::new(-0.9, 0.9, 0.0),
-                Vertex::new(0.9, -0.9, 0.0),
-                Vertex::new(0.6, 0.6, 0.0),
-            ],
-            [0, 1, 2, 2, 1, 3],
-        )
-        .buffer(
-            &PbrMaterial {
-                albedo: [0.0, 0.0, 1.0, 1.0],
-            },
-            &resources.memory_allocator,
-        );
-
         let scissor = Scissor {
             origin: [0, 0],
             dimensions: [0, 0],
         };
 
-        /*
-        let camera = Camera::create_orthographic(
-            scissor.dimensions,
-            point3(0.0, 0.0, -5.0),
-            vec3(0.0, 0.0, 1.0),
-            vec3(0.0, -1.0, 0.0).normalize(),
-            2.0,
-            1.0,
-            1000.0,
-        );
-        */
-
-        let camera = Camera::create_perspective(
-            scissor.dimensions,
-            point3(0.0, 0.0, -5.0),
-            vec3(0.0, 0.0, 1.0),
-            vec3(0.0, -1.0, 0.0).normalize(),
-            Deg(70.0).into(),
-            1.0,
-            6.0,
-        );
-
         let (render_pass, images, subpass, pipeline) =
             Self::create_pipeline(vs.clone(), fs.clone(), resources, msaa_samples, &scissor);
 
+        let (vertex_buffer, index_buffer) = scene.geometry_buffers(&resources.memory_allocator);
+
         Self {
+            scene,
             vs,
             fs,
-            clear_color,
             render_pass,
             pipeline,
             subpass,
-            geometry: buffers,
-            camera,
             images,
             msaa_samples,
             scissor,
-            rotation: Quat::zero(),
-            position: Vec3::zero(),
             framebuffers_rebuilt: true,
+
+            // Buffers
+            vertex_buffer,
+            index_buffer,
         }
     }
 
@@ -205,7 +168,7 @@ impl Renderer {
         let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
 
         let pipeline = GraphicsPipeline::start()
-            .vertex_input_state(BuffersDefinition::new().vertex::<PbrVertex>())
+            .vertex_input_state(BuffersDefinition::new().vertex::<Vertex>())
             .vertex_shader(vs.entry_point("main").unwrap(), ())
             .input_assembly_state(
                 InputAssemblyState::new().topology(PrimitiveTopology::TriangleList),
@@ -246,7 +209,9 @@ impl Renderer {
 
         if new_scissor != self.scissor {
             self.scissor = new_scissor;
-            self.camera.set_viewport_in_pixels(self.scissor.dimensions);
+            self.scene
+                .camera_mut()
+                .set_viewport_in_pixels(self.scissor.dimensions);
             self.images = RendererImages::new(
                 self.render_pass.clone(),
                 resources,
@@ -271,13 +236,9 @@ impl Renderer {
         )
         .unwrap();
 
-        let model_matrix = Mat4::from_translation(self.position) * Mat4::from(self.rotation);
-        let projection_matrix =
-            self.camera.perspective_matrix().clone() * self.camera.view_matrix().clone();
-
         let push_constants = vs::ty::PushConstants {
-            model_matrix: model_matrix.into(),
-            projection_matrix: projection_matrix.into(),
+            model_matrix: self.scene.orientation().matrix().into(),
+            projection_matrix: self.scene.camera().projection_matrix().into(),
         };
 
         let light_descriptor_set = PersistentDescriptorSet::new(
@@ -324,7 +285,7 @@ impl Renderer {
         renderer_builder
             .begin_render_pass(
                 RenderPassBeginInfo {
-                    clear_values: vec![Some(self.clear_color.into()), None],
+                    clear_values: vec![Some(self.scene.bg_color().to_floats().into()), None],
                     render_area_offset: self.scissor.origin,
                     render_area_extent: self.scissor.dimensions,
                     ..RenderPassBeginInfo::framebuffer(self.images.framebuffer.clone())
@@ -344,8 +305,8 @@ impl Renderer {
                 }],
             )
             .bind_pipeline_graphics(self.pipeline.clone())
-            .bind_vertex_buffers(0, self.geometry.vertex_buffer.clone())
-            .bind_index_buffer(self.geometry.index_buffer.clone())
+            .bind_vertex_buffers(0, self.vertex_buffer.clone())
+            .bind_index_buffer(self.index_buffer.clone())
             .bind_descriptor_sets(
                 PipelineBindPoint::Graphics,
                 self.pipeline.layout().clone(),
@@ -353,7 +314,7 @@ impl Renderer {
                 light_descriptor_set,
             )
             .push_constants(self.pipeline.layout().clone(), 0, push_constants)
-            .draw_indexed(self.geometry.index_buffer.len() as u32, 1, 0, 0, 0)
+            .draw_indexed(self.index_buffer.len() as u32, 1, 0, 0, 0)
             .unwrap()
             .end_render_pass()
             .unwrap();
@@ -372,12 +333,8 @@ impl Renderer {
         self.images.view.clone()
     }
 
-    pub fn set_rotation(&mut self, rotation: Quat) {
-        self.rotation = rotation;
-    }
-
-    pub fn set_position(&mut self, position: Vec3) {
-        self.position = position;
+    pub fn scene_mut(&mut self) -> &mut Scene {
+        &mut self.scene
     }
 }
 

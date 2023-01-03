@@ -1,6 +1,6 @@
 use crevice::std140::AsStd140;
 
-use self::cgmath_types::{vec3, Vec3};
+use self::cgmath_types::{vec3, vec4, Vec3, Vec4};
 
 pub mod camera;
 pub mod egui_transfer;
@@ -54,6 +54,14 @@ impl Color {
 
     pub fn from_vec3(vec: Vec3) -> Self {
         rgb(vec.x, vec.y, vec.z)
+    }
+
+    pub fn to_vec4(&self) -> Vec4 {
+        vec4(self.0[0], self.0[1], self.0[2], self.0[3])
+    }
+
+    pub fn to_floats(&self) -> [f32; 4] {
+        self.0
     }
 
     pub fn set_r(&mut self, r: f32) {

@@ -1,6 +1,6 @@
 use crate::render::cgmath_types::{vec3, Quat, Vec3};
 
-use super::scene::{ColorId, DeferredRenderer, SceneObjectProps};
+use super::scene::{ColorId, GuiRenderer, SceneObjectProps};
 use cgmath::{InnerSpace, Quaternion, Rad, Rotation3};
 use eframe::{
     egui::{self, PointerButton},
@@ -24,7 +24,7 @@ pub struct PointerButtonDown {
 }
 
 pub struct SceneViewer {
-    scene: Arc<Mutex<DeferredRenderer>>,
+    scene: Arc<Mutex<GuiRenderer>>,
     scene_rect: egui::Rect,
     rotation: Quat,
     position: Vec3,
@@ -44,7 +44,7 @@ impl SceneViewer {
         color: [f32; 4],
     ) -> Self {
         Self {
-            scene: Arc::new(Mutex::new(DeferredRenderer::empty(color))),
+            scene: Arc::new(Mutex::new(GuiRenderer::empty(color))),
             scene_rect: egui::Rect {
                 min: (0.0, 0.0).into(),
                 max: (0.0, 0.0).into(),

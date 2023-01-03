@@ -9,7 +9,7 @@ use vulkano::{
     memory::allocator::MemoryAllocator,
 };
 
-use self::cgmath_types::{Quat, Vec3};
+use self::cgmath_types::{vec3, Quat, Vec3};
 
 pub mod camera;
 pub mod egui_transfer;
@@ -55,8 +55,8 @@ impl Color {
         self.0[3]
     }
 
-    pub fn bytes(&self) -> &[f32; 4] {
-        &self.0
+    pub fn vec3(&self) -> Vec3 {
+        vec3(self.0[0], self.0[1], self.0[2])
     }
 
     pub fn set_r(&mut self, r: f32) {

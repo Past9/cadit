@@ -304,30 +304,6 @@ impl Scene for PbrScene {
 
         let light_buffer = PointLight::buffer(&resources.memory_allocator, &lights);
 
-        /*
-        let mut light_buffer = CpuAccessibleBuffer::from_iter(
-            &resources.memory_allocator,
-            BufferUsage {
-                storage_buffer: true,
-                ..BufferUsage::default()
-            },
-            false,
-            [
-                Light {
-                    position: [0.0, 0.0, 0.0, 0.0],
-                    color: [1.0, 0.0, 0.0, 0.0],
-                    intensity: 0.0,
-                },
-                Light {
-                    position: [-3.0, 3.0, -4.0, 0.0],
-                    color: [0.0, 1.0, 0.0, 0.0],
-                    intensity: 10.0,
-                },
-            ],
-        )
-        .unwrap();
-        */
-
         let light_descriptor_set = PersistentDescriptorSet::new(
             resources.descriptor_set_allocator,
             self.pipeline.layout().set_layouts().get(0).unwrap().clone(),

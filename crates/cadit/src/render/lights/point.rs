@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use bytemuck::{Pod, Zeroable};
+use crevice::std140::AsStd140;
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
     memory::allocator::MemoryAllocator,
@@ -29,7 +29,9 @@ impl PointLight {
     pub fn buffer(
         allocator: &(impl MemoryAllocator + ?Sized),
         lights: &[PointLight],
-    ) -> Arc<CpuAccessibleBuffer<[BufferedPointLight]>> {
+    ) -> Arc<CpuAccessibleBuffer<[Std140BufferedPointLight]>> {
+        let b = BufferedPointLight::from_light(&lights[0]).as_std140();
+        println!("{:?}", b);
         CpuAccessibleBuffer::from_iter(
             allocator,
             BufferUsage {
@@ -39,32 +41,24 @@ impl PointLight {
             false,
             lights
                 .iter()
-                .to_owned()
-                .map(|light| BufferedPointLight::from(light.clone())),
+                .map(|light| BufferedPointLight::from_light(light).as_std140()),
         )
         .unwrap()
     }
 }
 
-#[repr(C)]
-#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
+#[derive(AsStd140)]
 pub struct BufferedPointLight {
-    position: [f32; 4],
-    color: [f32; 4],
+    position: Point3,
+    color: Vec3,
     intensity: f32,
-    a: f32,
-    b: f32,
-    c: f32,
 }
-impl From<PointLight> for BufferedPointLight {
-    fn from(light: PointLight) -> Self {
+impl BufferedPointLight {
+    pub fn from_light(light: &PointLight) -> Self {
         Self {
-            position: [light.position.x, light.position.y, light.position.z, 1.0],
-            color: *light.color.bytes(),
+            position: light.position,
+            color: light.color.vec3(),
             intensity: light.intensity,
-            a: 0.0,
-            b: 0.0,
-            c: 0.0,
         }
     }
 }

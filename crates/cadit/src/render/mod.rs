@@ -21,7 +21,7 @@ impl Color {
     pub const BLUE: Self = Self([0.0, 0.0, 1.0, 1.0]);
 
     pub const YELLOW: Self = Self([1.0, 1.0, 0.0, 1.0]);
-    pub const MEGENTA: Self = Self([1.0, 0.0, 1.0, 1.0]);
+    pub const MAGENTA: Self = Self([1.0, 0.0, 1.0, 1.0]);
     pub const CYAN: Self = Self([0.0, 1.0, 1.0, 1.0]);
 
     pub const BLACK: Self = Self([0.0, 0.0, 0.0, 1.0]);

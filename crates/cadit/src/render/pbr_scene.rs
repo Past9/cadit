@@ -34,7 +34,7 @@ use vulkano::{
 use super::{
     camera::Camera,
     cgmath_types::*,
-    lights::PointLight,
+    lights::{AmbientLight, DirectionalLight, PointLight},
     mesh::{PbrMaterial, PbrSurfaceBuffers, PbrVertex, Surface, Vertex},
     Color, Scene,
 };
@@ -282,17 +282,44 @@ impl Scene for PbrScene {
             projection_matrix: projection_matrix.into(),
         };
 
-        let lights = vec![
-            PointLight::new(point3(3.0, 3.0, 0.0), Color::RED, 1.0),
-            PointLight::new(point3(-3.0, -3.0, 0.0), Color::GREEN, 1.0),
-        ];
-
-        let light_buffer = PointLight::buffer(&resources.memory_allocator, &lights);
-
         let light_descriptor_set = PersistentDescriptorSet::new(
             resources.descriptor_set_allocator,
             self.pipeline.layout().set_layouts().get(0).unwrap().clone(),
-            [WriteDescriptorSet::buffer(0, light_buffer)],
+            [
+                // Point lights
+                WriteDescriptorSet::buffer(
+                    0,
+                    PointLight::buffer(
+                        &resources.memory_allocator,
+                        &[
+                            PointLight::new(point3(3.0, 3.0, 0.0), Color::RED, 1.0),
+                            PointLight::new(point3(-3.0, -3.0, 0.0), Color::GREEN, 1.0),
+                        ],
+                    ),
+                ),
+                // Ambient lights
+                WriteDescriptorSet::buffer(
+                    1,
+                    AmbientLight::buffer(
+                        &resources.memory_allocator,
+                        &[
+                            AmbientLight::new(Color::BLUE, 1.0),
+                            AmbientLight::new(Color::YELLOW, 1.0),
+                        ],
+                    ),
+                ),
+                // Directional lights
+                WriteDescriptorSet::buffer(
+                    2,
+                    DirectionalLight::buffer(
+                        &resources.memory_allocator,
+                        &[
+                            DirectionalLight::new(vec3(-1.0, 1.0, 1.0), Color::MAGENTA, 1.0),
+                            DirectionalLight::new(vec3(1.0, -1.0, 1.0), Color::CYAN, 1.0),
+                        ],
+                    ),
+                ),
+            ],
         )
         .unwrap();
 

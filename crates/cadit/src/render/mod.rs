@@ -6,7 +6,9 @@ pub mod camera;
 pub mod egui_transfer;
 pub mod lights;
 pub mod mesh;
+pub mod model;
 pub mod renderer;
+pub mod scene;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Color([f32; 4]);

@@ -69,7 +69,6 @@ impl Renderer {
         let fs = fs::load(device.clone()).unwrap();
 
         let buffers = Surface::new(
-            1,
             [
                 Vertex::new(-0.9, -0.9, 0.0),
                 Vertex::new(-0.9, 0.9, 0.0),
@@ -78,7 +77,7 @@ impl Renderer {
             ],
             [0, 1, 2, 2, 1, 3],
         )
-        .as_pbr(
+        .buffer(
             &PbrMaterial {
                 albedo: [0.0, 0.0, 1.0, 1.0],
             },

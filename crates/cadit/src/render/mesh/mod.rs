@@ -6,13 +6,6 @@ use vulkano::{
     memory::allocator::MemoryAllocator,
 };
 
-pub struct ObjectId(u32);
-impl From<u32> for ObjectId {
-    fn from(value: u32) -> Self {
-        Self(value)
-    }
-}
-
 pub struct Vertex {
     position: [f32; 3],
 }
@@ -30,24 +23,18 @@ pub struct PbrSurfaceBuffers {
 }
 
 pub struct Surface {
-    pub id: ObjectId,
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u32>,
 }
 impl Surface {
-    pub fn new<const V: usize, const I: usize>(
-        id: u32,
-        vertices: [Vertex; V],
-        indices: [u32; I],
-    ) -> Self {
+    pub fn new<const V: usize, const I: usize>(vertices: [Vertex; V], indices: [u32; I]) -> Self {
         Self {
-            id: id.into(),
             vertices: Vec::from_iter(vertices.into_iter()),
             indices: Vec::from_iter(indices.into_iter()),
         }
     }
 
-    pub fn as_pbr(
+    pub fn buffer(
         &self,
         material: &PbrMaterial,
         allocator: &impl MemoryAllocator,

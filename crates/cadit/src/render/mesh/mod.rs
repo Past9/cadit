@@ -6,8 +6,8 @@ use vulkano::{
     memory::allocator::MemoryAllocator,
 };
 
-pub struct SceneObjectId(u32);
-impl From<u32> for SceneObjectId {
+pub struct ObjectId(u32);
+impl From<u32> for ObjectId {
     fn from(value: u32) -> Self {
         Self(value)
     }
@@ -30,7 +30,7 @@ pub struct PbrSurfaceBuffers {
 }
 
 pub struct Surface {
-    pub id: SceneObjectId,
+    pub id: ObjectId,
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u32>,
 }

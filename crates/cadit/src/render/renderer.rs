@@ -36,12 +36,12 @@ use super::{
     cgmath_types::*,
     lights::{AmbientLight, DirectionalLight, PointLight},
     mesh::{PbrMaterial, PbrSurfaceBuffers, PbrVertex, Surface, Vertex},
-    Color, Scene,
+    Color,
 };
 
 const IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
 
-pub struct PbrScene {
+pub struct Renderer {
     vs: Arc<ShaderModule>,
     fs: Arc<ShaderModule>,
     clear_color: [f32; 4],
@@ -50,14 +50,14 @@ pub struct PbrScene {
     subpass: Subpass,
     camera: Camera,
     geometry: PbrSurfaceBuffers,
-    images: PbrSceneImages,
+    images: RendererImages,
     msaa_samples: SampleCount,
     scissor: Scissor,
     rotation: Quat,
     position: Vec3,
     framebuffers_rebuilt: bool,
 }
-impl PbrScene {
+impl Renderer {
     pub fn new<'a>(
         clear_color: [f32; 4],
         resources: &RenderResources<'a>,
@@ -145,7 +145,7 @@ impl PbrScene {
         scissor: &Scissor,
     ) -> (
         Arc<RenderPass>,
-        PbrSceneImages,
+        RendererImages,
         Subpass,
         Arc<GraphicsPipeline>,
     ) {
@@ -195,7 +195,7 @@ impl PbrScene {
             }
         };
 
-        let images = PbrSceneImages::new(
+        let images = RendererImages::new(
             render_pass.clone(),
             resources,
             &scissor,
@@ -248,7 +248,7 @@ impl PbrScene {
         if new_scissor != self.scissor {
             self.scissor = new_scissor;
             self.camera.set_viewport_in_pixels(self.scissor.dimensions);
-            self.images = PbrSceneImages::new(
+            self.images = RendererImages::new(
                 self.render_pass.clone(),
                 resources,
                 &self.scissor,
@@ -261,12 +261,11 @@ impl PbrScene {
             self.framebuffers_rebuilt = false;
         }
     }
-}
-impl Scene for PbrScene {
-    fn render<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>) {
+
+    pub fn render<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>) {
         self.update_viewport(info, resources);
 
-        let mut scene_builder = AutoCommandBufferBuilder::primary(
+        let mut renderer_builder = AutoCommandBufferBuilder::primary(
             resources.command_buffer_allocator,
             resources.queue.queue_family_index(),
             CommandBufferUsage::MultipleSubmit,
@@ -323,7 +322,7 @@ impl Scene for PbrScene {
         )
         .unwrap();
 
-        scene_builder
+        renderer_builder
             .begin_render_pass(
                 RenderPassBeginInfo {
                     clear_values: vec![Some(self.clear_color.into()), None],
@@ -360,7 +359,7 @@ impl Scene for PbrScene {
             .end_render_pass()
             .unwrap();
 
-        let command_buffer = scene_builder.build().unwrap();
+        let command_buffer = renderer_builder.build().unwrap();
 
         let finished = command_buffer.execute(resources.queue.clone()).unwrap();
         finished
@@ -370,26 +369,26 @@ impl Scene for PbrScene {
             .unwrap();
     }
 
-    fn view(&self) -> Arc<dyn ImageViewAbstract> {
+    pub fn view(&self) -> Arc<dyn ImageViewAbstract> {
         self.images.view.clone()
     }
 
-    fn set_rotation(&mut self, rotation: Quat) {
+    pub fn set_rotation(&mut self, rotation: Quat) {
         self.rotation = rotation;
     }
 
-    fn set_position(&mut self, position: Vec3) {
+    pub fn set_position(&mut self, position: Vec3) {
         self.position = position;
     }
 }
 
-struct PbrSceneImages {
+struct RendererImages {
     framebuffer: Arc<Framebuffer>,
     view: Arc<ImageView<StorageImage>>,
 }
-impl PbrSceneImages {
+impl RendererImages {
     fn new(
-        scene_render_pass: Arc<RenderPass>,
+        render_pass: Arc<RenderPass>,
         resources: &RenderResources,
         scissor: &Scissor,
         samples: SampleCount,
@@ -446,7 +445,7 @@ impl PbrSceneImages {
         attachments.push(view.clone());
 
         let framebuffer = Framebuffer::new(
-            scene_render_pass,
+            render_pass,
             FramebufferCreateInfo {
                 attachments,
                 ..Default::default()

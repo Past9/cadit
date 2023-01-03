@@ -11,8 +11,7 @@ use vulkano::{
 use crate::render::{
     cgmath_types::{Quat, Vec3},
     egui_transfer::EguiTransfer,
-    pbr_scene::PbrScene,
-    Scene,
+    renderer::Renderer,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -30,56 +29,59 @@ pub struct SceneObjectProps {
 
 const MSAA_SAMPLES: SampleCount = SampleCount::Sample8;
 
-pub struct DeferredScene {
+pub struct DeferredRenderer {
     color: [f32; 4],
-    scene: Option<EguiScene>,
+    renderer: Option<EguiRenderer>,
 }
-impl DeferredScene {
+impl DeferredRenderer {
     pub fn empty(color: [f32; 4]) -> Self {
-        Self { color, scene: None }
+        Self {
+            color,
+            renderer: None,
+        }
     }
 
-    pub fn require_scene<'a>(&mut self, resources: &RenderResources<'a>) -> &EguiScene {
-        self.scene
-            .get_or_insert_with(|| EguiScene::new(self.color, resources))
+    pub fn require_scene<'a>(&mut self, resources: &RenderResources<'a>) -> &EguiRenderer {
+        self.renderer
+            .get_or_insert_with(|| EguiRenderer::new(self.color, resources))
     }
 
-    pub fn require_scene_mut<'a>(&mut self, resources: &RenderResources<'a>) -> &mut EguiScene {
-        self.scene
-            .get_or_insert_with(|| EguiScene::new(self.color, resources))
+    pub fn require_scene_mut<'a>(&mut self, resources: &RenderResources<'a>) -> &mut EguiRenderer {
+        self.renderer
+            .get_or_insert_with(|| EguiRenderer::new(self.color, resources))
     }
 
     pub(crate) fn read_color_id(&mut self, pos: Pos2) -> Option<ColorId> {
-        if let Some(ref mut scene) = self.scene {
-            scene.read_color_id(pos)
+        if let Some(ref mut renderer) = self.renderer {
+            renderer.read_color_id(pos)
         } else {
             None
         }
     }
 
     pub(crate) fn hover_object(&mut self, id: Option<ColorId>) {
-        if let Some(ref mut scene) = self.scene {
-            scene.hover_object(id)
+        if let Some(ref mut renderer) = self.renderer {
+            renderer.hover_object(id)
         }
     }
 
     pub(crate) fn toggle_select_object(&mut self, id: Option<ColorId>, exclusive: bool) {
-        if let Some(ref mut scene) = self.scene {
-            scene.toggle_select_object(id, exclusive);
+        if let Some(ref mut renderer) = self.renderer {
+            renderer.toggle_select_object(id, exclusive);
         }
     }
 
     pub(crate) fn get_object(&mut self, id: Option<ColorId>) -> Option<&SceneObject> {
-        if let Some(ref mut scene) = self.scene {
-            scene.get_object(id)
+        if let Some(ref mut renderer) = self.renderer {
+            renderer.get_object(id)
         } else {
             None
         }
     }
 
     pub(crate) fn deselect_all_objects(&mut self) {
-        if let Some(ref mut scene) = self.scene {
-            scene.deselect_all_objects();
+        if let Some(ref mut renderer) = self.renderer {
+            renderer.deselect_all_objects();
         }
     }
 
@@ -95,24 +97,24 @@ impl DeferredScene {
     }
 
     pub(crate) fn set_rotation(&mut self, rotation: Quat) {
-        if let Some(ref mut scene) = self.scene {
+        if let Some(ref mut scene) = self.renderer {
             scene.set_rotation(rotation);
         }
     }
 
     pub(crate) fn set_position(&mut self, position: Vec3) {
-        if let Some(ref mut scene) = self.scene {
+        if let Some(ref mut scene) = self.renderer {
             scene.set_position(position);
         }
     }
 }
 
 #[derive(PartialEq)]
-pub struct SceneViewport {
+pub struct GuiViewport {
     origin: [u32; 2],
     dimensions: [u32; 2],
 }
-impl SceneViewport {
+impl GuiViewport {
     fn zero() -> Self {
         Self {
             origin: [0, 0],
@@ -137,16 +139,16 @@ impl SceneViewport {
     }
 }
 
-pub struct EguiScene {
-    scene: PbrScene,
+pub struct EguiRenderer {
+    renderer: Renderer,
     transfer: EguiTransfer,
 }
-impl EguiScene {
+impl EguiRenderer {
     pub fn new<'a>(color: [f32; 4], resources: &RenderResources<'a>) -> Self {
-        let scene = PbrScene::new(color, resources, MSAA_SAMPLES);
+        let renderer = Renderer::new(color, resources, MSAA_SAMPLES);
         let transfer = EguiTransfer::new(resources);
 
-        Self { scene, transfer }
+        Self { renderer, transfer }
     }
 
     pub(crate) fn render(
@@ -156,8 +158,8 @@ impl EguiScene {
         _model_rotation: Quat,
         _camera_position: Vec3,
     ) {
-        self.scene.render(info, &ctx.resources);
-        self.transfer.transfer(self.scene.view(), ctx);
+        self.renderer.render(info, &ctx.resources);
+        self.transfer.transfer(self.renderer.view(), ctx);
     }
 
     pub(crate) fn read_color_id(&mut self, _pos: Pos2) -> Option<ColorId> {
@@ -183,77 +185,10 @@ impl EguiScene {
     }
 
     fn set_rotation(&mut self, rotation: Quat) {
-        self.scene.set_rotation(rotation);
+        self.renderer.set_rotation(rotation);
     }
 
     fn set_position(&mut self, position: Vec3) {
-        self.scene.set_position(position);
-    }
-}
-
-struct SceneImages {
-    framebuffer: Arc<Framebuffer>,
-    intermediary: Arc<ImageView<AttachmentImage>>,
-    view: Arc<ImageView<StorageImage>>,
-}
-impl SceneImages {
-    fn new(
-        scene_render_pass: Arc<RenderPass>,
-        resources: &RenderResources,
-        viewport: &SceneViewport,
-        samples: SampleCount,
-        format: Format,
-    ) -> Self {
-        // Make sure the images are at least 1 pixel in each dimension or Vulkan will
-        // throw an error. Also make the images cover the offset area so they line up
-        // with the egui area that we're painting. We'll only render to the area that
-        // will be shown by egui.
-        //
-        // TODO: Is there a way to do this that doesn't waste memory on the offset area?
-        let dimensions = [
-            match viewport.dimensions[0] > 0 {
-                true => viewport.dimensions[0],
-                false => 1,
-            } + viewport.origin[0],
-            match viewport.dimensions[1] > 0 {
-                true => viewport.dimensions[1],
-                false => 1,
-            } + viewport.origin[1],
-        ];
-
-        let intermediary = ImageView::new_default(
-            AttachmentImage::multisampled(&resources.memory_allocator, dimensions, samples, format)
-                .unwrap(),
-        )
-        .unwrap();
-
-        let image = StorageImage::new(
-            &resources.memory_allocator,
-            ImageDimensions::Dim2d {
-                width: dimensions[0],
-                height: dimensions[1],
-                array_layers: 1,
-            },
-            format,
-            Some(resources.queue.queue_family_index()),
-        )
-        .unwrap();
-
-        let view = ImageView::new_default(image.clone()).unwrap();
-
-        let framebuffer = Framebuffer::new(
-            scene_render_pass,
-            FramebufferCreateInfo {
-                attachments: vec![intermediary.clone(), view.clone()],
-                ..Default::default()
-            },
-        )
-        .unwrap();
-
-        Self {
-            framebuffer,
-            intermediary,
-            view,
-        }
+        self.renderer.set_position(position);
     }
 }

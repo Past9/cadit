@@ -1,17 +1,12 @@
-use std::sync::Arc;
-
 use crevice::std140::AsStd140;
-use eframe::epaint::PaintCallbackInfo;
-use egui_winit_vulkano::RenderResources;
-use vulkano::image::ImageViewAbstract;
 
-use self::cgmath_types::{vec3, Quat, Vec3};
+use self::cgmath_types::{vec3, Vec3};
 
 pub mod camera;
 pub mod egui_transfer;
 pub mod lights;
 pub mod mesh;
-pub mod pbr_scene;
+pub mod renderer;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Color([f32; 4]);
@@ -124,11 +119,4 @@ pub mod cgmath_types {
     pub fn vec4(x: f32, y: f32, z: f32, w: f32) -> Vec4 {
         Vec4::new(x, y, z, w)
     }
-}
-
-pub trait Scene {
-    fn render<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>);
-    fn view(&self) -> Arc<dyn ImageViewAbstract>;
-    fn set_rotation(&mut self, rotation: Quat);
-    fn set_position(&mut self, position: Vec3);
 }

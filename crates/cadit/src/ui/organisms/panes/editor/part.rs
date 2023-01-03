@@ -1,6 +1,6 @@
 use crate::{
     render::cgmath_types::vec3,
-    ui::atoms::{gizmo::Gizmo, object_scene::ObjectScene},
+    ui::atoms::{gizmo::Gizmo, scene_viewer::SceneViewer},
 };
 use cgmath::Quaternion;
 use eframe::egui;
@@ -9,7 +9,7 @@ use super::Editor;
 
 pub struct PartEditor {
     gizmo: Gizmo,
-    scene: ObjectScene,
+    viewer: SceneViewer,
 }
 impl PartEditor {
     pub fn new() -> Self {
@@ -17,7 +17,7 @@ impl PartEditor {
         let rotation = gizmo.rotation();
         Self {
             gizmo,
-            scene: ObjectScene::new(
+            viewer: SceneViewer::new(
                 rotation,
                 vec3(0.0, 0.0, 0.0),
                 true,
@@ -33,16 +33,16 @@ impl Editor for PartEditor {
     }
 
     fn set_rotation(&mut self, rotation: Quaternion<f32>) {
-        self.scene.set_rotation(rotation);
+        self.viewer.set_rotation(rotation);
     }
 
     fn show(&mut self, ui: &mut egui::Ui) {
-        self.scene.show(ui);
+        self.viewer.show(ui);
 
-        if self.scene.rotated() {
-            self.gizmo.set_rotation(self.scene.rotation());
+        if self.viewer.rotated() {
+            self.gizmo.set_rotation(self.viewer.rotation());
         } else {
-            self.scene.set_rotation(self.gizmo.rotation());
+            self.viewer.set_rotation(self.gizmo.rotation());
         }
 
         /*

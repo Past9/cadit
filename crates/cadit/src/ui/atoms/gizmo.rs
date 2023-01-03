@@ -5,7 +5,7 @@ use eframe::egui;
 
 use crate::{render::cgmath_types::vec3, ui::math::AnimatedValue};
 
-use super::object_scene::ObjectScene;
+use super::scene_viewer::SceneViewer;
 
 #[derive(Debug, Clone, Copy)]
 pub enum CameraAngle {
@@ -148,14 +148,14 @@ impl CameraAngle {
 }
 
 pub struct Gizmo {
-    scene: ObjectScene,
+    viewer: SceneViewer,
     rotation: AnimatedValue<Quaternion<f32>>,
 }
 impl Gizmo {
     pub fn new() -> Self {
         let rotation = CameraAngle::Front.get_rotation();
         Self {
-            scene: ObjectScene::new(
+            viewer: SceneViewer::new(
                 rotation,
                 vec3(0.0, 0.0, 0.0),
                 false,
@@ -167,11 +167,11 @@ impl Gizmo {
     }
 
     pub fn show(&mut self, ui: &mut egui::Ui) {
-        self.scene.show(ui);
+        self.viewer.show(ui);
 
-        self.scene.set_rotation(self.rotation.value());
+        self.viewer.set_rotation(self.rotation.value());
 
-        if let Some(obj) = self.scene.clicked() {
+        if let Some(obj) = self.viewer.clicked() {
             if let Some(rotation) = CameraAngle::from_name(&obj.name) {
                 self.rotation.clear();
                 self.rotation
@@ -185,7 +185,7 @@ impl Gizmo {
     }
 
     pub fn rotated(&self) -> bool {
-        self.scene.rotated()
+        self.viewer.rotated()
     }
 
     pub fn rotation(&mut self) -> Quaternion<f32> {

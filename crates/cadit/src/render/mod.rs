@@ -1,13 +1,9 @@
 use std::sync::Arc;
 
-use bytemuck::Pod;
+use crevice::std140::AsStd140;
 use eframe::epaint::PaintCallbackInfo;
 use egui_winit_vulkano::RenderResources;
-use vulkano::{
-    buffer::{BufferContents, CpuAccessibleBuffer},
-    image::ImageViewAbstract,
-    memory::allocator::MemoryAllocator,
-};
+use vulkano::image::ImageViewAbstract;
 
 use self::cgmath_types::{vec3, Quat, Vec3};
 
@@ -55,8 +51,12 @@ impl Color {
         self.0[3]
     }
 
-    pub fn vec3(&self) -> Vec3 {
+    pub fn to_vec3(&self) -> Vec3 {
         vec3(self.0[0], self.0[1], self.0[2])
+    }
+
+    pub fn from_vec3(vec: Vec3) -> Self {
+        rgb(vec.x, vec.y, vec.z)
     }
 
     pub fn set_r(&mut self, r: f32) {
@@ -73,6 +73,17 @@ impl Color {
 
     pub fn set_a(&mut self, a: f32) {
         self.0[3] = a;
+    }
+}
+impl AsStd140 for Color {
+    type Output = crevice::std140::Vec3;
+
+    fn as_std140(&self) -> Self::Output {
+        self.to_vec3().as_std140()
+    }
+
+    fn from_std140(val: Self::Output) -> Self {
+        Self::from_vec3(Vec3::from_std140(val))
     }
 }
 

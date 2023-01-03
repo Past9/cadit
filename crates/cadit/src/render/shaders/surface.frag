@@ -16,6 +16,4 @@ layout(location = 0) out vec4 f_color;
 
 void main() {
     f_color = vec4(lightBuffer.lights[0].color.rgb, 1.0);
-    //f_color = vec4(vec3(gl_FragCoord.z), 1.0);
-
 }

@@ -1,14 +1,10 @@
 use std::sync::Arc;
 
-use bytemuck::{Pod, Zeroable};
 use cgmath::{Deg, InnerSpace, Zero};
 use eframe::epaint::PaintCallbackInfo;
 use egui_winit_vulkano::RenderResources;
 use vulkano::{
-    buffer::{
-        view::BufferView, BufferAccess, BufferContents, BufferUsage, CpuAccessibleBuffer,
-        TypedBufferAccess,
-    },
+    buffer::TypedBufferAccess,
     command_buffer::{
         AutoCommandBufferBuilder, CommandBufferUsage, PrimaryCommandBufferAbstract,
         RenderPassBeginInfo, SubpassContents,
@@ -266,17 +262,6 @@ impl PbrScene {
         }
     }
 }
-
-/*
-#[repr(C)]
-#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
-struct Light {
-    position: [f32; 4],
-    color: [f32; 4],
-    intensity: f32,
-}
-*/
-
 impl Scene for PbrScene {
     fn render<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>) {
         self.update_viewport(info, resources);

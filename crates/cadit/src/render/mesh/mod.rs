@@ -3,24 +3,23 @@ use std::sync::Arc;
 use bytemuck::{Pod, Zeroable};
 use vulkano::buffer::CpuAccessibleBuffer;
 
-#[repr(C)]
-#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
+use super::{
+    cgmath_types::{Point3, Vec3},
+    model::GeometryBuffers,
+};
+
+#[derive(Default, Debug, Copy, Clone)]
 pub struct Vertex {
-    position: [f32; 3],
+    pub position: [f32; 3],
+    pub normal: [f32; 3],
 }
 impl Vertex {
-    pub fn new(x: f32, y: f32, z: f32) -> Self {
+    pub fn new(position: Point3, normal: Vec3) -> Self {
         Self {
-            position: [x, y, z],
+            position: [position.x, position.y, position.z],
+            normal: [normal.x, normal.y, normal.z],
         }
     }
-}
-vulkano::impl_vertex!(Vertex, position);
-
-#[derive(Clone)]
-pub struct GeometryBuffers {
-    pub vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
-    pub index_buffer: Arc<CpuAccessibleBuffer<[u32]>>,
 }
 
 pub struct Surface {

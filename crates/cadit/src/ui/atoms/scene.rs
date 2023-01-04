@@ -11,9 +11,9 @@ use crate::render::{
     mesh::{Surface, Vertex},
     model::{Material, Model, ModelSurface},
     renderer::Renderer,
-    rgb,
+    rgba,
     scene::{Scene, SceneLights},
-    Color,
+    Rgb,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -164,19 +164,19 @@ impl InternalGuiRenderer {
     pub fn new<'a>(resources: &RenderResources<'a>) -> Self {
         let renderer = Renderer::new(
             Scene::new(
-                rgb(0.0, 0.05, 0.08),
+                rgba(0.0, 0.05, 0.08, 1.0),
                 SceneLights::new(
                     vec![
-                        AmbientLight::new(Color::BLUE, 1.0),
-                        AmbientLight::new(Color::YELLOW, 1.0),
+                        AmbientLight::new(Rgb::BLUE, 0.5),
+                        AmbientLight::new(Rgb::RED, 0.5),
                     ],
                     vec![
-                        DirectionalLight::new(vec3(-1.0, 1.0, 1.0), Color::MAGENTA, 1.0),
-                        DirectionalLight::new(vec3(1.0, -1.0, 1.0), Color::CYAN, 1.0),
+                        DirectionalLight::new(vec3(-1.0, 1.0, 1.0), Rgb::MAGENTA, 1.0),
+                        DirectionalLight::new(vec3(1.0, -1.0, 1.0), Rgb::CYAN, 1.0),
                     ],
                     vec![
-                        PointLight::new(point3(3.0, 3.0, 0.0), Color::RED, 1.0),
-                        PointLight::new(point3(-3.0, -3.0, 0.0), Color::GREEN, 1.0),
+                        PointLight::new(point3(3.0, 3.0, 0.0), Rgb::RED, 1.0),
+                        PointLight::new(point3(-3.0, -3.0, 0.0), Rgb::GREEN, 1.0),
                     ],
                 ),
                 Camera::create_perspective(
@@ -193,21 +193,19 @@ impl InternalGuiRenderer {
                         0.into(),
                         Surface::new(
                             [
-                                Vertex::new(-0.9, -0.9, 0.0),
-                                Vertex::new(-0.9, 0.9, 0.0),
-                                Vertex::new(0.9, -0.9, 0.0),
-                                Vertex::new(0.6, 0.6, 0.0),
+                                Vertex::new(point3(-0.9, -0.9, 0.0), vec3(0.0, 0.0, -1.0)),
+                                Vertex::new(point3(-0.9, 0.9, 0.0), vec3(0.0, 0.0, -1.0)),
+                                Vertex::new(point3(0.9, -0.9, 0.0), vec3(0.0, 0.0, -1.0)),
+                                Vertex::new(point3(0.6, 0.6, 0.0), vec3(0.0, 0.0, -1.0)),
                             ],
                             [0, 1, 2, 2, 1, 3],
                         ),
-                        Material {
-                            diffuse: rgb(0.3, 0.15, 0.0),
-                            roughness: 0.5,
-                        },
+                        0,
                     )],
                     vec![],
                     vec![],
                 )],
+                vec![Material::new(rgba(0.5, 0.5, 0.5, 1.0), 0.5)],
             ),
             resources,
             SampleCount::Sample8,

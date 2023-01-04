@@ -6,30 +6,30 @@ use vulkano::{
     memory::allocator::MemoryAllocator,
 };
 
-use crate::render::Rgb;
+use crate::render::Rgba;
 
 #[derive(AsStd140, Clone, Debug)]
-pub struct AmbientLight {
-    color: Rgb,
-    intensity: f32,
+pub struct Material {
+    diffuse: Rgba,
+    roughness: f32,
 }
-impl AmbientLight {
-    pub fn new(color: Rgb, intensity: f32) -> Self {
-        Self { color, intensity }
+impl Material {
+    pub fn new(diffuse: Rgba, roughness: f32) -> Self {
+        Self { diffuse, roughness }
     }
 
     pub fn buffer(
         allocator: &(impl MemoryAllocator + ?Sized),
-        lights: &[AmbientLight],
-    ) -> Arc<CpuAccessibleBuffer<[Std140AmbientLight]>> {
+        materials: &[Material],
+    ) -> Arc<CpuAccessibleBuffer<[Std140Material]>> {
         CpuAccessibleBuffer::from_iter(
             allocator,
             BufferUsage {
                 storage_buffer: true,
-                ..BufferUsage::default()
+                ..BufferUsage::empty()
             },
             false,
-            lights.iter().map(|light| light.as_std140()),
+            materials.iter().map(|material| material.as_std140()),
         )
         .unwrap()
     }

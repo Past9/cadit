@@ -6,16 +6,16 @@ use vulkano::{
     memory::allocator::MemoryAllocator,
 };
 
-use crate::render::{cgmath_types::Point3, Color};
+use crate::render::{cgmath_types::Point3, Rgb};
 
 #[derive(AsStd140, Clone, Debug)]
 pub struct PointLight {
     position: Point3,
-    color: Color,
+    color: Rgb,
     intensity: f32,
 }
 impl PointLight {
-    pub fn new(position: Point3, color: Color, intensity: f32) -> Self {
+    pub fn new(position: Point3, color: Rgb, intensity: f32) -> Self {
         Self {
             position,
             color,

@@ -1,4 +1,12 @@
-use super::{mesh::Surface, Color};
+use std::sync::Arc;
+
+use super::mesh::{Surface, Vertex};
+
+mod material;
+
+use bytemuck::{Pod, Zeroable};
+pub use material::*;
+use vulkano::buffer::CpuAccessibleBuffer;
 
 pub struct ModelObjectId(u32);
 impl From<u32> for ModelObjectId {
@@ -7,27 +15,50 @@ impl From<u32> for ModelObjectId {
     }
 }
 
-pub struct Material {
-    pub diffuse: Color,
-    pub roughness: f32,
+#[repr(C)]
+#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
+pub struct BufferedVertex {
+    position: [f32; 3],
+    normal: [f32; 3],
+    material_idx: u32,
+}
+impl BufferedVertex {
+    pub fn new(vertex: &Vertex, material_idx: u32) -> Self {
+        Self {
+            position: vertex.position.clone(),
+            normal: vertex.normal.clone(),
+            material_idx,
+        }
+    }
+}
+vulkano::impl_vertex!(BufferedVertex, position, normal, material_idx);
+
+#[derive(Clone)]
+pub struct GeometryBuffers {
+    pub vertex_buffer: Arc<CpuAccessibleBuffer<[BufferedVertex]>>,
+    pub index_buffer: Arc<CpuAccessibleBuffer<[u32]>>,
 }
 
 pub struct ModelSurface {
     id: ModelObjectId,
     surface: Surface,
-    material: Material,
+    material_idx: u32,
 }
 impl ModelSurface {
-    pub fn new(id: ModelObjectId, surface: Surface, material: Material) -> Self {
+    pub fn new(id: ModelObjectId, surface: Surface, material_idx: u32) -> Self {
         Self {
             id,
             surface,
-            material,
+            material_idx,
         }
     }
 
     pub fn surface(&self) -> &Surface {
         &self.surface
+    }
+
+    pub fn material_idx(&self) -> u32 {
+        self.material_idx
     }
 }
 

@@ -11,8 +11,8 @@ pub mod renderer;
 pub mod scene;
 
 #[derive(Clone, Copy, Debug)]
-pub struct Color([f32; 4]);
-impl Color {
+pub struct Rgba([f32; 4]);
+impl Rgba {
     pub const RED: Self = Self([1.0, 0.0, 0.0, 1.0]);
     pub const GREEN: Self = Self([0.0, 1.0, 0.0, 1.0]);
     pub const BLUE: Self = Self([0.0, 0.0, 1.0, 1.0]);
@@ -24,12 +24,8 @@ impl Color {
     pub const BLACK: Self = Self([0.0, 0.0, 0.0, 1.0]);
     pub const WHITE: Self = Self([1.0, 1.0, 1.0, 1.0]);
 
-    pub fn rgba(r: f32, g: f32, b: f32, a: f32) -> Self {
+    pub fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
         Self([r, g, b, a])
-    }
-
-    pub fn rgb(r: f32, g: f32, b: f32) -> Self {
-        Self::rgba(r, g, b, 1.0)
     }
 
     pub fn r(&self) -> f32 {
@@ -48,15 +44,11 @@ impl Color {
         self.0[3]
     }
 
-    pub fn to_vec3(&self) -> Vec3 {
-        vec3(self.0[0], self.0[1], self.0[2])
+    pub fn from_vec(vec: Vec4) -> Self {
+        Self::new(vec.x, vec.y, vec.z, vec.w)
     }
 
-    pub fn from_vec3(vec: Vec3) -> Self {
-        rgb(vec.x, vec.y, vec.z)
-    }
-
-    pub fn to_vec4(&self) -> Vec4 {
+    pub fn to_vec(&self) -> Vec4 {
         vec4(self.0[0], self.0[1], self.0[2], self.0[3])
     }
 
@@ -80,24 +72,90 @@ impl Color {
         self.0[3] = a;
     }
 }
-impl AsStd140 for Color {
-    type Output = crevice::std140::Vec3;
+impl AsStd140 for Rgba {
+    type Output = crevice::std140::Vec4;
 
     fn as_std140(&self) -> Self::Output {
-        self.to_vec3().as_std140()
+        self.to_vec().as_std140()
     }
 
     fn from_std140(val: Self::Output) -> Self {
-        Self::from_vec3(Vec3::from_std140(val))
+        Self::from_vec(Vec4::from_std140(val))
     }
 }
 
-pub fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
-    Color::rgba(r, g, b, a)
+pub fn rgba(r: f32, g: f32, b: f32, a: f32) -> Rgba {
+    Rgba::new(r, g, b, a)
 }
 
-pub fn rgb(r: f32, g: f32, b: f32) -> Color {
-    Color::rgb(r, g, b)
+#[derive(Clone, Copy, Debug)]
+pub struct Rgb([f32; 3]);
+impl Rgb {
+    pub const RED: Self = Self([1.0, 0.0, 0.0]);
+    pub const GREEN: Self = Self([0.0, 1.0, 0.0]);
+    pub const BLUE: Self = Self([0.0, 0.0, 1.0]);
+
+    pub const YELLOW: Self = Self([1.0, 1.0, 0.0]);
+    pub const MAGENTA: Self = Self([1.0, 0.0, 1.0]);
+    pub const CYAN: Self = Self([0.0, 1.0, 1.0]);
+
+    pub const BLACK: Self = Self([0.0, 0.0, 0.0]);
+    pub const WHITE: Self = Self([1.0, 1.0, 1.0]);
+
+    pub fn new(r: f32, g: f32, b: f32) -> Self {
+        Self([r, g, b])
+    }
+
+    pub fn r(&self) -> f32 {
+        self.0[0]
+    }
+
+    pub fn g(&self) -> f32 {
+        self.0[1]
+    }
+
+    pub fn b(&self) -> f32 {
+        self.0[2]
+    }
+
+    pub fn from_vec(vec: Vec3) -> Self {
+        Self::new(vec.x, vec.y, vec.z)
+    }
+
+    pub fn to_vec(&self) -> Vec3 {
+        vec3(self.0[0], self.0[1], self.0[2])
+    }
+
+    pub fn to_floats(&self) -> [f32; 3] {
+        self.0
+    }
+
+    pub fn set_r(&mut self, r: f32) {
+        self.0[0] = r;
+    }
+
+    pub fn set_g(&mut self, g: f32) {
+        self.0[1] = g;
+    }
+
+    pub fn set_b(&mut self, b: f32) {
+        self.0[2] = b;
+    }
+}
+impl AsStd140 for Rgb {
+    type Output = crevice::std140::Vec3;
+
+    fn as_std140(&self) -> Self::Output {
+        self.to_vec().as_std140()
+    }
+
+    fn from_std140(val: Self::Output) -> Self {
+        Self::from_vec(Vec3::from_std140(val))
+    }
+}
+
+pub fn rgb(r: f32, g: f32, b: f32) -> Rgb {
+    Rgb::new(r, g, b)
 }
 
 pub mod cgmath_types {

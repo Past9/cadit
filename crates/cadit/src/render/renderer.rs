@@ -34,8 +34,9 @@ use super::{
     cgmath_types::*,
     lights::{AmbientLight, DirectionalLight, PointLight},
     mesh::Vertex,
+    model::BufferedVertex,
     scene::Scene,
-    Color,
+    Rgb,
 };
 
 const IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
@@ -53,8 +54,9 @@ pub struct Renderer {
     framebuffers_rebuilt: bool,
 
     // buffers
-    vertex_buffer: Arc<CpuAccessibleBuffer<[Vertex]>>,
+    vertex_buffer: Arc<CpuAccessibleBuffer<[BufferedVertex]>>,
     index_buffer: Arc<CpuAccessibleBuffer<[u32]>>,
+    descriptor_set: Arc<PersistentDescriptorSet>,
 }
 impl Renderer {
     pub fn new<'a>(
@@ -77,6 +79,23 @@ impl Renderer {
 
         let (vertex_buffer, index_buffer) = scene.geometry_buffers(&resources.memory_allocator);
 
+        let (ambient_light_buffer, directional_light_buffer, point_light_buffer) =
+            scene.lights().light_buffers(&resources.memory_allocator);
+
+        let material_buffer = scene.material_buffer(&resources.memory_allocator);
+
+        let descriptor_set = PersistentDescriptorSet::new(
+            resources.descriptor_set_allocator,
+            pipeline.layout().set_layouts().get(0).unwrap().clone(),
+            [
+                WriteDescriptorSet::buffer(0, point_light_buffer),
+                WriteDescriptorSet::buffer(1, ambient_light_buffer),
+                WriteDescriptorSet::buffer(2, directional_light_buffer),
+                WriteDescriptorSet::buffer(3, material_buffer),
+            ],
+        )
+        .unwrap();
+
         Self {
             scene,
             vs,
@@ -92,6 +111,7 @@ impl Renderer {
             // Buffers
             vertex_buffer,
             index_buffer,
+            descriptor_set,
         }
     }
 
@@ -168,7 +188,7 @@ impl Renderer {
         let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
 
         let pipeline = GraphicsPipeline::start()
-            .vertex_input_state(BuffersDefinition::new().vertex::<Vertex>())
+            .vertex_input_state(BuffersDefinition::new().vertex::<BufferedVertex>())
             .vertex_shader(vs.entry_point("main").unwrap(), ())
             .input_assembly_state(
                 InputAssemblyState::new().topology(PrimitiveTopology::TriangleList),
@@ -241,47 +261,6 @@ impl Renderer {
             projection_matrix: self.scene.camera().projection_matrix().into(),
         };
 
-        let light_descriptor_set = PersistentDescriptorSet::new(
-            resources.descriptor_set_allocator,
-            self.pipeline.layout().set_layouts().get(0).unwrap().clone(),
-            [
-                // Point lights
-                WriteDescriptorSet::buffer(
-                    0,
-                    PointLight::buffer(
-                        &resources.memory_allocator,
-                        &[
-                            PointLight::new(point3(3.0, 3.0, 0.0), Color::RED, 1.0),
-                            PointLight::new(point3(-3.0, -3.0, 0.0), Color::GREEN, 1.0),
-                        ],
-                    ),
-                ),
-                // Ambient lights
-                WriteDescriptorSet::buffer(
-                    1,
-                    AmbientLight::buffer(
-                        &resources.memory_allocator,
-                        &[
-                            AmbientLight::new(Color::BLUE, 1.0),
-                            AmbientLight::new(Color::YELLOW, 1.0),
-                        ],
-                    ),
-                ),
-                // Directional lights
-                WriteDescriptorSet::buffer(
-                    2,
-                    DirectionalLight::buffer(
-                        &resources.memory_allocator,
-                        &[
-                            DirectionalLight::new(vec3(-1.0, 1.0, 1.0), Color::MAGENTA, 1.0),
-                            DirectionalLight::new(vec3(1.0, -1.0, 1.0), Color::CYAN, 1.0),
-                        ],
-                    ),
-                ),
-            ],
-        )
-        .unwrap();
-
         renderer_builder
             .begin_render_pass(
                 RenderPassBeginInfo {
@@ -311,7 +290,7 @@ impl Renderer {
                 PipelineBindPoint::Graphics,
                 self.pipeline.layout().clone(),
                 0,
-                light_descriptor_set,
+                self.descriptor_set.clone(),
             )
             .push_constants(self.pipeline.layout().clone(), 0, push_constants)
             .draw_indexed(self.index_buffer.len() as u32, 1, 0, 0, 0)

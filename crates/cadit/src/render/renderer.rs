@@ -249,7 +249,7 @@ impl Renderer {
     pub fn render<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>) {
         self.update_viewport(info, resources);
 
-        let mut renderer_builder = AutoCommandBufferBuilder::primary(
+        let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
             resources.command_buffer_allocator,
             resources.queue.queue_family_index(),
             CommandBufferUsage::MultipleSubmit,
@@ -261,7 +261,7 @@ impl Renderer {
             projection_matrix: self.scene.camera().projection_matrix().into(),
         };
 
-        renderer_builder
+        command_buffer_builder
             .begin_render_pass(
                 RenderPassBeginInfo {
                     clear_values: vec![Some(self.scene.bg_color().to_floats().into()), None],
@@ -298,7 +298,7 @@ impl Renderer {
             .end_render_pass()
             .unwrap();
 
-        let command_buffer = renderer_builder.build().unwrap();
+        let command_buffer = command_buffer_builder.build().unwrap();
 
         let finished = command_buffer.execute(resources.queue.clone()).unwrap();
         finished

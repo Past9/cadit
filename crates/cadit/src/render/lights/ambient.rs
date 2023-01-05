@@ -18,6 +18,13 @@ impl AmbientLight {
         Self { color, intensity }
     }
 
+    pub fn zero() -> Self {
+        Self {
+            color: Rgb::BLACK,
+            intensity: 0.0,
+        }
+    }
+
     pub fn buffer(
         allocator: &(impl MemoryAllocator + ?Sized),
         lights: &[AmbientLight],

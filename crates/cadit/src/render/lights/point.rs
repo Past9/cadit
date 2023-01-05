@@ -6,7 +6,10 @@ use vulkano::{
     memory::allocator::MemoryAllocator,
 };
 
-use crate::render::{cgmath_types::Point3, Rgb};
+use crate::render::{
+    cgmath_types::{point3, Point3},
+    Rgb,
+};
 
 #[derive(AsStd140, Clone, Debug)]
 pub struct PointLight {
@@ -23,9 +26,17 @@ impl PointLight {
         }
     }
 
+    pub fn zero() -> Self {
+        Self {
+            position: point3(0.0, 0.0, 0.0),
+            color: Rgb::BLACK,
+            intensity: 0.0,
+        }
+    }
+
     pub fn buffer(
         allocator: &(impl MemoryAllocator + ?Sized),
-        lights: &[PointLight],
+        lights: Vec<PointLight>,
     ) -> Arc<CpuAccessibleBuffer<[Std140PointLight]>> {
         CpuAccessibleBuffer::from_iter(
             allocator,
@@ -34,7 +45,12 @@ impl PointLight {
                 ..BufferUsage::default()
             },
             false,
-            lights.iter().map(|light| light.as_std140()),
+            match lights.len() {
+                len if len > 0 => lights,
+                _ => vec![Self::zero()],
+            }
+            .into_iter()
+            .map(|light| light.as_std140()),
         )
         .unwrap()
     }

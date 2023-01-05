@@ -77,7 +77,7 @@ void main() {
         vec3 dir_to_light = light.position - position;        
         float dist_to_light = length(dir_to_light);
 
-        point = light.color * dot(normal, normalize(dir_to_light)) * light.intensity / pow(dist_to_light, 2);
+        point += light.color * dot(normal, normalize(dir_to_light)) * light.intensity / pow(dist_to_light, 2);
     }
     final_light += point;
 

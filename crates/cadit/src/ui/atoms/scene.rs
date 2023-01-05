@@ -167,7 +167,7 @@ impl InternalGuiRenderer {
                 rgba(0.0, 0.05, 0.08, 1.0),
                 SceneLights::new(
                     vec![
-                        AmbientLight::new(Rgb::WHITE, 0.1),
+                        AmbientLight::new(Rgb::WHITE, 0.05),
                         //AmbientLight::new(Rgb::RED, 0.5),
                     ],
                     vec![
@@ -175,8 +175,8 @@ impl InternalGuiRenderer {
                         //DirectionalLight::new(vec3(10.0, 10.0, 1.0).normalize(), Rgb::CYAN, 1.0),
                     ],
                     vec![
-                        //PointLight::new(point3(3.0, 3.0, -5.0), Rgb::RED, 10.0),
-                        //PointLight::new(point3(-3.0, -3.0, 0.0), Rgb::GREEN, 1.0),
+                        PointLight::new(point3(3.0, 3.0, -5.0), Rgb::RED, 7.0),
+                        PointLight::new(point3(-3.0, -3.0, -5.0), Rgb::GREEN, 2.0),
                     ],
                 ),
                 Camera::create_perspective(

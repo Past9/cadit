@@ -6,7 +6,10 @@ use vulkano::{
     memory::allocator::MemoryAllocator,
 };
 
-use crate::render::{cgmath_types::Vec3, Rgb};
+use crate::render::{
+    cgmath_types::{vec3, Vec3},
+    Rgb,
+};
 
 #[derive(AsStd140, Clone, Debug)]
 pub struct DirectionalLight {
@@ -23,9 +26,17 @@ impl DirectionalLight {
         }
     }
 
+    pub fn zero() -> Self {
+        Self {
+            direction: vec3(0.0, 0.0, 1.0),
+            color: Rgb::BLACK,
+            intensity: 0.0,
+        }
+    }
+
     pub fn buffer(
         allocator: &(impl MemoryAllocator + ?Sized),
-        lights: &[DirectionalLight],
+        lights: Vec<DirectionalLight>,
     ) -> Arc<CpuAccessibleBuffer<[Std140DirectionalLight]>> {
         CpuAccessibleBuffer::from_iter(
             allocator,
@@ -34,7 +45,12 @@ impl DirectionalLight {
                 ..BufferUsage::default()
             },
             false,
-            lights.iter().map(|light| light.as_std140()),
+            match lights.len() {
+                len if len > 0 => lights,
+                _ => vec![Self::zero()],
+            }
+            .into_iter()
+            .map(|light| light.as_std140()),
         )
         .unwrap()
     }

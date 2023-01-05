@@ -45,9 +45,9 @@ impl SceneLights {
         Arc<CpuAccessibleBuffer<[Std140PointLight]>>,
     ) {
         (
-            AmbientLight::buffer(allocator, &self.ambient),
-            DirectionalLight::buffer(allocator, &self.directional),
-            PointLight::buffer(allocator, &self.point),
+            AmbientLight::buffer(allocator, self.ambient.clone()),
+            DirectionalLight::buffer(allocator, self.directional.clone()),
+            PointLight::buffer(allocator, self.point.clone()),
         )
     }
 }

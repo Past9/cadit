@@ -24,6 +24,8 @@ impl Rgba {
     pub const BLACK: Self = Self([0.0, 0.0, 0.0, 1.0]);
     pub const WHITE: Self = Self([1.0, 1.0, 1.0, 1.0]);
 
+    pub const TRANSPARENT: Self = Self([0.0, 0.0, 0.0, 0.0]);
+
     pub fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
         Self([r, g, b, a])
     }

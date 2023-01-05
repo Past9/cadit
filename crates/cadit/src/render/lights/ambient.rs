@@ -27,7 +27,7 @@ impl AmbientLight {
 
     pub fn buffer(
         allocator: &(impl MemoryAllocator + ?Sized),
-        lights: &[AmbientLight],
+        lights: Vec<AmbientLight>,
     ) -> Arc<CpuAccessibleBuffer<[Std140AmbientLight]>> {
         CpuAccessibleBuffer::from_iter(
             allocator,
@@ -36,7 +36,12 @@ impl AmbientLight {
                 ..BufferUsage::default()
             },
             false,
-            lights.iter().map(|light| light.as_std140()),
+            match lights.len() {
+                len if len > 0 => lights,
+                _ => vec![Self::zero()],
+            }
+            .into_iter()
+            .map(|light| light.as_std140()),
         )
         .unwrap()
     }

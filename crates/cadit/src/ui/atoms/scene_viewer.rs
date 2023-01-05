@@ -240,7 +240,7 @@ impl SceneViewer {
                         let mut scene = scene.lock();
                         scene.set_rotation(rotation);
                         scene.set_position(position);
-                        scene.render(&info, ctx, rotation, position);
+                        scene.render(&info, ctx);
                     })),
                 };
 

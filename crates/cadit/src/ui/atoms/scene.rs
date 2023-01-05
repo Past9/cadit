@@ -77,19 +77,8 @@ impl GuiRenderer {
         }
     }
 
-    pub(crate) fn render(
-        &mut self,
-        info: &PaintCallbackInfo,
-        ctx: &mut CallbackContext,
-        model_rotation: Quat,
-        camera_position: Vec3,
-    ) {
-        self.require_internal_mut(&ctx.resources).render(
-            info,
-            ctx,
-            model_rotation,
-            camera_position,
-        );
+    pub(crate) fn render(&mut self, info: &PaintCallbackInfo, ctx: &mut CallbackContext) {
+        self.require_internal_mut(&ctx.resources).render(info, ctx);
     }
 
     pub(crate) fn set_rotation(&mut self, rotation: Quat) {
@@ -218,13 +207,7 @@ impl InternalGuiRenderer {
         }
     }
 
-    pub(crate) fn render(
-        &mut self,
-        info: &PaintCallbackInfo,
-        ctx: &mut CallbackContext,
-        _model_rotation: Quat,
-        _camera_position: Vec3,
-    ) {
+    pub(crate) fn render(&mut self, info: &PaintCallbackInfo, ctx: &mut CallbackContext) {
         self.scene_renderer.render(info, &ctx.resources);
         self.transfer.transfer(self.scene_renderer.view(), ctx);
     }

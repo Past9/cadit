@@ -1,16 +1,13 @@
 use bytemuck::{Pod, Zeroable};
 
-use super::{
-    cgmath_types::{Point3, Vec3},
-    model::GeometryBuffers,
-};
+use super::cgmath_types::{Point3, Vec3};
 
 #[derive(Default, Debug, Copy, Clone)]
-pub struct Vertex {
+pub struct SurfaceVertex {
     pub position: [f32; 3],
     pub normal: [f32; 3],
 }
-impl Vertex {
+impl SurfaceVertex {
     pub fn new(position: Point3, normal: Vec3) -> Self {
         Self {
             position: [position.x, position.y, position.z],
@@ -20,25 +17,55 @@ impl Vertex {
 }
 
 pub struct Surface {
-    pub vertices: Vec<Vertex>,
+    pub vertices: Vec<SurfaceVertex>,
     pub indices: Vec<u32>,
-    pub buffers: Option<GeometryBuffers>,
 }
 impl Surface {
-    pub fn new<const V: usize, const I: usize>(vertices: [Vertex; V], indices: [u32; I]) -> Self {
+    pub fn new<const V: usize, const I: usize>(
+        vertices: [SurfaceVertex; V],
+        indices: [u32; I],
+    ) -> Self {
         Self {
             vertices: Vec::from_iter(vertices.into_iter()),
             indices: Vec::from_iter(indices.into_iter()),
-            buffers: None,
         }
     }
 
-    pub fn vertices(&self) -> &[Vertex] {
+    pub fn vertices(&self) -> &[SurfaceVertex] {
         &self.vertices
     }
 
     pub fn indices(&self) -> &[u32] {
         &self.indices
+    }
+}
+
+#[derive(Default, Debug, Copy, Clone)]
+pub struct EdgeVertex {
+    pub position: [f32; 3],
+    pub expand: [f32; 3],
+}
+impl EdgeVertex {
+    pub fn new(position: Point3, expand: Vec3) -> Self {
+        Self {
+            position: [position.x, position.y, position.z],
+            expand: [expand.x, expand.y, expand.z],
+        }
+    }
+}
+
+pub struct Edge {
+    pub vertices: Vec<EdgeVertex>,
+}
+impl Edge {
+    pub fn new<const V: usize>(vertices: [EdgeVertex; V]) -> Self {
+        Self {
+            vertices: Vec::from_iter(vertices.into_iter()),
+        }
+    }
+
+    pub fn vertices(&self) -> &[EdgeVertex] {
+        &self.vertices
     }
 }
 

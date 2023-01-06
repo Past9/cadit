@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use super::mesh::{Surface, Vertex};
+use super::{
+    mesh::{Edge, EdgeVertex, Surface, SurfaceVertex},
+    Rgb, Rgba,
+};
 
 mod material;
 
@@ -17,13 +20,13 @@ impl From<u32> for ModelObjectId {
 
 #[repr(C)]
 #[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
-pub struct BufferedVertex {
+pub struct BufferedSurfaceVertex {
     position: [f32; 3],
     normal: [f32; 3],
     material_idx: u32,
 }
-impl BufferedVertex {
-    pub fn new(vertex: &Vertex, material_idx: u32) -> Self {
+impl BufferedSurfaceVertex {
+    pub fn new(vertex: &SurfaceVertex, material_idx: u32) -> Self {
         Self {
             position: vertex.position.clone(),
             normal: vertex.normal.clone(),
@@ -31,13 +34,25 @@ impl BufferedVertex {
         }
     }
 }
-vulkano::impl_vertex!(BufferedVertex, position, normal, material_idx);
+vulkano::impl_vertex!(BufferedSurfaceVertex, position, normal, material_idx);
 
-#[derive(Clone)]
-pub struct GeometryBuffers {
-    pub vertex_buffer: Arc<CpuAccessibleBuffer<[BufferedVertex]>>,
-    pub index_buffer: Arc<CpuAccessibleBuffer<[u32]>>,
+#[repr(C)]
+#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
+pub struct BufferedEdgeVertex {
+    position: [f32; 3],
+    expand: [f32; 3],
+    color: [f32; 4],
 }
+impl BufferedEdgeVertex {
+    pub fn new(vertex: &EdgeVertex, color: Rgba) -> Self {
+        Self {
+            position: vertex.position.clone(),
+            expand: vertex.expand.clone(),
+            color: color.to_floats(),
+        }
+    }
+}
+vulkano::impl_vertex!(BufferedEdgeVertex, position, expand, color);
 
 pub struct ModelSurface {
     id: ModelObjectId,
@@ -64,7 +79,23 @@ impl ModelSurface {
 
 pub struct ModelEdge {
     id: ModelObjectId,
+    edge: Edge,
+    color: Rgba,
 }
+impl ModelEdge {
+    pub fn new(id: ModelObjectId, edge: Edge, color: Rgba) -> Self {
+        Self { id, edge, color }
+    }
+
+    pub fn edge(&self) -> &Edge {
+        &self.edge
+    }
+
+    pub fn color(&self) -> Rgba {
+        self.color
+    }
+}
+
 pub struct ModelPoint {
     id: ModelObjectId,
 }
@@ -89,5 +120,9 @@ impl Model {
 
     pub fn surfaces(&self) -> &[ModelSurface] {
         &self.surfaces
+    }
+
+    pub fn edges(&self) -> &[ModelEdge] {
+        &self.edges
     }
 }

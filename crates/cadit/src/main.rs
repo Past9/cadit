@@ -18,11 +18,14 @@ fn main() {
         device_features: Features {
             dynamic_rendering: true,
             sample_rate_shading: true,
+            wide_lines: true,
+            rectangular_lines: true,
             ..Default::default()
         },
         device_extensions: DeviceExtensions {
             khr_push_descriptor: true,
             khr_swapchain: true,
+            ext_line_rasterization: true,
             ..Default::default()
         },
         ..Default::default()

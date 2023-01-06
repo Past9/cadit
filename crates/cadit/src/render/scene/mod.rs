@@ -10,7 +10,7 @@ use super::{
     camera::Camera,
     cgmath_types::{vec3, Mat4, Quat, Vec3},
     lights::{AmbientLight, DirectionalLight, PointLight},
-    model::{BufferedVertex, Material, Model},
+    model::{BufferedEdgeVertex, BufferedSurfaceVertex, Material, Model},
     Rgba,
 };
 use crate::render::lights::{Std140AmbientLight, Std140DirectionalLight, Std140PointLight};
@@ -132,14 +132,46 @@ impl Scene {
         Material::buffer(allocator, &self.materials)
     }
 
-    pub fn geometry_buffers(
+    pub fn edge_geometry_buffer(
+        &self,
+        allocator: &impl MemoryAllocator,
+    ) -> Arc<CpuAccessibleBuffer<[BufferedEdgeVertex]>> {
+        let mut vertices: Vec<BufferedEdgeVertex> = Vec::new();
+
+        for model in self.models.iter() {
+            for edge in model.edges().iter() {
+                // TODO
+                let edge_vertices = edge.edge().vertices();
+                vertices.extend(
+                    edge_vertices
+                        .iter()
+                        .map(|vert| BufferedEdgeVertex::new(vert, edge.color())),
+                );
+            }
+        }
+
+        let vertex_buffer = CpuAccessibleBuffer::from_iter(
+            allocator,
+            BufferUsage {
+                vertex_buffer: true,
+                ..BufferUsage::empty()
+            },
+            false,
+            vertices,
+        )
+        .unwrap();
+
+        vertex_buffer
+    }
+
+    pub fn surface_geometry_buffers(
         &self,
         allocator: &impl MemoryAllocator,
     ) -> (
-        Arc<CpuAccessibleBuffer<[BufferedVertex]>>,
+        Arc<CpuAccessibleBuffer<[BufferedSurfaceVertex]>>,
         Arc<CpuAccessibleBuffer<[u32]>>,
     ) {
-        let mut vertices: Vec<BufferedVertex> = Vec::new();
+        let mut vertices: Vec<BufferedSurfaceVertex> = Vec::new();
         let mut indices: Vec<u32> = Vec::new();
 
         let mut index_offset = 0;
@@ -149,7 +181,7 @@ impl Scene {
                 vertices.extend(
                     surface_vertices
                         .iter()
-                        .map(|vert| BufferedVertex::new(vert, surface.material_idx())),
+                        .map(|vert| BufferedSurfaceVertex::new(vert, surface.material_idx())),
                 );
 
                 let surface_indices = surface.surface().indices();

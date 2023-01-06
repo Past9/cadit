@@ -9,7 +9,7 @@ use vulkano::{
         RenderPassBeginInfo, SubpassContents,
     },
     descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet},
-    format::Format,
+    format::{ClearValue, Format},
     image::{
         view::ImageView, AttachmentImage, ImageDimensions, ImageUsage, ImageViewAbstract,
         SampleCount, StorageImage,
@@ -19,20 +19,19 @@ use vulkano::{
             depth_stencil::{CompareOp, DepthState, DepthStencilState},
             input_assembly::{InputAssemblyState, PrimitiveTopology},
             multisample::MultisampleState,
-            rasterization::{CullMode, FrontFace, RasterizationState},
+            rasterization::{CullMode, FrontFace, LineRasterizationMode, RasterizationState},
             vertex_input::BuffersDefinition,
             viewport::{Scissor, Viewport, ViewportState},
         },
         GraphicsPipeline, Pipeline, PipelineBindPoint, StateMode,
     },
     render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass},
-    shader::ShaderModule,
     sync::GpuFuture,
 };
 
 use super::{
     cgmath_types::{Point3, Vec2, Vec3},
-    model::BufferedVertex,
+    model::{BufferedEdgeVertex, BufferedSurfaceVertex},
     scene::Scene,
 };
 
@@ -40,20 +39,21 @@ const IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
 
 pub struct Renderer {
     scene: Scene,
-    vs: Arc<ShaderModule>,
-    fs: Arc<ShaderModule>,
     render_pass: Arc<RenderPass>,
-    pipeline: Arc<GraphicsPipeline>,
-    subpass: Subpass,
+    surface_pipeline: Arc<GraphicsPipeline>,
+    edge_pipeline: Arc<GraphicsPipeline>,
     images: RendererImages,
     msaa_samples: SampleCount,
     scissor: Scissor,
     framebuffers_rebuilt: bool,
 
-    // buffers
-    vertex_buffer: Arc<CpuAccessibleBuffer<[BufferedVertex]>>,
-    index_buffer: Arc<CpuAccessibleBuffer<[u32]>>,
-    descriptor_set: Arc<PersistentDescriptorSet>,
+    // Surface buffers
+    surface_vertex_buffer: Arc<CpuAccessibleBuffer<[BufferedSurfaceVertex]>>,
+    surface_index_buffer: Arc<CpuAccessibleBuffer<[u32]>>,
+    surface_descriptor_set: Arc<PersistentDescriptorSet>,
+
+    // Edge buffers
+    edge_vertex_buffer: Arc<CpuAccessibleBuffer<[BufferedEdgeVertex]>>,
 }
 impl Renderer {
     pub fn new<'a>(
@@ -61,29 +61,32 @@ impl Renderer {
         resources: &RenderResources<'a>,
         msaa_samples: SampleCount,
     ) -> Self {
-        let device = resources.queue.device().clone();
-
-        let vs = surface_vs::load(device.clone()).unwrap();
-        let fs = surface_fs::load(device.clone()).unwrap();
-
         let scissor = Scissor {
             origin: [0, 0],
             dimensions: [0, 0],
         };
 
-        let (render_pass, images, subpass, pipeline) =
-            Self::create_pipeline(vs.clone(), fs.clone(), resources, msaa_samples, &scissor);
+        let (render_pass, images, surface_pipeline, edge_pipeline) =
+            Self::create_pipelines(resources, msaa_samples, &scissor);
 
-        let (vertex_buffer, index_buffer) = scene.geometry_buffers(&resources.memory_allocator);
+        let (surface_vertex_buffer, surface_index_buffer) =
+            scene.surface_geometry_buffers(&resources.memory_allocator);
+
+        let edge_vertex_buffer = scene.edge_geometry_buffer(&resources.memory_allocator);
 
         let (ambient_light_buffer, directional_light_buffer, point_light_buffer) =
             scene.lights().light_buffers(&resources.memory_allocator);
 
         let material_buffer = scene.material_buffer(&resources.memory_allocator);
 
-        let descriptor_set = PersistentDescriptorSet::new(
+        let surface_descriptor_set = PersistentDescriptorSet::new(
             resources.descriptor_set_allocator,
-            pipeline.layout().set_layouts().get(0).unwrap().clone(),
+            surface_pipeline
+                .layout()
+                .set_layouts()
+                .get(0)
+                .unwrap()
+                .clone(),
             [
                 WriteDescriptorSet::buffer(0, point_light_buffer),
                 WriteDescriptorSet::buffer(1, ambient_light_buffer),
@@ -95,20 +98,21 @@ impl Renderer {
 
         Self {
             scene,
-            vs,
-            fs,
             render_pass,
-            pipeline,
-            subpass,
+            surface_pipeline,
+            edge_pipeline,
             images,
             msaa_samples,
             scissor,
             framebuffers_rebuilt: true,
 
-            // Buffers
-            vertex_buffer,
-            index_buffer,
-            descriptor_set,
+            // Surface buffers
+            surface_vertex_buffer,
+            surface_index_buffer,
+            surface_descriptor_set,
+
+            // Edge buffers
+            edge_vertex_buffer,
         }
     }
 
@@ -124,16 +128,14 @@ impl Renderer {
         self.framebuffers_rebuilt
     }
 
-    fn create_pipeline<'a>(
-        vs: Arc<ShaderModule>,
-        fs: Arc<ShaderModule>,
+    fn create_pipelines<'a>(
         resources: &RenderResources<'a>,
         msaa_samples: SampleCount,
         scissor: &Scissor,
     ) -> (
         Arc<RenderPass>,
         RendererImages,
-        Subpass,
+        Arc<GraphicsPipeline>,
         Arc<GraphicsPipeline>,
     ) {
         let device = resources.queue.device();
@@ -142,8 +144,14 @@ impl Renderer {
                 vulkano::single_pass_renderpass!(
                     device.clone(),
                     attachments: {
+                        depth: {
+                            load: Clear,
+                            store: DontCare,
+                            format: Format::D32_SFLOAT,
+                            samples: 1,
+                        },
                         color: {
-                            load: DontCare,
+                            load: Clear,
                             store: Store,
                             format: IMAGE_FORMAT,
                             samples: 1,
@@ -151,12 +159,12 @@ impl Renderer {
                     },
                     pass: {
                         color: [color],
-                        depth_stencil: {}
+                        depth_stencil: {depth}
                     }
                 )
                 .unwrap()
             } else {
-                vulkano::single_pass_renderpass!(
+                vulkano::ordered_passes_renderpass!(
                     device.clone(),
                     attachments: {
                         intermediary: {
@@ -178,11 +186,20 @@ impl Renderer {
                             samples: 1,
                         }
                     },
-                    pass: {
-                        color: [intermediary],
-                        depth_stencil: {depth},
-                        resolve: [color]
-                    }
+                    passes: [
+                        {
+                            color: [intermediary],
+                            depth_stencil: {depth},
+                            input: [],
+                            resolve: [color]
+                        },
+                        {
+                            color: [intermediary],
+                            depth_stencil: {depth},
+                            input: [],
+                            resolve: [color]
+                        }
+                    ]
                 )
                 .unwrap()
             }
@@ -196,11 +213,15 @@ impl Renderer {
             IMAGE_FORMAT,
         );
 
-        let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
-
-        let pipeline = GraphicsPipeline::start()
-            .vertex_input_state(BuffersDefinition::new().vertex::<BufferedVertex>())
-            .vertex_shader(vs.entry_point("main").unwrap(), ())
+        let surface_pipeline = GraphicsPipeline::start()
+            .vertex_input_state(BuffersDefinition::new().vertex::<BufferedSurfaceVertex>())
+            .vertex_shader(
+                surface_vs::load(device.clone())
+                    .unwrap()
+                    .entry_point("main")
+                    .unwrap(),
+                (),
+            )
             .input_assembly_state(
                 InputAssemblyState::new().topology(PrimitiveTopology::TriangleList),
             )
@@ -218,17 +239,65 @@ impl Renderer {
                 depth: Some(DepthState {
                     enable_dynamic: false,
                     write_enable: StateMode::Fixed(true),
-                    compare_op: StateMode::Fixed(CompareOp::Greater),
+                    compare_op: StateMode::Fixed(CompareOp::Less),
                 }),
                 ..DepthStencilState::default()
             })
             .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
-            .fragment_shader(fs.entry_point("main").unwrap(), ())
-            .render_pass(subpass.clone())
+            .fragment_shader(
+                surface_fs::load(device.clone())
+                    .unwrap()
+                    .entry_point("main")
+                    .unwrap(),
+                (),
+            )
+            .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
             .build(device.clone())
             .unwrap();
 
-        (render_pass, images, subpass, pipeline)
+        let edge_pipeline = GraphicsPipeline::start()
+            .vertex_input_state(BuffersDefinition::new().vertex::<BufferedEdgeVertex>())
+            .vertex_shader(
+                edge_vs::load(device.clone())
+                    .unwrap()
+                    .entry_point("main")
+                    .unwrap(),
+                (),
+            )
+            .input_assembly_state(InputAssemblyState::new().topology(PrimitiveTopology::LineList))
+            .rasterization_state(RasterizationState {
+                front_face: StateMode::Fixed(FrontFace::CounterClockwise),
+                cull_mode: StateMode::Fixed(CullMode::None),
+                line_width: StateMode::Fixed(2.0),
+                line_rasterization_mode: LineRasterizationMode::Rectangular,
+                ..RasterizationState::default()
+            })
+            .multisample_state(MultisampleState {
+                rasterization_samples: msaa_samples,
+                sample_shading: Some(0.5),
+                ..Default::default()
+            })
+            .depth_stencil_state(DepthStencilState {
+                depth: Some(DepthState {
+                    enable_dynamic: false,
+                    write_enable: StateMode::Fixed(true),
+                    compare_op: StateMode::Fixed(CompareOp::Less),
+                }),
+                ..DepthStencilState::default()
+            })
+            .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
+            .fragment_shader(
+                edge_fs::load(device.clone())
+                    .unwrap()
+                    .entry_point("main")
+                    .unwrap(),
+                (),
+            )
+            .render_pass(Subpass::from(render_pass.clone(), 1).unwrap())
+            .build(device.clone())
+            .unwrap();
+
+        (render_pass, images, surface_pipeline, edge_pipeline)
     }
 
     fn update_viewport<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>) {
@@ -272,14 +341,24 @@ impl Renderer {
             projection_matrix: self.scene.camera().projection_matrix().into(),
         };
 
+        let clear_values = {
+            let bg_color = self.scene.bg_color().to_floats();
+
+            let mut clear_values: Vec<Option<ClearValue>> = Vec::new();
+            if self.msaa_samples != SampleCount::Sample1 {
+                clear_values.push(Some(bg_color.into()));
+            }
+
+            clear_values.push(Some(1.0.into()));
+            clear_values.push(Some(bg_color.into()));
+
+            clear_values
+        };
+
         command_buffer_builder
             .begin_render_pass(
                 RenderPassBeginInfo {
-                    clear_values: vec![
-                        Some(self.scene.bg_color().to_floats().into()),
-                        Some(0.0.into()),
-                        None,
-                    ],
+                    clear_values: clear_values,
                     render_area_offset: self.scissor.origin,
                     render_area_extent: self.scissor.dimensions,
                     ..RenderPassBeginInfo::framebuffer(self.images.framebuffer.clone())
@@ -298,18 +377,27 @@ impl Renderer {
                     depth_range: 0.0..1.0,
                 }],
             )
-            .bind_pipeline_graphics(self.pipeline.clone())
-            .bind_vertex_buffers(0, self.vertex_buffer.clone())
-            .bind_index_buffer(self.index_buffer.clone())
+            // Surface commands
+            .bind_pipeline_graphics(self.surface_pipeline.clone())
+            .bind_vertex_buffers(0, self.surface_vertex_buffer.clone())
+            .bind_index_buffer(self.surface_index_buffer.clone())
             .bind_descriptor_sets(
                 PipelineBindPoint::Graphics,
-                self.pipeline.layout().clone(),
+                self.surface_pipeline.layout().clone(),
                 0,
-                self.descriptor_set.clone(),
+                self.surface_descriptor_set.clone(),
             )
-            .push_constants(self.pipeline.layout().clone(), 0, push_constants)
-            .draw_indexed(self.index_buffer.len() as u32, 1, 0, 0, 0)
+            .push_constants(self.surface_pipeline.layout().clone(), 0, push_constants)
+            .draw_indexed(self.surface_index_buffer.len() as u32, 1, 0, 0, 0)
             .unwrap()
+            // Edge commands
+            .next_subpass(SubpassContents::Inline)
+            .unwrap()
+            .bind_pipeline_graphics(self.edge_pipeline.clone())
+            .bind_vertex_buffers(0, self.edge_vertex_buffer.clone())
+            .draw(self.edge_vertex_buffer.len() as u32, 1, 0, 0)
+            .unwrap()
+            // Finish
             .end_render_pass()
             .unwrap();
 

@@ -190,8 +190,8 @@ impl InternalGuiRenderer {
                     vec3(0.0, 0.0, 1.0),
                     vec3(0.0, -1.0, 0.0).normalize(),
                     Deg(70.0).into(),
-                    1.0,
-                    6.0,
+                    0.01,
+                    5.0,
                 ),
                 vec![Model::new(
                     vec![ModelSurface::new(

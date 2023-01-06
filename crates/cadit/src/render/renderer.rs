@@ -11,8 +11,8 @@ use vulkano::{
     descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet},
     format::Format,
     image::{
-        view::ImageView, AttachmentImage, ImageDimensions, ImageViewAbstract, SampleCount,
-        StorageImage,
+        view::ImageView, AttachmentImage, ImageDimensions, ImageUsage, ImageViewAbstract,
+        SampleCount, StorageImage,
     },
     pipeline::{
         graphics::{
@@ -63,8 +63,8 @@ impl Renderer {
     ) -> Self {
         let device = resources.queue.device().clone();
 
-        let vs = vs::load(device.clone()).unwrap();
-        let fs = fs::load(device.clone()).unwrap();
+        let vs = surface_vs::load(device.clone()).unwrap();
+        let fs = surface_fs::load(device.clone()).unwrap();
 
         let scissor = Scissor {
             origin: [0, 0],
@@ -165,6 +165,12 @@ impl Renderer {
                             format: IMAGE_FORMAT,
                             samples: msaa_samples,
                         },
+                        depth: {
+                            load: Clear,
+                            store: DontCare,
+                            format: Format::D32_SFLOAT,
+                            samples: msaa_samples,
+                        },
                         color: {
                             load: DontCare,
                             store: Store,
@@ -174,7 +180,7 @@ impl Renderer {
                     },
                     pass: {
                         color: [intermediary],
-                        depth_stencil: {},
+                        depth_stencil: {depth},
                         resolve: [color]
                     }
                 )
@@ -261,7 +267,7 @@ impl Renderer {
         )
         .unwrap();
 
-        let push_constants = vs::ty::PushConstants {
+        let push_constants = surface_vs::ty::PushConstants {
             model_matrix: self.scene.orientation().matrix().into(),
             projection_matrix: self.scene.camera().projection_matrix().into(),
         };
@@ -269,7 +275,11 @@ impl Renderer {
         command_buffer_builder
             .begin_render_pass(
                 RenderPassBeginInfo {
-                    clear_values: vec![Some(self.scene.bg_color().to_floats().into()), None],
+                    clear_values: vec![
+                        Some(self.scene.bg_color().to_floats().into()),
+                        Some(0.0.into()),
+                        None,
+                    ],
                     render_area_offset: self.scissor.origin,
                     render_area_extent: self.scissor.dimensions,
                     ..RenderPassBeginInfo::framebuffer(self.images.framebuffer.clone())
@@ -368,7 +378,25 @@ impl RendererImages {
             attachments.push(intermediary);
         }
 
-        let image = StorageImage::new(
+        let depth = ImageView::new_default(
+            AttachmentImage::multisampled_with_usage(
+                &resources.memory_allocator,
+                dimensions,
+                samples,
+                Format::D32_SFLOAT,
+                ImageUsage {
+                    depth_stencil_attachment: true,
+                    transient_attachment: true,
+                    ..ImageUsage::empty()
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+
+        attachments.push(depth);
+
+        let color = StorageImage::new(
             &resources.memory_allocator,
             ImageDimensions::Dim2d {
                 width: dimensions[0],
@@ -380,7 +408,7 @@ impl RendererImages {
         )
         .unwrap();
 
-        let view = ImageView::new_default(image.clone()).unwrap();
+        let view = ImageView::new_default(color.clone()).unwrap();
 
         attachments.push(view.clone());
 
@@ -397,7 +425,7 @@ impl RendererImages {
     }
 }
 
-mod vs {
+mod surface_vs {
     vulkano_shaders::shader! {
         ty: "vertex",
         path: "src/render/shaders/surface.vert",
@@ -407,9 +435,23 @@ mod vs {
     }
 }
 
-mod fs {
+mod surface_fs {
     vulkano_shaders::shader! {
         ty: "fragment",
         path: "src/render/shaders/surface.frag",
+    }
+}
+
+mod edge_vs {
+    vulkano_shaders::shader! {
+        ty: "vertex",
+        path: "src/render/shaders/edge.vert",
+    }
+}
+
+mod edge_fs {
+    vulkano_shaders::shader! {
+        ty: "fragment",
+        path: "src/render/shaders/edge.frag",
     }
 }

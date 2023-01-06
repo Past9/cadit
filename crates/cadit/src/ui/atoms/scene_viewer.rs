@@ -1,4 +1,4 @@
-use crate::render::cgmath_types::{vec3, Quat, Vec3};
+use crate::render::cgmath_types::{point3, vec2, vec3, Point3, Quat, Vec3};
 
 use super::scene::{ColorId, GuiRenderer, SceneObjectProps};
 use cgmath::{InnerSpace, Quaternion, Rad, Rotation3};
@@ -9,6 +9,7 @@ use eframe::{
 use egui_winit_vulkano::CallbackFn;
 use std::sync::Arc;
 
+const ZOOM_SENSITIVITY: f32 = 0.0002;
 const ROTATION_SENSITIVITY: f32 = 0.007;
 const PAN_SENSITIVITY: f32 = 0.01;
 
@@ -27,18 +28,19 @@ pub struct SceneViewer {
     scene: Arc<Mutex<GuiRenderer>>,
     scene_rect: egui::Rect,
     rotation: Quat,
-    position: Vec3,
+    offset: Vec3,
     pointer_buttons_down: Vec<PointerButtonDown>,
     clicked: Option<ColorId>,
     rotated: bool,
     allow_manual_rotate: bool,
     allow_manual_pan: bool,
     color: [f32; 4],
+    mouse_pos: Pos2,
 }
 impl SceneViewer {
     pub fn new(
         rotation: Quat,
-        position: Vec3,
+        offset: Vec3,
         allow_manual_rotate: bool,
         allow_manual_pan: bool,
         color: [f32; 4],
@@ -50,13 +52,14 @@ impl SceneViewer {
                 max: (0.0, 0.0).into(),
             },
             rotation,
-            position,
+            offset,
             pointer_buttons_down: Vec::new(),
             clicked: None,
             rotated: false,
             allow_manual_rotate,
             allow_manual_pan,
             color,
+            mouse_pos: Pos2 { x: 0.0, y: 0.0 },
         }
     }
 
@@ -111,7 +114,49 @@ impl SceneViewer {
                 let mut scene = self.scene.lock();
                 for event in ui.input().events.iter() {
                     match event {
+                        egui::Event::Scroll(pts) => {
+                            let w = self.scene_rect.width() as f32;
+                            let h = self.scene_rect.height() as f32;
+
+                            let half_w = w / 2.0;
+                            let half_h = h / 2.0;
+
+                            // Mouse pos in pixels relative to top left corner of viewport
+                            let mouse_pix_x = self.mouse_pos.x - self.scene_rect.left();
+                            let mouse_pix_y = self.mouse_pos.y - self.scene_rect.top();
+
+                            // Mouse pos in pixels relative to center of viewport
+                            let mouse_ctr_x = mouse_pix_x - half_w;
+                            let mouse_ctr_y = mouse_pix_y - half_h;
+
+                            // Mouse pos relative to center of viewport, scaled -1.0 -> 1.0
+                            // on both axes.
+                            let mouse_x = mouse_ctr_x / half_w;
+                            let mouse_y = mouse_ctr_y / half_h;
+
+                            if let Some(cam_vec_to) =
+                                scene.camera_vec_to(point3(0.0, 0.0, 0.0) + self.offset)
+                            {
+                                let cam_dist = cam_vec_to.magnitude();
+                                if let Some(vp_size) = scene.viewport_size_at_dist(cam_dist) {
+                                    // Vector from the camera origin to the position of the mouse
+                                    // pointer (at the distance from the camera to the model)
+                                    let zoom_vec = vec3(
+                                        vp_size.x * mouse_x / 2.0,
+                                        vp_size.y * mouse_y / 2.0,
+                                        cam_dist,
+                                    ) * pts.y
+                                        * ZOOM_SENSITIVITY;
+
+                                    // Move the model backwards along that vector so that "positive scroll"
+                                    // (mousewheel up) zooms in.
+                                    self.offset -= zoom_vec;
+                                }
+                            }
+                        }
                         egui::Event::PointerMoved(pos) => {
+                            self.mouse_pos = pos.clone();
+
                             // If the mouse moved over a scene object, flag that object as hovered
                             let obj_id = scene.read_color_id(self.ui_pos_to_fbo_pos(ui, *pos));
                             scene.hover_object(obj_id);
@@ -140,7 +185,7 @@ impl SceneViewer {
                                     let Vec2 { x: dx, y: dy } = *pos - pan_drag.last_position;
 
                                     if dy != 0.0 || dx != 0.0 {
-                                        self.position += vec3(dx, dy, 0.0) * PAN_SENSITIVITY;
+                                        self.offset += vec3(dx, dy, 0.0) * PAN_SENSITIVITY;
                                     }
                                 }
                             }
@@ -231,7 +276,7 @@ impl SceneViewer {
                 // Clone stuff for the paint callback
                 let scene = self.scene.clone();
                 let rotation = self.rotation;
-                let position = self.position;
+                let position = self.offset;
 
                 // Create the paint callback
                 let paint_callback = PaintCallback {

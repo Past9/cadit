@@ -5,9 +5,9 @@ use vulkano::{image::SampleCount, pipeline::graphics::viewport::Viewport};
 
 use crate::render::{
     camera::Camera,
-    cgmath_types::{point3, vec3, Quat, Vec3},
+    cgmath_types::{point3, vec3, Point3, Quat, Vec2, Vec3},
     egui_transfer::EguiTransfer,
-    lights::{AmbientLight, DirectionalLight, PointLight},
+    lights::{AmbientLight, PointLight},
     mesh::{Surface, Vertex},
     model::{Material, Model, ModelSurface},
     renderer::Renderer,
@@ -40,6 +40,22 @@ impl GuiRenderer {
         Self {
             color,
             internal: None,
+        }
+    }
+
+    pub(crate) fn camera_vec_to(&self, location: Point3) -> Option<Vec3> {
+        if let Some(ref renderer) = self.internal {
+            Some(renderer.camera_vec_to(location))
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn viewport_size_at_dist(&self, dist: f32) -> Option<Vec2> {
+        if let Some(ref renderer) = self.internal {
+            Some(renderer.viewport_size_at_dist(dist))
+        } else {
+            None
         }
     }
 
@@ -205,6 +221,14 @@ impl InternalGuiRenderer {
             scene_renderer: renderer,
             transfer,
         }
+    }
+
+    pub(crate) fn camera_vec_to(&self, location: Point3) -> Vec3 {
+        self.scene_renderer.camera_vec_to(location)
+    }
+
+    pub(crate) fn viewport_size_at_dist(&self, dist: f32) -> Vec2 {
+        self.scene_renderer.viewport_size_at_dist(dist)
     }
 
     pub(crate) fn render(&mut self, info: &PaintCallbackInfo, ctx: &mut CallbackContext) {

@@ -31,12 +31,9 @@ use vulkano::{
 };
 
 use super::{
-    cgmath_types::*,
-    lights::{AmbientLight, DirectionalLight, PointLight},
-    mesh::Vertex,
+    cgmath_types::{Point3, Vec2, Vec3},
     model::BufferedVertex,
     scene::Scene,
-    Rgb,
 };
 
 const IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
@@ -113,6 +110,14 @@ impl Renderer {
             index_buffer,
             descriptor_set,
         }
+    }
+
+    pub fn camera_vec_to(&self, location: Point3) -> Vec3 {
+        self.scene.camera().vec_to(location)
+    }
+
+    pub fn viewport_size_at_dist(&self, dist: f32) -> Vec2 {
+        self.scene.camera().viewport_size_at_dist(dist)
     }
 
     pub fn framebuffers_rebuilt(&self) -> bool {

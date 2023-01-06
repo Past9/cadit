@@ -3,7 +3,6 @@ use std::sync::Arc;
 use cgmath::Zero;
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
-    descriptor_set::{allocator::DescriptorSetAllocator, PersistentDescriptorSet},
     memory::allocator::MemoryAllocator,
 };
 
@@ -11,7 +10,6 @@ use super::{
     camera::Camera,
     cgmath_types::{vec3, Mat4, Quat, Vec3},
     lights::{AmbientLight, DirectionalLight, PointLight},
-    mesh::Vertex,
     model::{BufferedVertex, Material, Model},
     Rgba,
 };

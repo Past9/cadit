@@ -1,7 +1,4 @@
-use std::sync::Arc;
-
 use bytemuck::{Pod, Zeroable};
-use vulkano::buffer::CpuAccessibleBuffer;
 
 use super::{
     cgmath_types::{Point3, Vec3},
@@ -43,41 +40,6 @@ impl Surface {
     pub fn indices(&self) -> &[u32] {
         &self.indices
     }
-
-    /*
-    pub fn buffer(&mut self, allocator: &impl MemoryAllocator) -> &GeometryBuffers {
-        self.buffers.get_or_insert_with(|| {
-            let vertex_buffer = CpuAccessibleBuffer::from_iter(
-                allocator,
-                BufferUsage {
-                    vertex_buffer: true,
-                    ..BufferUsage::empty()
-                },
-                false,
-                self.vertices.iter().map(|v| Vertex {
-                    position: v.position,
-                }),
-            )
-            .unwrap();
-
-            let index_buffer = CpuAccessibleBuffer::from_iter(
-                allocator,
-                BufferUsage {
-                    index_buffer: true,
-                    ..BufferUsage::empty()
-                },
-                false,
-                self.indices.iter().cloned(),
-            )
-            .unwrap();
-
-            GeometryBuffers {
-                vertex_buffer,
-                index_buffer,
-            }
-        })
-    }
-    */
 }
 
 pub struct PbrMaterial {

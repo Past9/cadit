@@ -211,6 +211,20 @@ impl Camera {
         )
     }
 
+    pub fn vec_to(&self, location: Point3) -> Vec3 {
+        location - self.position
+    }
+
+    pub fn viewport_size_at_dist(&self, dist: f32) -> Vec2 {
+        match self.projection_type {
+            ProjectionType::Orthographic { height } => vec2(height * self.aspect(), height),
+            ProjectionType::Perspective { fov_y } => {
+                let z_tan_fov = (fov_y / 2.0).tan() * dist * 2.0;
+                vec2(z_tan_fov * self.aspect(), z_tan_fov)
+            }
+        }
+    }
+
     pub fn near_dist(&self) -> f32 {
         self.near_dist
     }

@@ -7,7 +7,7 @@ use crate::render::{
     camera::Camera,
     cgmath_types::{point3, vec3, Point3, Quat, Vec2, Vec3},
     egui_transfer::EguiTransfer,
-    lights::{AmbientLight, DirectionalLight, PointLight},
+    lights::DirectionalLight,
     mesh::{Surface, Vertex},
     model::{Material, Model, ModelSurface},
     renderer::Renderer,

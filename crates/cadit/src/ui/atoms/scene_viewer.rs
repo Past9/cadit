@@ -1,4 +1,4 @@
-use crate::render::cgmath_types::{point3, vec2, vec3, Point3, Quat, Vec3};
+use crate::render::cgmath_types::{point3, vec3, Quat, Vec3};
 
 use super::scene::{ColorId, GuiRenderer, SceneObjectProps};
 use cgmath::{InnerSpace, Quaternion, Rad, Rotation3};

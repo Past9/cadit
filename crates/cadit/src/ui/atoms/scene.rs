@@ -7,7 +7,7 @@ use crate::render::{
     camera::Camera,
     cgmath_types::{point3, vec3, Point3, Quat, Vec2, Vec3},
     egui_transfer::EguiTransfer,
-    lights::{AmbientLight, PointLight},
+    lights::{AmbientLight, DirectionalLight, PointLight},
     mesh::{Surface, Vertex},
     model::{Material, Model, ModelSurface},
     renderer::Renderer,
@@ -172,16 +172,16 @@ impl InternalGuiRenderer {
                 rgba(0.0, 0.05, 0.08, 1.0),
                 SceneLights::new(
                     vec![
-                        AmbientLight::new(Rgb::WHITE, 0.05),
+                        //AmbientLight::new(Rgb::WHITE, 0.05),
                         //AmbientLight::new(Rgb::RED, 0.5),
                     ],
                     vec![
-                        //DirectionalLight::new(vec3(-5.0, 5.0, 1.0).normalize(), Rgb::MAGENTA, 1.0),
-                        //DirectionalLight::new(vec3(10.0, 10.0, 1.0).normalize(), Rgb::CYAN, 1.0),
+                        DirectionalLight::new(vec3(1.0, 0.0, 1.0).normalize(), Rgb::RED, 1.0),
+                        DirectionalLight::new(vec3(-1.0, 0.0, 1.0).normalize(), Rgb::BLUE, 1.0),
                     ],
                     vec![
-                        PointLight::new(point3(3.0, 3.0, -5.0), Rgb::RED, 7.0),
-                        PointLight::new(point3(-3.0, -3.0, -5.0), Rgb::GREEN, 2.0),
+                        //PointLight::new(point3(3.0, 3.0, -5.0), Rgb::RED, 7.0),
+                        //PointLight::new(point3(-3.0, -3.0, -5.0), Rgb::GREEN, 2.0),
                     ],
                 ),
                 Camera::create_perspective(

@@ -69,6 +69,20 @@ impl Edge {
     }
 }
 
+#[derive(Default, Debug, Copy, Clone)]
+pub struct Point {
+    pub position: [f32; 3],
+    pub expand: [f32; 3],
+}
+impl Point {
+    pub fn new(position: Point3, expand: Vec3) -> Self {
+        Self {
+            position: [position.x, position.y, position.z],
+            expand: [expand.x, expand.y, expand.z],
+        }
+    }
+}
+
 pub struct PbrMaterial {
     pub albedo: [f32; 4],
 }

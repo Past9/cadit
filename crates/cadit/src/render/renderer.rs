@@ -31,7 +31,7 @@ use vulkano::{
 
 use super::{
     cgmath_types::{Point3, Vec2, Vec3},
-    model::{BufferedEdgeVertex, BufferedSurfaceVertex},
+    model::{BufferedEdgeVertex, BufferedPointVertex, BufferedSurfaceVertex},
     scene::Scene,
 };
 
@@ -42,6 +42,7 @@ pub struct Renderer {
     render_pass: Arc<RenderPass>,
     surface_pipeline: Arc<GraphicsPipeline>,
     edge_pipeline: Arc<GraphicsPipeline>,
+    point_pipeline: Arc<GraphicsPipeline>,
     images: RendererImages,
     msaa_samples: SampleCount,
     scissor: Scissor,
@@ -54,6 +55,9 @@ pub struct Renderer {
 
     // Edge buffers
     edge_vertex_buffer: Arc<CpuAccessibleBuffer<[BufferedEdgeVertex]>>,
+
+    // Point buffers
+    point_vertex_buffer: Arc<CpuAccessibleBuffer<[BufferedPointVertex]>>,
 }
 impl Renderer {
     pub fn new<'a>(
@@ -66,13 +70,15 @@ impl Renderer {
             dimensions: [0, 0],
         };
 
-        let (render_pass, images, surface_pipeline, edge_pipeline) =
+        let (render_pass, images, surface_pipeline, edge_pipeline, point_pipeline) =
             Self::create_pipelines(resources, msaa_samples, &scissor);
 
         let (surface_vertex_buffer, surface_index_buffer) =
             scene.surface_geometry_buffers(&resources.memory_allocator);
 
         let edge_vertex_buffer = scene.edge_geometry_buffer(&resources.memory_allocator);
+
+        let point_vertex_buffer = scene.point_geometry_buffer(&resources.memory_allocator);
 
         let (ambient_light_buffer, directional_light_buffer, point_light_buffer) =
             scene.lights().light_buffers(&resources.memory_allocator);
@@ -101,6 +107,7 @@ impl Renderer {
             render_pass,
             surface_pipeline,
             edge_pipeline,
+            point_pipeline,
             images,
             msaa_samples,
             scissor,
@@ -113,6 +120,9 @@ impl Renderer {
 
             // Edge buffers
             edge_vertex_buffer,
+
+            // Point buffers
+            point_vertex_buffer,
         }
     }
 
@@ -135,6 +145,7 @@ impl Renderer {
     ) -> (
         Arc<RenderPass>,
         RendererImages,
+        Arc<GraphicsPipeline>,
         Arc<GraphicsPipeline>,
         Arc<GraphicsPipeline>,
     ) {
@@ -187,6 +198,12 @@ impl Renderer {
                         }
                     },
                     passes: [
+                        {
+                            color: [intermediary],
+                            depth_stencil: {depth},
+                            input: [],
+                            resolve: [color]
+                        },
                         {
                             color: [intermediary],
                             depth_stencil: {depth},
@@ -297,7 +314,53 @@ impl Renderer {
             .build(device.clone())
             .unwrap();
 
-        (render_pass, images, surface_pipeline, edge_pipeline)
+        let point_pipeline = GraphicsPipeline::start()
+            .vertex_input_state(BuffersDefinition::new().vertex::<BufferedPointVertex>())
+            .vertex_shader(
+                point_vs::load(device.clone())
+                    .unwrap()
+                    .entry_point("main")
+                    .unwrap(),
+                (),
+            )
+            .input_assembly_state(InputAssemblyState::new().topology(PrimitiveTopology::PointList))
+            .rasterization_state(RasterizationState {
+                front_face: StateMode::Fixed(FrontFace::CounterClockwise),
+                cull_mode: StateMode::Fixed(CullMode::None),
+                ..RasterizationState::default()
+            })
+            .multisample_state(MultisampleState {
+                rasterization_samples: msaa_samples,
+                sample_shading: Some(0.5),
+                ..Default::default()
+            })
+            .depth_stencil_state(DepthStencilState {
+                depth: Some(DepthState {
+                    enable_dynamic: false,
+                    write_enable: StateMode::Fixed(true),
+                    compare_op: StateMode::Fixed(CompareOp::Less),
+                }),
+                ..DepthStencilState::default()
+            })
+            .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
+            .fragment_shader(
+                point_fs::load(device.clone())
+                    .unwrap()
+                    .entry_point("main")
+                    .unwrap(),
+                (),
+            )
+            .render_pass(Subpass::from(render_pass.clone(), 2).unwrap())
+            .build(device.clone())
+            .unwrap();
+
+        (
+            render_pass,
+            images,
+            surface_pipeline,
+            edge_pipeline,
+            point_pipeline,
+        )
     }
 
     fn update_viewport<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>) {
@@ -396,6 +459,13 @@ impl Renderer {
             .bind_pipeline_graphics(self.edge_pipeline.clone())
             .bind_vertex_buffers(0, self.edge_vertex_buffer.clone())
             .draw(self.edge_vertex_buffer.len() as u32, 1, 0, 0)
+            .unwrap()
+            // Point commands
+            .next_subpass(SubpassContents::Inline)
+            .unwrap()
+            .bind_pipeline_graphics(self.point_pipeline.clone())
+            .bind_vertex_buffers(0, self.point_vertex_buffer.clone())
+            .draw(self.point_vertex_buffer.len() as u32, 1, 0, 0)
             .unwrap()
             // Finish
             .end_render_pass()
@@ -541,5 +611,19 @@ mod edge_fs {
     vulkano_shaders::shader! {
         ty: "fragment",
         path: "src/render/shaders/edge.frag",
+    }
+}
+
+mod point_vs {
+    vulkano_shaders::shader! {
+        ty: "vertex",
+        path: "src/render/shaders/point.vert",
+    }
+}
+
+mod point_fs {
+    vulkano_shaders::shader! {
+        ty: "fragment",
+        path: "src/render/shaders/point.frag",
     }
 }

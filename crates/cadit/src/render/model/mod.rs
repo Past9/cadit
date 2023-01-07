@@ -1,15 +1,12 @@
-use std::sync::Arc;
-
 use super::{
-    mesh::{Edge, EdgeVertex, Surface, SurfaceVertex},
-    Rgb, Rgba,
+    mesh::{Edge, EdgeVertex, Point, Surface, SurfaceVertex},
+    Rgba,
 };
+use bytemuck::{Pod, Zeroable};
 
 mod material;
 
-use bytemuck::{Pod, Zeroable};
 pub use material::*;
-use vulkano::buffer::CpuAccessibleBuffer;
 
 pub struct ModelObjectId(u32);
 impl From<u32> for ModelObjectId {
@@ -53,6 +50,22 @@ impl BufferedEdgeVertex {
     }
 }
 vulkano::impl_vertex!(BufferedEdgeVertex, position, expand, color);
+
+#[repr(C)]
+#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
+pub struct BufferedPointVertex {
+    position: [f32; 3],
+    expand: [f32; 3],
+}
+impl BufferedPointVertex {
+    pub fn new(vertex: &Point) -> Self {
+        Self {
+            position: vertex.position.clone(),
+            expand: vertex.expand.clone(),
+        }
+    }
+}
+vulkano::impl_vertex!(BufferedPointVertex, position, expand);
 
 pub struct ModelSurface {
     id: ModelObjectId,
@@ -98,6 +111,16 @@ impl ModelEdge {
 
 pub struct ModelPoint {
     id: ModelObjectId,
+    point: Point,
+}
+impl ModelPoint {
+    pub fn new(id: ModelObjectId, point: Point) -> Self {
+        Self { id, point }
+    }
+
+    pub fn point(&self) -> &Point {
+        &self.point
+    }
 }
 
 pub struct Model {
@@ -124,5 +147,9 @@ impl Model {
 
     pub fn edges(&self) -> &[ModelEdge] {
         &self.edges
+    }
+
+    pub fn points(&self) -> &[ModelPoint] {
+        &self.points
     }
 }

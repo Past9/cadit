@@ -10,7 +10,7 @@ use super::{
     camera::Camera,
     cgmath_types::{vec3, Mat4, Quat, Vec3},
     lights::{AmbientLight, DirectionalLight, PointLight},
-    model::{BufferedEdgeVertex, BufferedSurfaceVertex, Material, Model},
+    model::{BufferedEdgeVertex, BufferedPointVertex, BufferedSurfaceVertex, Material, Model},
     Rgba,
 };
 use crate::render::lights::{Std140AmbientLight, Std140DirectionalLight, Std140PointLight};
@@ -130,6 +130,34 @@ impl Scene {
         allocator: &impl MemoryAllocator,
     ) -> Arc<CpuAccessibleBuffer<[Std140Material]>> {
         Material::buffer(allocator, &self.materials)
+    }
+
+    pub fn point_geometry_buffer(
+        &self,
+        allocator: &impl MemoryAllocator,
+    ) -> Arc<CpuAccessibleBuffer<[BufferedPointVertex]>> {
+        let mut vertices: Vec<BufferedPointVertex> = Vec::new();
+
+        for model in self.models.iter() {
+            for point in model.points().iter() {
+                // TODO
+                let point_vertex = point.point();
+                vertices.push(BufferedPointVertex::new(point_vertex));
+            }
+        }
+
+        let vertex_buffer = CpuAccessibleBuffer::from_iter(
+            allocator,
+            BufferUsage {
+                vertex_buffer: true,
+                ..BufferUsage::empty()
+            },
+            false,
+            vertices,
+        )
+        .unwrap();
+
+        vertex_buffer
     }
 
     pub fn edge_geometry_buffer(

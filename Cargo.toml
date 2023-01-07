@@ -1,3 +1,9 @@
 [workspace]
 
-members = ["crates/cadit", "crates/render", "crates/spline", "crates/widgets"]
+members = [
+    "crates/cadit",
+    "crates/render",
+    "crates/spline",
+    "crates/widgets",
+    "crates/window",
+]

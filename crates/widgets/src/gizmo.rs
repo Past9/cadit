@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::{scene::SceneViewer, animation::AnimatedValue};
+use crate::{scene::SceneViewer, util::animation::AnimatedValue};
 use cgmath::{Deg, Quaternion, Rotation3};
 use eframe::egui;
 

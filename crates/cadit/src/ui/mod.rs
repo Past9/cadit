@@ -9,8 +9,6 @@ use vulkano_util::renderer::VulkanoWindowRenderer;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::ControlFlow;
 
-mod math;
-mod molecules;
 mod organisms;
 
 const MENU_HEIGHT: f32 = 17.0;

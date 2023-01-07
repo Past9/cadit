@@ -1,14 +1,11 @@
-use eframe::egui::{self, Ui};
+use eframe::egui::{self};
 use egui_dock::{DockArea, NodeIndex, StyleBuilder, Tree};
 
-use crate::{
-    ui::organisms::panes::{editor::EditorPane, Pane},
-    ui::MessageBus,
-};
+use crate::{ui::organisms::panes::Pane, ui::MessageBus};
 
-use super::panes::{features::FeaturesPane, PaneView};
+use super::panes::{features::FeaturesPane, EditorPane, PaneView, PaneViewer};
 
-struct PaneToAdd {
+pub(super) struct PaneToAdd {
     parent_node: NodeIndex,
     pane: PaneView,
 }
@@ -58,47 +55,5 @@ impl Workspace {
             self.tree.set_focused_node(node.parent_node);
             self.tree.push_to_focused_leaf(node.pane);
         });
-    }
-}
-
-struct PaneViewer<'a> {
-    messages: &'a mut MessageBus,
-    panes_to_add: &'a mut Vec<PaneToAdd>,
-}
-impl<'a> egui_dock::TabViewer for PaneViewer<'a> {
-    type Tab = PaneView;
-
-    fn ui(&mut self, ui: &mut egui::Ui, tab: &mut Self::Tab) {
-        tab.pane.show(ui);
-        //tab.show(ui);
-    }
-
-    fn context_menu(&mut self, ui: &mut Ui, _tab: &mut Self::Tab) {
-        ui.label("Add tab context menu this is some really long text foo bar baz blah");
-    }
-
-    fn title(&mut self, tab: &mut Self::Tab) -> egui::WidgetText {
-        tab.pane.title().into()
-    }
-
-    fn add_popup(&mut self, ui: &mut Ui, node: NodeIndex) {
-        ui.set_min_width(150.0);
-
-        ui.style_mut().visuals.button_frame = false;
-
-        if ui.button("Part editor").clicked() {
-            self.panes_to_add
-                .push(PaneToAdd::new(node, EditorPane::part()));
-        }
-
-        if ui.button("Assembly editor").clicked() {
-            self.panes_to_add
-                .push(PaneToAdd::new(node, EditorPane::assembly()));
-        }
-
-        if ui.button("Features").clicked() {
-            self.panes_to_add
-                .push(PaneToAdd::new(node, FeaturesPane::new()))
-        }
     }
 }

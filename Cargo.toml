@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
+    "tools",
     "crates/cadit",
     "crates/render",
     "crates/spline",

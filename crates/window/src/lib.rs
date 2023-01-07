@@ -18,13 +18,21 @@ pub use vulkano_util::window::{WindowDescriptor, WindowMode, WindowResizeConstra
 pub const IMAGE_FORMAT: Format = Format::B8G8R8A8_SRGB;
 
 pub trait Window {
+    fn draw(&mut self, gui: &mut Gui);
+
+    fn on_close(&mut self) -> bool {
+        return true;
+    }
+
     fn on_event(
         &mut self,
-        event: Event<()>,
-        control_flow: &mut ControlFlow,
-        renderer: &mut VulkanoWindowRenderer,
-        gui: &mut Gui,
-    );
+        _event: &Event<()>,
+        _control_flow: &mut ControlFlow,
+        _renderer: &mut VulkanoWindowRenderer,
+        _gui: &mut Gui,
+    ) {
+        // Do nothing
+    }
 }
 
 pub fn run_window<W: Window + 'static>(mut window: W, desc: &WindowDescriptor) -> ! {
@@ -65,6 +73,46 @@ pub fn run_window<W: Window + 'static>(mut window: W, desc: &WindowDescriptor) -
 
     event_loop.run(move |event, _, control_flow| {
         let renderer = windows.get_primary_renderer_mut().unwrap();
-        window.on_event(event, control_flow, renderer, &mut gui);
+
+        match &event {
+            Event::WindowEvent { window_id, event } => {
+                if *window_id != renderer.window().id() {
+                    return;
+                }
+
+                gui.update(&event);
+
+                match event {
+                    winit::event::WindowEvent::Resized(_)
+                    | winit::event::WindowEvent::ScaleFactorChanged { .. } => {
+                        renderer.resize();
+                    }
+                    winit::event::WindowEvent::CloseRequested => {
+                        if window.on_close() {
+                            *control_flow = ControlFlow::Exit;
+                        }
+                    }
+                    _ => (),
+                }
+            }
+            Event::RedrawRequested(window_id) => {
+                if *window_id != renderer.window().id() {
+                    return;
+                }
+
+                window.draw(&mut gui);
+
+                let before_future = renderer.acquire().unwrap();
+                let after_future =
+                    gui.draw_on_image(before_future, renderer.swapchain_image_view());
+                renderer.present(after_future, true);
+            }
+            Event::MainEventsCleared => {
+                renderer.window().request_redraw();
+            }
+            _ => (),
+        };
+
+        window.on_event(&event, control_flow, renderer, &mut gui);
     })
 }

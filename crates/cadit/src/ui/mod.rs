@@ -2,10 +2,9 @@ use self::organisms::workspace::Workspace;
 use self::organisms::{menu, status_bar};
 use eframe::egui::{self};
 use egui_modal::Modal;
-use egui_winit_vulkano::Gui;
 use std::collections::VecDeque;
 use std::sync::Arc;
-use window::Window;
+use window::{Gui, Window};
 
 mod organisms;
 

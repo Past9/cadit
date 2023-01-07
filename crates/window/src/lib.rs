@@ -1,4 +1,3 @@
-use egui_winit_vulkano::Gui;
 use vulkano::{
     device::{DeviceExtensions, Features},
     format::Format,
@@ -13,6 +12,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
 };
 
+pub use egui_winit_vulkano::Gui;
 pub use vulkano_util::window::{WindowDescriptor, WindowMode, WindowResizeConstraints};
 
 pub const IMAGE_FORMAT: Format = Format::B8G8R8A8_SRGB;

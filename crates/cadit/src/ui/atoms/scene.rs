@@ -13,7 +13,7 @@ use crate::render::{
     renderer::Renderer,
     rgba,
     scene::{Scene, SceneLights},
-    Rgb,
+    Rgb, Rgba,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -176,8 +176,8 @@ impl InternalGuiRenderer {
                         //AmbientLight::new(Rgb::RED, 0.5),
                     ],
                     vec![
-                        DirectionalLight::new(vec3(1.0, 0.0, 1.0).normalize(), Rgb::RED, 1.0),
-                        DirectionalLight::new(vec3(-1.0, 0.0, 1.0).normalize(), Rgb::BLUE, 1.0),
+                        DirectionalLight::new(vec3(1.0, 0.0, 1.0).normalize(), Rgb::BLUE, 1.0),
+                        DirectionalLight::new(vec3(-1.0, 0.0, 1.0).normalize(), Rgb::YELLOW, 1.0),
                     ],
                     vec![
                         //PointLight::new(point3(3.0, 3.0, -5.0), Rgb::RED, 7.0),
@@ -215,7 +215,7 @@ impl InternalGuiRenderer {
                             EdgeVertex::new(point3(0.9, -0.9, 0.0), vec3(0.0, 0.0, -1.0)),
                             EdgeVertex::new(point3(0.6, 0.6, 0.0), vec3(0.0, 0.0, -1.0)),
                         ]),
-                        rgba(1.0, 1.0, 1.0, 1.0),
+                        Rgba::BLACK,
                     )],
                     vec![
                         ModelPoint::new(

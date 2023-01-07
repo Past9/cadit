@@ -1,13 +1,61 @@
-use render::cgmath_types::{point3, vec3, Quat, Vec3};
+use std::sync::Arc;
 
-use super::scene::{ColorId, GuiRenderer, SceneObjectProps};
-use cgmath::{InnerSpace, Quaternion, Rad, Rotation3};
+use cgmath::{point3, vec3, InnerSpace, Rad, Rotation3};
 use eframe::{
     egui::{self, PointerButton},
-    epaint::{mutex::Mutex, PaintCallback, Pos2, Rect, Rgba, Vec2},
+    epaint::{mutex::Mutex, PaintCallback, PaintCallbackInfo, Pos2, Rect, Vec2},
 };
 use egui_winit_vulkano::CallbackFn;
-use std::sync::Arc;
+use render::cgmath_types::{Quat, Vec3};
+use vulkano::pipeline::graphics::viewport::Viewport;
+
+use self::gui_renderer::GuiRenderer;
+
+mod egui_transfer;
+mod gui_renderer;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ColorId(u32);
+
+pub struct SceneObject {}
+impl SceneObject {
+    pub fn props(&self) -> SceneObjectProps {
+        todo!()
+    }
+}
+pub struct SceneObjectProps {
+    pub name: String,
+}
+
+#[derive(PartialEq)]
+struct GuiViewport {
+    origin: [u32; 2],
+    dimensions: [u32; 2],
+}
+impl GuiViewport {
+    fn zero() -> Self {
+        Self {
+            origin: [0, 0],
+            dimensions: [0, 0],
+        }
+    }
+
+    fn from_info(info: &PaintCallbackInfo) -> Self {
+        let vp = info.viewport_in_pixels();
+        Self {
+            origin: [vp.left_px as u32, vp.top_px as u32],
+            dimensions: [vp.width_px as u32, vp.height_px as u32],
+        }
+    }
+
+    fn to_vulkan_viewport(&self) -> Viewport {
+        Viewport {
+            origin: [self.origin[0] as f32, self.origin[1] as f32],
+            dimensions: [self.dimensions[0] as f32, self.dimensions[1] as f32],
+            depth_range: 0.0..1.0,
+        }
+    }
+}
 
 const ZOOM_SENSITIVITY: f32 = 0.0002;
 const ROTATION_SENSITIVITY: f32 = 0.007;
@@ -74,11 +122,11 @@ impl SceneViewer {
         Pos2 { x, y }
     }
 
-    pub fn rotation(&mut self) -> Quaternion<f32> {
+    pub fn rotation(&mut self) -> Quat {
         self.rotation
     }
 
-    pub fn set_rotation(&mut self, rotation: Quaternion<f32>) {
+    pub fn set_rotation(&mut self, rotation: Quat) {
         self.rotation = rotation;
     }
 
@@ -103,7 +151,7 @@ impl SceneViewer {
         self.rotated = false;
 
         egui::Frame::canvas(ui.style())
-            .fill(Rgba::TRANSPARENT.into())
+            .fill(egui::Rgba::TRANSPARENT.into())
             .show(ui, |ui| {
                 // Update and track the scene dimensions
                 let (rect, _response) =
@@ -168,7 +216,7 @@ impl SceneViewer {
                                     let Vec2 { x: dx, y: dy } = *pos - rotation_drag.last_position;
 
                                     if dy != 0.0 || dx != 0.0 {
-                                        self.rotation = Quaternion::from_axis_angle(
+                                        self.rotation = Quat::from_axis_angle(
                                             Vec3::new(dy, -dx, 0.0).normalize(),
                                             Rad(Vec3::new(dx, dy, 0.0).magnitude()
                                                 * ROTATION_SENSITIVITY),

@@ -176,6 +176,7 @@ dependencies = [
  "vulkano",
  "vulkano-shaders",
  "vulkano-util",
+ "widgets",
  "winit",
 ]
 
@@ -1843,6 +1844,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "spline"
+version = "0.1.0"
+
+[[package]]
 name = "str-buf"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2311,6 +2316,19 @@ name = "widestring"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17882f045410753661207383517a6f62ec3dbeb6a4ed2acce01f0728238d1983"
+
+[[package]]
+name = "widgets"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "cgmath",
+ "eframe",
+ "egui_winit_vulkano",
+ "render",
+ "vulkano",
+ "vulkano-shaders",
+]
 
 [[package]]
 name = "winapi"

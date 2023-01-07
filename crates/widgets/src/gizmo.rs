@@ -1,12 +1,10 @@
 use std::time::Duration;
 
+use crate::{scene::SceneViewer, animation::AnimatedValue};
 use cgmath::{Deg, Quaternion, Rotation3};
 use eframe::egui;
 
-use crate::ui::math::AnimatedValue;
 use render::cgmath_types::vec3;
-
-use super::scene_viewer::SceneViewer;
 
 #[derive(Debug, Clone, Copy)]
 pub enum CameraAngle {

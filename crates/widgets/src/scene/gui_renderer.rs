@@ -1,7 +1,7 @@
 use cgmath::{Deg, InnerSpace};
 use eframe::epaint::{PaintCallbackInfo, Pos2};
 use egui_winit_vulkano::{CallbackContext, RenderResources};
-use vulkano::{image::SampleCount, pipeline::graphics::viewport::Viewport};
+use vulkano::image::SampleCount;
 
 use render::{
     camera::Camera,
@@ -15,36 +15,21 @@ use render::{
     PixelViewport, Rgb, Rgba,
 };
 
-use super::egui_transfer::EguiTransfer;
+use super::{egui_transfer::EguiTransfer, ColorId, SceneObject};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ColorId(u32);
-
-pub(crate) struct SceneObject {}
-impl SceneObject {
-    pub fn props(&self) -> SceneObjectProps {
-        todo!()
-    }
-}
-pub struct SceneObjectProps {
-    pub name: String,
-}
-
-const MSAA_SAMPLES: SampleCount = SampleCount::Sample8;
-
-pub struct GuiRenderer {
+pub(super) struct GuiRenderer {
     color: [f32; 4],
     internal: Option<InternalGuiRenderer>,
 }
 impl GuiRenderer {
-    pub fn empty(color: [f32; 4]) -> Self {
+    pub(super) fn empty(color: [f32; 4]) -> Self {
         Self {
             color,
             internal: None,
         }
     }
 
-    pub(crate) fn camera_vec_to(&self, location: Point3) -> Option<Vec3> {
+    pub(super) fn camera_vec_to(&self, location: Point3) -> Option<Vec3> {
         if let Some(ref renderer) = self.internal {
             Some(renderer.camera_vec_to(location))
         } else {
@@ -52,7 +37,7 @@ impl GuiRenderer {
         }
     }
 
-    pub(crate) fn viewport_size_at_dist(&self, dist: f32) -> Option<Vec2> {
+    pub(super) fn viewport_size_at_dist(&self, dist: f32) -> Option<Vec2> {
         if let Some(ref renderer) = self.internal {
             Some(renderer.viewport_size_at_dist(dist))
         } else {
@@ -60,7 +45,7 @@ impl GuiRenderer {
         }
     }
 
-    pub(crate) fn read_color_id(&mut self, pos: Pos2) -> Option<ColorId> {
+    pub(super) fn read_color_id(&mut self, pos: Pos2) -> Option<ColorId> {
         if let Some(ref mut renderer) = self.internal {
             renderer.read_color_id(pos)
         } else {
@@ -68,19 +53,19 @@ impl GuiRenderer {
         }
     }
 
-    pub(crate) fn hover_object(&mut self, id: Option<ColorId>) {
+    pub(super) fn hover_object(&mut self, id: Option<ColorId>) {
         if let Some(ref mut renderer) = self.internal {
             renderer.hover_object(id)
         }
     }
 
-    pub(crate) fn toggle_select_object(&mut self, id: Option<ColorId>, exclusive: bool) {
+    pub(super) fn toggle_select_object(&mut self, id: Option<ColorId>, exclusive: bool) {
         if let Some(ref mut renderer) = self.internal {
             renderer.toggle_select_object(id, exclusive);
         }
     }
 
-    pub(crate) fn get_object(&mut self, id: Option<ColorId>) -> Option<&SceneObject> {
+    pub(super) fn get_object(&mut self, id: Option<ColorId>) -> Option<&SceneObject> {
         if let Some(ref mut renderer) = self.internal {
             renderer.get_object(id)
         } else {
@@ -88,17 +73,17 @@ impl GuiRenderer {
         }
     }
 
-    pub(crate) fn deselect_all_objects(&mut self) {
+    pub(super) fn deselect_all_objects(&mut self) {
         if let Some(ref mut renderer) = self.internal {
             renderer.deselect_all_objects();
         }
     }
 
-    pub(crate) fn render(&mut self, info: &PaintCallbackInfo, ctx: &mut CallbackContext) {
+    pub(super) fn render(&mut self, info: &PaintCallbackInfo, ctx: &mut CallbackContext) {
         self.require_internal_mut(&ctx.resources).render(info, ctx);
     }
 
-    pub(crate) fn set_rotation(&mut self, rotation: Quat) {
+    pub(super) fn set_rotation(&mut self, rotation: Quat) {
         if let Some(ref mut internal) = self.internal {
             internal
                 .scene_renderer
@@ -108,7 +93,7 @@ impl GuiRenderer {
         }
     }
 
-    pub(crate) fn set_position(&mut self, offset: Vec3) {
+    pub(super) fn set_position(&mut self, offset: Vec3) {
         if let Some(ref mut internal) = self.internal {
             internal
                 .scene_renderer
@@ -132,42 +117,12 @@ impl GuiRenderer {
     }
 }
 
-#[derive(PartialEq)]
-pub struct GuiViewport {
-    origin: [u32; 2],
-    dimensions: [u32; 2],
-}
-impl GuiViewport {
-    fn zero() -> Self {
-        Self {
-            origin: [0, 0],
-            dimensions: [0, 0],
-        }
-    }
-
-    fn from_info(info: &PaintCallbackInfo) -> Self {
-        let vp = info.viewport_in_pixels();
-        Self {
-            origin: [vp.left_px as u32, vp.top_px as u32],
-            dimensions: [vp.width_px as u32, vp.height_px as u32],
-        }
-    }
-
-    fn to_vulkan_viewport(&self) -> Viewport {
-        Viewport {
-            origin: [self.origin[0] as f32, self.origin[1] as f32],
-            dimensions: [self.dimensions[0] as f32, self.dimensions[1] as f32],
-            depth_range: 0.0..1.0,
-        }
-    }
-}
-
 struct InternalGuiRenderer {
     scene_renderer: Renderer,
     transfer: EguiTransfer,
 }
 impl InternalGuiRenderer {
-    pub fn new<'a>(resources: &RenderResources<'a>) -> Self {
+    fn new<'a>(resources: &RenderResources<'a>) -> Self {
         let renderer = Renderer::new(
             Scene::new(
                 rgba(0.0, 0.05, 0.08, 1.0),
@@ -252,15 +207,15 @@ impl InternalGuiRenderer {
         }
     }
 
-    pub(crate) fn camera_vec_to(&self, location: Point3) -> Vec3 {
+    fn camera_vec_to(&self, location: Point3) -> Vec3 {
         self.scene_renderer.camera_vec_to(location)
     }
 
-    pub(crate) fn viewport_size_at_dist(&self, dist: f32) -> Vec2 {
+    fn viewport_size_at_dist(&self, dist: f32) -> Vec2 {
         self.scene_renderer.viewport_size_at_dist(dist)
     }
 
-    pub(crate) fn render(&mut self, info: &PaintCallbackInfo, ctx: &mut CallbackContext) {
+    fn render(&mut self, info: &PaintCallbackInfo, ctx: &mut CallbackContext) {
         let vpip = info.viewport_in_pixels();
 
         self.scene_renderer.render(
@@ -277,29 +232,29 @@ impl InternalGuiRenderer {
         self.transfer.transfer(self.scene_renderer.view(), ctx);
     }
 
-    pub(crate) fn read_color_id(&mut self, _pos: Pos2) -> Option<ColorId> {
+    fn read_color_id(&mut self, _pos: Pos2) -> Option<ColorId> {
         // todo
         None
     }
 
-    pub(crate) fn hover_object(&mut self, _id: Option<ColorId>) {
+    fn hover_object(&mut self, _id: Option<ColorId>) {
         // todo
     }
 
-    pub(crate) fn toggle_select_object(&mut self, _id: Option<ColorId>, _exclusive: bool) {
+    fn toggle_select_object(&mut self, _id: Option<ColorId>, _exclusive: bool) {
         // todo
     }
 
-    pub(crate) fn get_object(&mut self, _id: Option<ColorId>) -> Option<&SceneObject> {
+    fn get_object(&mut self, _id: Option<ColorId>) -> Option<&SceneObject> {
         // todo
         None
     }
 
-    pub(crate) fn deselect_all_objects(&mut self) {
+    fn deselect_all_objects(&mut self) {
         // todo
     }
 
-    pub(crate) fn scene_mut(&mut self) -> &mut Scene {
+    fn scene_mut(&mut self) -> &mut Scene {
         self.scene_renderer.scene_mut()
     }
 

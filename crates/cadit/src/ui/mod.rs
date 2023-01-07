@@ -9,7 +9,6 @@ use vulkano_util::renderer::VulkanoWindowRenderer;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::ControlFlow;
 
-mod atoms;
 mod math;
 mod molecules;
 mod organisms;

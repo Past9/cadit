@@ -1,9 +1,7 @@
-use crate::{
-    render::cgmath_types::vec3,
-    ui::atoms::{gizmo::Gizmo, scene_viewer::SceneViewer},
-};
+use crate::ui::atoms::{gizmo::Gizmo, scene_viewer::SceneViewer};
 use cgmath::Quaternion;
 use eframe::egui;
+use render::cgmath_types::vec3;
 
 use super::Editor;
 

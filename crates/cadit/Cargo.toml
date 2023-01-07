@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+render = { path = "../render" }
 eframe = "0.19.0"
 egui_dock = { path = "../../../egui_dock", features = ["serde"] }
 egui-modal = "0.1.7"
@@ -15,7 +16,7 @@ egui_winit_vulkano = { path = "../../../egui_winit_vulkano" }
 winit = "0.27.5"
 vulkano-util = "0.32"
 vulkano = "0.32"
+crevice = { version = "0.12.0", features = ["cgmath"] }
 vulkano-shaders = "0.32"
 bytemuck = "1.12.2"
 cgmath = { version = "0.18.0" }
-crevice = { version = "0.12.0", features = ["cgmath"] }

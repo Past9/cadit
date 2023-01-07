@@ -3,7 +3,8 @@ use std::time::Duration;
 use cgmath::{Deg, Quaternion, Rotation3};
 use eframe::egui;
 
-use crate::{render::cgmath_types::vec3, ui::math::AnimatedValue};
+use crate::ui::math::AnimatedValue;
+use render::cgmath_types::vec3;
 
 use super::scene_viewer::SceneViewer;
 

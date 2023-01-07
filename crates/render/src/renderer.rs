@@ -1,19 +1,21 @@
 use std::sync::Arc;
 
-use eframe::epaint::PaintCallbackInfo;
-use egui_winit_vulkano::RenderResources;
 use vulkano::{
     buffer::{CpuAccessibleBuffer, TypedBufferAccess},
     command_buffer::{
-        AutoCommandBufferBuilder, CommandBufferUsage, PrimaryCommandBufferAbstract,
-        RenderPassBeginInfo, SubpassContents,
+        allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder, CommandBufferUsage,
+        PrimaryCommandBufferAbstract, RenderPassBeginInfo, SubpassContents,
     },
-    descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet},
+    descriptor_set::{
+        allocator::StandardDescriptorSetAllocator, PersistentDescriptorSet, WriteDescriptorSet,
+    },
+    device::Queue,
     format::{ClearValue, Format},
     image::{
         view::ImageView, AttachmentImage, ImageDimensions, ImageUsage, ImageViewAbstract,
         SampleCount, StorageImage,
     },
+    memory::allocator::StandardMemoryAllocator,
     pipeline::{
         graphics::{
             depth_stencil::{CompareOp, DepthState, DepthStencilState},
@@ -28,6 +30,8 @@ use vulkano::{
     render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass},
     sync::GpuFuture,
 };
+
+use crate::PixelViewport;
 
 use super::{
     cgmath_types::{Point3, Vec2, Vec3},
@@ -62,8 +66,10 @@ pub struct Renderer {
 impl Renderer {
     pub fn new<'a>(
         scene: Scene,
-        resources: &RenderResources<'a>,
         msaa_samples: SampleCount,
+        memory_allocator: &StandardMemoryAllocator,
+        descriptor_set_allocator: &StandardDescriptorSetAllocator,
+        queue: Arc<Queue>,
     ) -> Self {
         let scissor = Scissor {
             origin: [0, 0],
@@ -71,22 +77,22 @@ impl Renderer {
         };
 
         let (render_pass, images, surface_pipeline, edge_pipeline, point_pipeline) =
-            Self::create_pipelines(resources, msaa_samples, &scissor);
+            Self::create_pipelines(msaa_samples, &scissor, memory_allocator, queue);
 
         let (surface_vertex_buffer, surface_index_buffer) =
-            scene.surface_geometry_buffers(&resources.memory_allocator);
+            scene.surface_geometry_buffers(memory_allocator);
 
-        let edge_vertex_buffer = scene.edge_geometry_buffer(&resources.memory_allocator);
+        let edge_vertex_buffer = scene.edge_geometry_buffer(memory_allocator);
 
-        let point_vertex_buffer = scene.point_geometry_buffer(&resources.memory_allocator);
+        let point_vertex_buffer = scene.point_geometry_buffer(memory_allocator);
 
         let (ambient_light_buffer, directional_light_buffer, point_light_buffer) =
-            scene.lights().light_buffers(&resources.memory_allocator);
+            scene.lights().light_buffers(memory_allocator);
 
-        let material_buffer = scene.material_buffer(&resources.memory_allocator);
+        let material_buffer = scene.material_buffer(memory_allocator);
 
         let surface_descriptor_set = PersistentDescriptorSet::new(
-            resources.descriptor_set_allocator,
+            descriptor_set_allocator,
             surface_pipeline
                 .layout()
                 .set_layouts()
@@ -139,9 +145,10 @@ impl Renderer {
     }
 
     fn create_pipelines<'a>(
-        resources: &RenderResources<'a>,
         msaa_samples: SampleCount,
         scissor: &Scissor,
+        memory_allocator: &StandardMemoryAllocator,
+        queue: Arc<Queue>,
     ) -> (
         Arc<RenderPass>,
         RendererImages,
@@ -149,7 +156,7 @@ impl Renderer {
         Arc<GraphicsPipeline>,
         Arc<GraphicsPipeline>,
     ) {
-        let device = resources.queue.device();
+        let device = queue.device();
         let render_pass = {
             if msaa_samples == SampleCount::Sample1 {
                 vulkano::single_pass_renderpass!(
@@ -224,10 +231,11 @@ impl Renderer {
 
         let images = RendererImages::new(
             render_pass.clone(),
-            resources,
             &scissor,
             msaa_samples,
             IMAGE_FORMAT,
+            memory_allocator,
+            queue.clone(),
         );
 
         let surface_pipeline = GraphicsPipeline::start()
@@ -363,11 +371,15 @@ impl Renderer {
         )
     }
 
-    fn update_viewport<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>) {
-        let vpip = info.viewport_in_pixels();
+    fn update_viewport<'a>(
+        &mut self,
+        pixel_viewport: &PixelViewport,
+        memory_allocator: &StandardMemoryAllocator,
+        queue: Arc<Queue>,
+    ) {
         let new_scissor = Scissor {
-            origin: [vpip.left_px as u32, vpip.top_px as u32],
-            dimensions: [vpip.width_px as u32, vpip.height_px as u32],
+            origin: [pixel_viewport.left, pixel_viewport.top],
+            dimensions: [pixel_viewport.width, pixel_viewport.height],
         };
 
         if new_scissor != self.scissor {
@@ -377,10 +389,11 @@ impl Renderer {
                 .set_viewport_in_pixels(self.scissor.dimensions);
             self.images = RendererImages::new(
                 self.render_pass.clone(),
-                resources,
                 &self.scissor,
                 self.msaa_samples,
                 IMAGE_FORMAT,
+                memory_allocator,
+                queue,
             );
 
             self.framebuffers_rebuilt = true;
@@ -389,12 +402,18 @@ impl Renderer {
         }
     }
 
-    pub fn render<'a>(&mut self, info: &PaintCallbackInfo, resources: &RenderResources<'a>) {
-        self.update_viewport(info, resources);
+    pub fn render<'a>(
+        &mut self,
+        pixel_viewport: &PixelViewport,
+        memory_allocator: &StandardMemoryAllocator,
+        command_buffer_allocator: &StandardCommandBufferAllocator,
+        queue: Arc<Queue>,
+    ) {
+        self.update_viewport(pixel_viewport, memory_allocator, queue.clone());
 
         let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
-            resources.command_buffer_allocator,
-            resources.queue.queue_family_index(),
+            command_buffer_allocator,
+            queue.queue_family_index(),
             CommandBufferUsage::MultipleSubmit,
         )
         .unwrap();
@@ -473,7 +492,7 @@ impl Renderer {
 
         let command_buffer = command_buffer_builder.build().unwrap();
 
-        let finished = command_buffer.execute(resources.queue.clone()).unwrap();
+        let finished = command_buffer.execute(queue).unwrap();
         finished
             .then_signal_fence_and_flush()
             .unwrap()
@@ -497,10 +516,11 @@ struct RendererImages {
 impl RendererImages {
     fn new(
         render_pass: Arc<RenderPass>,
-        resources: &RenderResources,
         scissor: &Scissor,
         samples: SampleCount,
         format: Format,
+        memory_allocator: &StandardMemoryAllocator,
+        queue: Arc<Queue>,
     ) -> Self {
         // Make sure the images are at least 1 pixel in each dimension or Vulkan will
         // throw an error. Also make the images cover the offset area so they line up
@@ -523,13 +543,8 @@ impl RendererImages {
 
         if samples != SampleCount::Sample1 {
             let intermediary = ImageView::new_default(
-                AttachmentImage::multisampled(
-                    &resources.memory_allocator,
-                    dimensions,
-                    samples,
-                    format,
-                )
-                .unwrap(),
+                AttachmentImage::multisampled(memory_allocator, dimensions, samples, format)
+                    .unwrap(),
             )
             .unwrap();
 
@@ -538,7 +553,7 @@ impl RendererImages {
 
         let depth = ImageView::new_default(
             AttachmentImage::multisampled_with_usage(
-                &resources.memory_allocator,
+                memory_allocator,
                 dimensions,
                 samples,
                 Format::D32_SFLOAT,
@@ -555,14 +570,14 @@ impl RendererImages {
         attachments.push(depth);
 
         let color = StorageImage::new(
-            &resources.memory_allocator,
+            memory_allocator,
             ImageDimensions::Dim2d {
                 width: dimensions[0],
                 height: dimensions[1],
                 array_layers: 1,
             },
             format,
-            Some(resources.queue.queue_family_index()),
+            Some(queue.queue_family_index()),
         )
         .unwrap();
 
@@ -586,7 +601,7 @@ impl RendererImages {
 mod surface_vs {
     vulkano_shaders::shader! {
         ty: "vertex",
-        path: "src/render/shaders/surface.vert",
+        path: "src/shaders/surface.vert",
         types_meta: {
             #[derive(Clone, Copy, bytemuck::Zeroable, bytemuck::Pod)]
         },
@@ -596,34 +611,34 @@ mod surface_vs {
 mod surface_fs {
     vulkano_shaders::shader! {
         ty: "fragment",
-        path: "src/render/shaders/surface.frag",
+        path: "src/shaders/surface.frag",
     }
 }
 
 mod edge_vs {
     vulkano_shaders::shader! {
         ty: "vertex",
-        path: "src/render/shaders/edge.vert",
+        path: "src/shaders/edge.vert",
     }
 }
 
 mod edge_fs {
     vulkano_shaders::shader! {
         ty: "fragment",
-        path: "src/render/shaders/edge.frag",
+        path: "src/shaders/edge.frag",
     }
 }
 
 mod point_vs {
     vulkano_shaders::shader! {
         ty: "vertex",
-        path: "src/render/shaders/point.vert",
+        path: "src/shaders/point.vert",
     }
 }
 
 mod point_fs {
     vulkano_shaders::shader! {
         ty: "fragment",
-        path: "src/render/shaders/point.frag",
+        path: "src/shaders/point.frag",
     }
 }

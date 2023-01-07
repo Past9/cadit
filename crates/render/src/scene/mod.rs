@@ -13,8 +13,8 @@ use super::{
     model::{BufferedEdgeVertex, BufferedPointVertex, BufferedSurfaceVertex, Material, Model},
     Rgba,
 };
-use crate::render::lights::{Std140AmbientLight, Std140DirectionalLight, Std140PointLight};
-use crate::render::model::Std140Material;
+use crate::lights::{Std140AmbientLight, Std140DirectionalLight, Std140PointLight};
+use crate::model::Std140Material;
 
 pub struct SceneLights {
     ambient: Vec<AmbientLight>,

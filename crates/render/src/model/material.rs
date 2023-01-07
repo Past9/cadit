@@ -6,7 +6,7 @@ use vulkano::{
     memory::allocator::MemoryAllocator,
 };
 
-use crate::render::Rgba;
+use crate::Rgba;
 
 #[derive(AsStd140, Clone, Debug)]
 pub struct Material {

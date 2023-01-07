@@ -6,7 +6,7 @@ use vulkano::{
     memory::allocator::MemoryAllocator,
 };
 
-use crate::render::{
+use crate::{
     cgmath_types::{point3, Point3},
     Rgb,
 };

@@ -3,18 +3,19 @@ use eframe::epaint::{PaintCallbackInfo, Pos2};
 use egui_winit_vulkano::{CallbackContext, RenderResources};
 use vulkano::{image::SampleCount, pipeline::graphics::viewport::Viewport};
 
-use crate::render::{
+use render::{
     camera::Camera,
     cgmath_types::{point3, vec3, Point3, Quat, Vec2, Vec3},
-    egui_transfer::EguiTransfer,
     lights::DirectionalLight,
     mesh::{Edge, EdgeVertex, Point, Surface, SurfaceVertex},
     model::{Material, Model, ModelEdge, ModelPoint, ModelSurface},
     renderer::Renderer,
     rgba,
     scene::{Scene, SceneLights},
-    Rgb, Rgba,
+    PixelViewport, Rgb, Rgba,
 };
+
+use super::egui_transfer::EguiTransfer;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ColorId(u32);
@@ -238,8 +239,10 @@ impl InternalGuiRenderer {
                 )],
                 vec![Material::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],
             ),
-            resources,
             SampleCount::Sample8,
+            &resources.memory_allocator,
+            &resources.descriptor_set_allocator,
+            resources.queue.clone(),
         );
         let transfer = EguiTransfer::new(resources);
 
@@ -258,7 +261,19 @@ impl InternalGuiRenderer {
     }
 
     pub(crate) fn render(&mut self, info: &PaintCallbackInfo, ctx: &mut CallbackContext) {
-        self.scene_renderer.render(info, &ctx.resources);
+        let vpip = info.viewport_in_pixels();
+
+        self.scene_renderer.render(
+            &PixelViewport {
+                left: vpip.left_px as u32,
+                top: vpip.top_px as u32,
+                width: vpip.width_px as u32,
+                height: vpip.height_px as u32,
+            },
+            &ctx.resources.memory_allocator,
+            &ctx.resources.command_buffer_allocator,
+            ctx.resources.queue.clone(),
+        );
         self.transfer.transfer(self.scene_renderer.view(), ctx);
     }
 

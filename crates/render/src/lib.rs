@@ -3,12 +3,18 @@ use crevice::std140::AsStd140;
 use self::cgmath_types::{vec3, vec4, Vec3, Vec4};
 
 pub mod camera;
-pub mod egui_transfer;
 pub mod lights;
 pub mod mesh;
 pub mod model;
 pub mod renderer;
 pub mod scene;
+
+pub struct PixelViewport {
+    pub left: u32,
+    pub top: u32,
+    pub width: u32,
+    pub height: u32,
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct Rgba([f32; 4]);

@@ -9,7 +9,6 @@ use vulkano_util::{
 use winit::event_loop::EventLoop;
 
 mod error;
-mod render;
 mod ui;
 
 fn main() {

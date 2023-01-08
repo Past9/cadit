@@ -1,19 +1,17 @@
 use std::time::Instant;
 
-use cgmath::Vector3;
-
-use crate::math::FloatRange;
+use crate::math::{Float, FloatRange, Vec3};
 
 pub mod nurbs;
 
 pub trait CurveFunction {
-    fn min_u(&self) -> f64;
-    fn max_u(&self) -> f64;
+    fn min_u(&self) -> Float;
+    fn max_u(&self) -> Float;
 
-    fn point(&self, u: f64) -> Vector3<f64>;
+    fn point(&self, u: Float) -> Vec3;
 
-    fn create(&self, u_res: usize) -> Vec<Vector3<f64>> {
-        let mut points: Vec<Vector3<f64>> = Vec::new();
+    fn create(&self, u_res: usize) -> Vec<Vec3> {
+        let mut points: Vec<Vec3> = Vec::new();
 
         let start = Instant::now();
         for u in FloatRange::new(self.min_u(), self.max_u(), u_res) {

@@ -1,11 +1,10 @@
-use cgmath::{vec4, Vector3, Vector4};
-
 use crate::{
     control_points::{ControlMesh, ControlPolygon},
     knots::KnotVector,
     math::{
         b_spline::surface_derivatives_2,
         nurbs::{self, insert_surface_knots},
+        Float, Vec3, Vec4,
     },
 };
 
@@ -27,7 +26,7 @@ impl SurfaceDirection {
 }
 
 pub struct NurbsSurface {
-    pub control_points: ControlMesh<Vector4<f64>>,
+    pub control_points: ControlMesh<Vec4>,
     pub knot_vector_u: KnotVector,
     pub knot_vector_v: KnotVector,
     pub degree_u: usize,
@@ -35,7 +34,7 @@ pub struct NurbsSurface {
 }
 impl NurbsSurface {
     pub fn new(
-        control_points: ControlMesh<Vector4<f64>>,
+        control_points: ControlMesh<Vec4>,
         knot_vector_u: KnotVector,
         knot_vector_v: KnotVector,
         degree_u: usize,
@@ -68,7 +67,7 @@ impl NurbsSurface {
         }
     }
 
-    pub fn split_at(&self, position: f64, direction: SurfaceDirection) -> (Self, Self) {
+    pub fn split_at(&self, position: Float, direction: SurfaceDirection) -> (Self, Self) {
         match direction {
             SurfaceDirection::U => {
                 let knot_multiplicity = self.knot_vector_u.find_multiplicity(position);
@@ -165,7 +164,7 @@ impl NurbsSurface {
     pub fn insert_knots(
         &self,
         num_new_knots: usize,
-        position: f64,
+        position: Float,
         direction: SurfaceDirection,
     ) -> Self {
         let (new_knot_vector_u, new_knot_vector_v, new_control_points) = insert_surface_knots(
@@ -193,34 +192,34 @@ impl NurbsSurface {
         Self::new(
             ControlMesh::new([
                 ControlPolygon::new([
-                    vec4(-3.0, 2.0, -3.0, 1.0),
-                    vec4(-1.0, 2.0, -3.0, w),
-                    vec4(1.0, 2.0, -3.0, w),
-                    vec4(3.0, 2.0, -3.0, 1.0),
+                    Vec4::new(-3.0, 2.0, -3.0, 1.0),
+                    Vec4::new(-1.0, 2.0, -3.0, w),
+                    Vec4::new(1.0, 2.0, -3.0, w),
+                    Vec4::new(3.0, 2.0, -3.0, 1.0),
                 ]),
                 ControlPolygon::new([
-                    vec4(-3.0, 2.0, -1.0, w),
-                    vec4(-1.0, -2.0, -1.0, 1.0),
-                    vec4(1.0, -2.0, -1.0, 1.0),
-                    vec4(3.0, 2.0, -1.0, w),
+                    Vec4::new(-3.0, 2.0, -1.0, w),
+                    Vec4::new(-1.0, -2.0, -1.0, 1.0),
+                    Vec4::new(1.0, -2.0, -1.0, 1.0),
+                    Vec4::new(3.0, 2.0, -1.0, w),
                 ]),
                 ControlPolygon::new([
-                    vec4(-3.0, 2.0, 1.0, w),
-                    vec4(-1.0, -2.0, 1.0, 1.0),
-                    vec4(1.0, -2.0, 1.0, 1.0),
-                    vec4(3.0, 2.0, 1.0, w),
+                    Vec4::new(-3.0, 2.0, 1.0, w),
+                    Vec4::new(-1.0, -2.0, 1.0, 1.0),
+                    Vec4::new(1.0, -2.0, 1.0, 1.0),
+                    Vec4::new(3.0, 2.0, 1.0, w),
                 ]),
                 ControlPolygon::new([
-                    vec4(-3.0, 2.0, 3.0, 1.0),
-                    vec4(-1.0, 2.0, 3.0, w),
-                    vec4(1.0, 2.0, 3.0, w),
-                    vec4(3.0, 2.0, 3.0, 1.0),
+                    Vec4::new(-3.0, 2.0, 3.0, 1.0),
+                    Vec4::new(-1.0, 2.0, 3.0, w),
+                    Vec4::new(1.0, 2.0, 3.0, w),
+                    Vec4::new(3.0, 2.0, 3.0, 1.0),
                 ]),
                 ControlPolygon::new([
-                    vec4(-3.0, 2.0, 5.0, 1.0),
-                    vec4(-1.0, 2.0, 5.0, w),
-                    vec4(1.0, 2.0, 5.0, w),
-                    vec4(3.0, 2.0, 5.0, 1.0),
+                    Vec4::new(-3.0, 2.0, 5.0, 1.0),
+                    Vec4::new(-1.0, 2.0, 5.0, w),
+                    Vec4::new(1.0, 2.0, 5.0, w),
+                    Vec4::new(3.0, 2.0, 5.0, 1.0),
                 ]),
             ]),
             KnotVector::new([0.0, 0.0, 0.0, 0.5, 1.0, 2.0, 2.0, 2.0]),
@@ -231,23 +230,23 @@ impl NurbsSurface {
     }
 }
 impl SurfaceFunction for NurbsSurface {
-    fn min_u(&self) -> f64 {
+    fn min_u(&self) -> Float {
         self.knot_vector_u[0]
     }
 
-    fn max_u(&self) -> f64 {
+    fn max_u(&self) -> Float {
         self.knot_vector_u[self.knot_vector_u.len() - 1]
     }
 
-    fn min_v(&self) -> f64 {
+    fn min_v(&self) -> Float {
         self.knot_vector_v[0]
     }
 
-    fn max_v(&self) -> f64 {
+    fn max_v(&self) -> Float {
         self.knot_vector_v[self.knot_vector_v.len() - 1]
     }
 
-    fn point(&self, u: f64, v: f64) -> Vector3<f64> {
+    fn point(&self, u: Float, v: Float) -> Vec3 {
         let first = false;
 
         if first {

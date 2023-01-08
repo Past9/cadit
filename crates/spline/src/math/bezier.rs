@@ -1,9 +1,11 @@
-pub fn decasteljau<T>(coefficients: &[T], u: f64) -> T
+use super::Float;
+
+pub fn decasteljau<T>(coefficients: &[T], u: Float) -> T
 where
     T: Copy
         + Clone
-        + std::ops::Mul<f64, Output = T>
-        + std::ops::Add<f64, Output = T>
+        + std::ops::Mul<Float, Output = T>
+        + std::ops::Add<Float, Output = T>
         + std::ops::Add<T, Output = T>,
 {
     let mut q = coefficients.to_vec();
@@ -18,12 +20,12 @@ where
     q[0]
 }
 
-pub fn decasteljau2<T>(coefficients: &[Vec<T>], u: f64, v: f64) -> T
+pub fn decasteljau2<T>(coefficients: &[Vec<T>], u: Float, v: Float) -> T
 where
     T: Copy
         + Clone
-        + std::ops::Mul<f64, Output = T>
-        + std::ops::Add<f64, Output = T>
+        + std::ops::Mul<Float, Output = T>
+        + std::ops::Add<Float, Output = T>
         + std::ops::Add<T, Output = T>,
 {
     let mut q = Vec::new();

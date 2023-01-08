@@ -4,23 +4,23 @@ use crate::{
     surfaces::nurbs::SurfaceDirection,
 };
 
-use super::{b_spline::eval_basis_function, binomial_coefficient, Homogeneous, Zero};
+use super::{b_spline::eval_basis_function, binomial_coefficient, Float, Homogeneous, Zero};
 
 pub fn curve_point<H, C>(
     control_points: &ControlPolygon<H>,
     degree: usize,
     knot_vector: &KnotVector,
-    u: f64,
+    u: Float,
 ) -> C
 where
     H: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = H>
-        + std::ops::Add<f64, Output = H>
+        + std::ops::Mul<Float, Output = H>
+        + std::ops::Add<Float, Output = H>
         + std::ops::Add<H, Output = H>
         + Homogeneous<C>,
-    C: Copy + Clone + std::ops::Mul<f64, Output = C> + std::ops::Div<f64, Output = C>,
+    C: Copy + Clone + std::ops::Mul<Float, Output = C> + std::ops::Div<Float, Output = C>,
 {
     let knot_span = knot_vector.find_span(degree, control_points.len(), u);
     let basis_values = eval_basis_function(degree, knot_span, knot_vector, u);
@@ -40,18 +40,18 @@ pub fn surface_point<H, C>(
     degree_v: usize,
     knot_vector_u: &KnotVector,
     knot_vector_v: &KnotVector,
-    u: f64,
-    v: f64,
+    u: Float,
+    v: Float,
 ) -> C
 where
     H: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = H>
-        + std::ops::Add<f64, Output = H>
+        + std::ops::Mul<Float, Output = H>
+        + std::ops::Add<Float, Output = H>
         + std::ops::Add<H, Output = H>
         + Homogeneous<C>,
-    C: Copy + Clone + std::ops::Mul<f64, Output = C> + std::ops::Div<f64, Output = C>,
+    C: Copy + Clone + std::ops::Mul<Float, Output = C> + std::ops::Div<Float, Output = C>,
 {
     let knot_span_u = knot_vector_u.find_span(degree_u, control_points.len(), u);
     let knot_span_v = knot_vector_v.find_span(degree_v, control_points[0].len(), v);
@@ -88,17 +88,17 @@ where
     H: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = H>
-        + std::ops::Add<f64, Output = H>
+        + std::ops::Mul<Float, Output = H>
+        + std::ops::Add<Float, Output = H>
         + std::ops::Add<H, Output = H>
         + Homogeneous<C>,
     C: Copy
         + Clone
         + Zero
-        + std::ops::Sub<f64, Output = C>
+        + std::ops::Sub<Float, Output = C>
         + std::ops::Sub<C, Output = C>
-        + std::ops::Mul<f64, Output = C>
-        + std::ops::Div<f64, Output = C>,
+        + std::ops::Mul<Float, Output = C>
+        + std::ops::Div<Float, Output = C>,
 {
     let mut derivatives = vec![C::zero(); num_derivatives + 1];
 
@@ -123,18 +123,18 @@ where
     H: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = H>
-        + std::ops::Add<f64, Output = H>
+        + std::ops::Mul<Float, Output = H>
+        + std::ops::Add<Float, Output = H>
         + std::ops::Add<H, Output = H>
         + Homogeneous<C>,
     C: Copy
         + Clone
         + Zero
-        + std::ops::Sub<f64, Output = C>
+        + std::ops::Sub<Float, Output = C>
         + std::ops::Sub<C, Output = C>
         + std::ops::Add<C, Output = C>
-        + std::ops::Mul<f64, Output = C>
-        + std::ops::Div<f64, Output = C>,
+        + std::ops::Mul<Float, Output = C>
+        + std::ops::Div<Float, Output = C>,
 {
     let mut derivatives = vec![vec![C::zero(); num_derivatives + 1]; num_derivatives + 1];
 
@@ -176,15 +176,15 @@ pub fn insert_curve_knots<T>(
     degree: usize,
     knot_vector: &KnotVector,
     num_insertions: usize,
-    u: f64,
+    u: Float,
     weighted_control_points: &ControlPolygon<T>,
 ) -> (KnotVector, ControlPolygon<T>)
 where
     T: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = T>
-        + std::ops::Add<f64, Output = T>
+        + std::ops::Mul<Float, Output = T>
+        + std::ops::Add<Float, Output = T>
         + std::ops::Add<T, Output = T>,
 {
     let knot_span_index = knot_vector.find_span(degree, weighted_control_points.len(), u);
@@ -261,8 +261,8 @@ where
     T: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = T>
-        + std::ops::Add<f64, Output = T>
+        + std::ops::Mul<Float, Output = T>
+        + std::ops::Add<Float, Output = T>
         + std::ops::Add<T, Output = T>
         + std::fmt::Debug,
 {
@@ -340,15 +340,15 @@ pub fn insert_surface_knots<T>(
     knot_vector_u: &KnotVector,
     knot_vector_v: &KnotVector,
     num_insertions: usize,
-    position: f64,
+    position: Float,
     weighted_control_points: &ControlMesh<T>,
 ) -> (KnotVector, KnotVector, ControlMesh<T>)
 where
     T: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = T>
-        + std::ops::Add<f64, Output = T>
+        + std::ops::Mul<Float, Output = T>
+        + std::ops::Add<Float, Output = T>
         + std::ops::Add<T, Output = T>,
 {
     match direction {

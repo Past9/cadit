@@ -1,6 +1,6 @@
 use std::slice::Iter;
 
-use crate::math::{Homogeneous, Zero};
+use crate::math::{Float, Homogeneous, Zero};
 
 #[derive(Clone, Debug)]
 pub struct ControlPolygon<H>
@@ -44,11 +44,11 @@ where
         H: Copy
             + Clone
             + Zero
-            + std::ops::Mul<f64, Output = H>
-            + std::ops::Add<f64, Output = H>
+            + std::ops::Mul<Float, Output = H>
+            + std::ops::Add<Float, Output = H>
             + std::ops::Add<H, Output = H>
             + Homogeneous<C>,
-        C: Copy + Clone + std::ops::Mul<f64, Output = C> + std::ops::Div<f64, Output = C>,
+        C: Copy + Clone + std::ops::Mul<Float, Output = C> + std::ops::Div<Float, Output = C>,
     {
         ControlPolygon::from_iter(self.vertices.iter().map(|v| v.to_weighted()))
     }
@@ -58,11 +58,11 @@ where
         H: Copy
             + Clone
             + Zero
-            + std::ops::Mul<f64, Output = H>
-            + std::ops::Add<f64, Output = H>
+            + std::ops::Mul<Float, Output = H>
+            + std::ops::Add<Float, Output = H>
             + std::ops::Add<H, Output = H>
             + Homogeneous<C>,
-        C: Copy + Clone + std::ops::Mul<f64, Output = C> + std::ops::Div<f64, Output = C>,
+        C: Copy + Clone + std::ops::Mul<Float, Output = C> + std::ops::Div<Float, Output = C>,
     {
         ControlPolygon::from_iter(self.vertices.iter().map(|v| v.to_unweighted()))
     }
@@ -72,15 +72,15 @@ where
         H: Copy
             + Clone
             + Zero
-            + std::ops::Mul<f64, Output = H>
-            + std::ops::Add<f64, Output = H>
+            + std::ops::Mul<Float, Output = H>
+            + std::ops::Add<Float, Output = H>
             + std::ops::Add<H, Output = H>
             + Homogeneous<C>,
         C: Copy
             + Clone
-            + std::ops::Mul<f64, Output = C>
-            + std::ops::Div<f64, Output = C>
-            + std::ops::Add<f64, Output = C>
+            + std::ops::Mul<Float, Output = C>
+            + std::ops::Div<Float, Output = C>
+            + std::ops::Add<Float, Output = C>
             + std::ops::Add<C, Output = C>
             + Zero,
     {
@@ -92,8 +92,8 @@ where
     H: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = H>
-        + std::ops::Add<f64, Output = H>
+        + std::ops::Mul<Float, Output = H>
+        + std::ops::Add<Float, Output = H>
         + std::ops::Add<H, Output = H>,
 {
     fn from_iter<I: IntoIterator<Item = H>>(vertices: I) -> Self {
@@ -108,8 +108,8 @@ where
     H: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = H>
-        + std::ops::Add<f64, Output = H>
+        + std::ops::Mul<Float, Output = H>
+        + std::ops::Add<Float, Output = H>
         + std::ops::Add<H, Output = H>,
 {
     type Output = Idx::Output;
@@ -124,8 +124,8 @@ where
     H: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = H>
-        + std::ops::Add<f64, Output = H>
+        + std::ops::Mul<Float, Output = H>
+        + std::ops::Add<Float, Output = H>
         + std::ops::Add<H, Output = H>,
 {
     fn index_mut(&mut self, index: Idx) -> &mut Self::Output {
@@ -139,8 +139,8 @@ where
     H: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = H>
-        + std::ops::Add<f64, Output = H>
+        + std::ops::Mul<Float, Output = H>
+        + std::ops::Add<Float, Output = H>
         + std::ops::Add<H, Output = H>,
 {
     rows: Vec<ControlPolygon<H>>,
@@ -150,8 +150,8 @@ where
     H: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = H>
-        + std::ops::Add<f64, Output = H>
+        + std::ops::Mul<Float, Output = H>
+        + std::ops::Add<Float, Output = H>
         + std::ops::Add<H, Output = H>,
 {
     pub fn new<const N: usize>(rows: [ControlPolygon<H>; N]) -> Self {
@@ -185,11 +185,11 @@ where
         H: Copy
             + Clone
             + Zero
-            + std::ops::Mul<f64, Output = H>
-            + std::ops::Add<f64, Output = H>
+            + std::ops::Mul<Float, Output = H>
+            + std::ops::Add<Float, Output = H>
             + std::ops::Add<H, Output = H>
             + Homogeneous<C>,
-        C: Copy + Clone + std::ops::Mul<f64, Output = C> + std::ops::Div<f64, Output = C>,
+        C: Copy + Clone + std::ops::Mul<Float, Output = C> + std::ops::Div<Float, Output = C>,
     {
         ControlMesh::from_iter(self.rows.iter().map(|v| v.to_weighted()))
     }
@@ -199,11 +199,11 @@ where
         H: Copy
             + Clone
             + Zero
-            + std::ops::Mul<f64, Output = H>
-            + std::ops::Add<f64, Output = H>
+            + std::ops::Mul<Float, Output = H>
+            + std::ops::Add<Float, Output = H>
             + std::ops::Add<H, Output = H>
             + Homogeneous<C>,
-        C: Copy + Clone + std::ops::Mul<f64, Output = C> + std::ops::Div<f64, Output = C>,
+        C: Copy + Clone + std::ops::Mul<Float, Output = C> + std::ops::Div<Float, Output = C>,
     {
         ControlMesh::from_iter(self.rows.iter().map(|v| v.to_unweighted()))
     }
@@ -213,15 +213,15 @@ where
         H: Copy
             + Clone
             + Zero
-            + std::ops::Mul<f64, Output = H>
-            + std::ops::Add<f64, Output = H>
+            + std::ops::Mul<Float, Output = H>
+            + std::ops::Add<Float, Output = H>
             + std::ops::Add<H, Output = H>
             + Homogeneous<C>,
         C: Copy
             + Clone
-            + std::ops::Mul<f64, Output = C>
-            + std::ops::Div<f64, Output = C>
-            + std::ops::Add<f64, Output = C>
+            + std::ops::Mul<Float, Output = C>
+            + std::ops::Div<Float, Output = C>
+            + std::ops::Add<Float, Output = C>
             + std::ops::Add<C, Output = C>
             + Zero,
     {
@@ -233,8 +233,8 @@ where
     H: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = H>
-        + std::ops::Add<f64, Output = H>
+        + std::ops::Mul<Float, Output = H>
+        + std::ops::Add<Float, Output = H>
         + std::ops::Add<H, Output = H>,
 {
     fn from_iter<I: IntoIterator<Item = ControlPolygon<H>>>(rows: I) -> Self {
@@ -249,8 +249,8 @@ where
     H: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = H>
-        + std::ops::Add<f64, Output = H>
+        + std::ops::Mul<Float, Output = H>
+        + std::ops::Add<Float, Output = H>
         + std::ops::Add<H, Output = H>,
 {
     type Output = Idx::Output;
@@ -265,8 +265,8 @@ where
     H: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = H>
-        + std::ops::Add<f64, Output = H>
+        + std::ops::Mul<Float, Output = H>
+        + std::ops::Add<Float, Output = H>
         + std::ops::Add<H, Output = H>,
 {
     fn index_mut(&mut self, index: Idx) -> &mut Self::Output {

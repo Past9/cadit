@@ -1,8 +1,6 @@
 use std::time::Instant;
 
-use cgmath::{vec4, InnerSpace, Vector3, Vector4};
-
-use crate::math::{FloatRange, Vector};
+use crate::math::{Float, FloatRange, Vec3, Vector};
 
 pub mod nurbs;
 
@@ -74,31 +72,31 @@ fn make_mesh_points(points: &[Vec<Vec3>]) -> Vec<Vec<SurfacePoint>> {
 
 #[derive(Clone, Debug)]
 pub struct SurfacePoint {
-    pub pos: Vector3<f64>,
-    pub der_u: Vector3<f64>,
-    pub der_v: Vector3<f64>,
-    pub normal: Vector3<f64>,
+    pub pos: Vec3,
+    pub der_u: Vec3,
+    pub der_v: Vec3,
+    pub normal: Vec3,
 }
 impl SurfacePoint {
-    pub fn new(pos: Vector3<f64>, der_u: Vector3<f64>, der_v: Vector3<f64>) -> Self {
+    pub fn new(pos: Vec3, der_u: Vec3, der_v: Vec3) -> Self {
         Self {
             pos,
             der_u,
             der_v,
-            normal: der_u.normalize().cross(der_v.normalize()).normalize(),
+            normal: der_u.normalize().cross(&der_v.normalize()).normalize(),
         }
     }
 }
 
 pub trait SurfaceFunction {
-    fn min_u(&self) -> f64;
-    fn max_u(&self) -> f64;
-    fn min_v(&self) -> f64;
-    fn max_v(&self) -> f64;
+    fn min_u(&self) -> Float;
+    fn max_u(&self) -> Float;
+    fn min_v(&self) -> Float;
+    fn max_v(&self) -> Float;
 
-    fn point(&self, u: f64, v: f64) -> Vector3<f64>;
+    fn point(&self, u: Float, v: Float) -> Vec3;
 
-    fn create(&self, u_res: usize, v_res: usize) -> Vec<Vector3<f64>> {
+    fn create(&self, u_res: usize, v_res: usize) -> Vec<Vec3> {
         let mut points = Vec::new();
 
         let start = Instant::now();

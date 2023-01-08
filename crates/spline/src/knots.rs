@@ -1,31 +1,33 @@
 use std::slice::Iter;
 
+use crate::math::Float;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct KnotVector {
-    knots: Vec<f64>,
+    knots: Vec<Float>,
 }
 impl KnotVector {
-    pub fn new<const N: usize>(knots: [f64; N]) -> Self {
+    pub fn new<const N: usize>(knots: [Float; N]) -> Self {
         Self {
             knots: knots.to_vec(),
         }
     }
 
-    pub fn first(&self) -> f64 {
+    pub fn first(&self) -> Float {
         self.knots[0]
     }
 
-    pub fn last(&self) -> f64 {
+    pub fn last(&self) -> Float {
         self.knots[self.knots.len() - 1]
     }
 
-    pub fn from_slice(knots: &[f64]) -> Self {
+    pub fn from_slice(knots: &[Float]) -> Self {
         Self {
             knots: knots.to_vec(),
         }
     }
 
-    pub fn from_vec(knots: Vec<f64>) -> Self {
+    pub fn from_vec(knots: Vec<Float>) -> Self {
         Self { knots }
     }
 
@@ -39,11 +41,11 @@ impl KnotVector {
         self.knots.len()
     }
 
-    pub fn iter(&self) -> Iter<f64> {
+    pub fn iter(&self) -> Iter<Float> {
         self.knots.iter()
     }
 
-    pub fn find_span(&self, degree: usize, num_ctrl_points: usize, pos: f64) -> usize {
+    pub fn find_span(&self, degree: usize, num_ctrl_points: usize, pos: Float) -> usize {
         if pos == self.knots[num_ctrl_points] {
             return num_ctrl_points - 1;
         }
@@ -65,7 +67,7 @@ impl KnotVector {
         return mid;
     }
 
-    pub fn find_multiplicity(&self, pos: f64) -> usize {
+    pub fn find_multiplicity(&self, pos: Float) -> usize {
         let mut multiplicity = 0;
 
         for knot in self.knots.iter() {
@@ -80,7 +82,7 @@ impl KnotVector {
     /// Returns the index of the knot in the knot vector, or None if
     /// if isn't in the vector. If the knot exists multiple times,
     /// it will return the index of the first occurrence.
-    pub fn find_index(&self, pos: f64) -> Option<usize> {
+    pub fn find_index(&self, pos: Float) -> Option<usize> {
         for (i, knot) in self.knots.iter().enumerate() {
             if pos == *knot {
                 return Some(i);
@@ -90,8 +92,8 @@ impl KnotVector {
         None
     }
 }
-impl FromIterator<f64> for KnotVector {
-    fn from_iter<I: IntoIterator<Item = f64>>(knots: I) -> Self {
+impl FromIterator<Float> for KnotVector {
+    fn from_iter<I: IntoIterator<Item = Float>>(knots: I) -> Self {
         Self {
             knots: Vec::from_iter(knots),
         }
@@ -99,7 +101,7 @@ impl FromIterator<f64> for KnotVector {
 }
 impl<Idx> std::ops::Index<Idx> for KnotVector
 where
-    Idx: std::slice::SliceIndex<[f64]>,
+    Idx: std::slice::SliceIndex<[Float]>,
 {
     type Output = Idx::Output;
 
@@ -109,7 +111,7 @@ where
 }
 impl<Idx> std::ops::IndexMut<Idx> for KnotVector
 where
-    Idx: std::slice::SliceIndex<[f64]>,
+    Idx: std::slice::SliceIndex<[Float]>,
 {
     fn index_mut(&mut self, index: Idx) -> &mut Self::Output {
         &mut self.knots[index]

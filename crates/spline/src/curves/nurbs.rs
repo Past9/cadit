@@ -1,11 +1,10 @@
-use cgmath::{vec4, Vector3, Vector4};
-
 use crate::{
     control_points::ControlPolygon,
     knots::KnotVector,
     math::{
         b_spline::curve_derivatives_2,
         nurbs::{self, insert_curve_knots, refine_curve},
+        Float, Vec3, Vec4,
     },
 };
 
@@ -13,7 +12,7 @@ use super::CurveFunction;
 
 pub struct NurbsCurve {
     /// Points that the curve interpolates between
-    pub control_points: ControlPolygon<Vector4<f64>>,
+    pub control_points: ControlPolygon<Vec4>,
 
     /// Knot vector
     pub knot_vector: KnotVector,
@@ -23,7 +22,7 @@ pub struct NurbsCurve {
 }
 impl NurbsCurve {
     pub fn new(
-        control_points: ControlPolygon<Vector4<f64>>,
+        control_points: ControlPolygon<Vec4>,
         knot_vector: KnotVector,
         degree: usize,
     ) -> Self {
@@ -83,7 +82,7 @@ impl NurbsCurve {
         */
     }
 
-    pub fn insert_knots(&self, num_new_knots: usize, u: f64) -> Self {
+    pub fn insert_knots(&self, num_new_knots: usize, u: Float) -> Self {
         let (new_knot_vector, new_control_points) = insert_curve_knots(
             self.degree,
             &self.knot_vector,
@@ -102,11 +101,11 @@ impl NurbsCurve {
     pub fn example_refinement() -> Self {
         Self::new(
             ControlPolygon::new([
-                vec4(-1.0, 1.0, 0.0, 1.0),
-                vec4(-1.0, 0.0, 0.0, 3.0),
-                vec4(0.0, -1.0, 0.0, 1.0),
-                vec4(1.0, 0.0, 0.0, 3.0),
-                vec4(1.0, 1.0, 0.0, 1.0),
+                Vec4::new(-1.0, 1.0, 0.0, 1.0),
+                Vec4::new(-1.0, 0.0, 0.0, 3.0),
+                Vec4::new(0.0, -1.0, 0.0, 1.0),
+                Vec4::new(1.0, 0.0, 0.0, 3.0),
+                Vec4::new(1.0, 1.0, 0.0, 1.0),
             ]),
             KnotVector::new([0.0, 0.0, 0.0, 0.0, 2.0, 3.0, 3.0, 3.0, 3.0]),
             3,
@@ -116,11 +115,11 @@ impl NurbsCurve {
     pub fn example_1() -> Self {
         Self::new(
             ControlPolygon::new([
-                vec4(-1.0, 1.0, 0.0, 1.0),
-                vec4(-1.0, 0.0, 0.0, 3.0),
-                vec4(0.0, -1.0, 0.0, 1.0),
-                vec4(1.0, 0.0, 0.0, 3.0),
-                vec4(1.0, 1.0, 0.0, 1.0),
+                Vec4::new(-1.0, 1.0, 0.0, 1.0),
+                Vec4::new(-1.0, 0.0, 0.0, 3.0),
+                Vec4::new(0.0, -1.0, 0.0, 1.0),
+                Vec4::new(1.0, 0.0, 0.0, 3.0),
+                Vec4::new(1.0, 1.0, 0.0, 1.0),
             ]),
             KnotVector::new([0.0, 0.0, 0.0, 0.0, 2.0, 3.0, 3.0, 3.0, 3.0]),
             3,
@@ -130,15 +129,15 @@ impl NurbsCurve {
     pub fn example_circle() -> Self {
         Self::new(
             ControlPolygon::new([
-                vec4(0.0, -1.0, 0.0, 1.0),
-                vec4(-1.0, -1.0, 0.0, 2.0.sqrt() / 2.0),
-                vec4(-1.0, 0.0, 0.0, 1.0),
-                vec4(-1.0, 1.0, 0.0, 2.0.sqrt() / 2.0),
-                vec4(0.0, 1.0, 0.0, 1.0),
-                vec4(1.0, 1.0, 0.0, 2.0.sqrt() / 2.0),
-                vec4(1.0, 0.0, 0.0, 1.0),
-                vec4(1.0, -1.0, 0.0, 2.0.sqrt() / 2.0),
-                vec4(0.0, -1.0, 0.0, 1.0),
+                Vec4::new(0.0, -1.0, 0.0, 1.0),
+                Vec4::new(-1.0, -1.0, 0.0, (2.0 as Float).sqrt() / 2.0),
+                Vec4::new(-1.0, 0.0, 0.0, 1.0),
+                Vec4::new(-1.0, 1.0, 0.0, (2.0 as Float).sqrt() / 2.0),
+                Vec4::new(0.0, 1.0, 0.0, 1.0),
+                Vec4::new(1.0, 1.0, 0.0, (2.0 as Float).sqrt() / 2.0),
+                Vec4::new(1.0, 0.0, 0.0, 1.0),
+                Vec4::new(1.0, -1.0, 0.0, (2.0 as Float).sqrt() / 2.0),
+                Vec4::new(0.0, -1.0, 0.0, 1.0),
             ]),
             KnotVector::new([
                 0.0, 0.0, 0.0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1.0, 1.0, 1.0,
@@ -148,15 +147,15 @@ impl NurbsCurve {
     }
 }
 impl CurveFunction for NurbsCurve {
-    fn min_u(&self) -> f64 {
+    fn min_u(&self) -> Float {
         self.knot_vector[0]
     }
 
-    fn max_u(&self) -> f64 {
+    fn max_u(&self) -> Float {
         self.knot_vector[self.knot_vector.len() - 1]
     }
 
-    fn point(&self, u: f64) -> Vector3<f64> {
+    fn point(&self, u: Float) -> Vec3 {
         let first = false;
         if first {
             nurbs::curve_point(&self.control_points, self.degree, &self.knot_vector, u)

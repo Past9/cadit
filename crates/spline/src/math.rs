@@ -1,10 +1,18 @@
-use cgmath::{vec2, vec3, vec4, Vector2, Vector3, Vector4};
+mod vec2;
+mod vec3;
+mod vec4;
 
 pub mod b_spline;
 pub mod bezier;
 pub mod nurbs;
 
-const BINOMIAL_COEFFICIENTS: [[f64; 10]; 10] = [
+pub use vec2::*;
+pub use vec3::*;
+pub use vec4::*;
+
+pub type Float = f64;
+
+const BINOMIAL_COEFFICIENTS: [[Float; 10]; 10] = [
     [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
     [1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
     [1.0, 2.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -17,7 +25,7 @@ const BINOMIAL_COEFFICIENTS: [[f64; 10]; 10] = [
     [1.0, 9.0, 36.0, 84.0, 126.0, 126.0, 84.0, 36.0, 9.0, 1.0],
 ];
 
-pub fn binomial_coefficient(k: usize, i: usize) -> f64 {
+pub fn binomial_coefficient(k: usize, i: usize) -> Float {
     //factorial(k) / (factorial(i) * factorial(k - i))
     BINOMIAL_COEFFICIENTS[k][i]
 }
@@ -25,47 +33,32 @@ pub fn binomial_coefficient(k: usize, i: usize) -> f64 {
 pub trait Zero {
     fn zero() -> Self;
 }
-impl Zero for f64 {
+impl Zero for Float {
     fn zero() -> Self {
         0.0
     }
 }
-impl Zero for Vector2<f64> {
-    fn zero() -> Self {
-        vec2(0.0, 0.0)
-    }
-}
-impl Zero for Vector3<f64> {
-    fn zero() -> Self {
-        vec3(0.0, 0.0, 0.0)
-    }
-}
-impl Zero for Vector4<f64> {
-    fn zero() -> Self {
-        vec4(0.0, 0.0, 0.0, 0.0)
-    }
-}
 
-pub fn factorial(n: f64) -> f64 {
+pub fn factorial(n: Float) -> Float {
     if n == 0.0 || n == 1.0 {
         1.0
     } else {
-        (2..=n as i32).product::<i32>() as f64
+        (2..=n as i32).product::<i32>() as Float
     }
 }
 
 pub trait Vector {
-    fn magnitude(&self) -> f64;
+    fn magnitude(&self) -> Float;
     fn normalize(&self) -> Self;
     fn cross(&self, other: &Self) -> Self;
 }
 
 pub trait Homogeneous<C>
 where
-    C: std::ops::Mul<f64, Output = C> + std::ops::Div<f64, Output = C>,
+    C: std::ops::Mul<Float, Output = C> + std::ops::Div<Float, Output = C>,
 {
     /// Gets the homogeneous component (the last one) of the coordinates.
-    fn homogeneous_component(&self) -> f64;
+    fn homogeneous_component(&self) -> Float;
 
     /// Gets the cartesian components of the coordinate (all but the last one),
     /// as a cartesian coordinate.
@@ -73,7 +66,7 @@ where
 
     /// Creates homogeneous coordinates from cartesian coordinates and
     /// a homogeneous coordinate.
-    fn from_cartesian(cartesian: C, homogeneous: f64) -> Self;
+    fn from_cartesian(cartesian: C, homogeneous: Float) -> Self;
 
     /// Creates a cartesian coordinate by projecting into cartesian space.
     fn to_cartesian(&self) -> C {
@@ -107,15 +100,15 @@ where
 
 pub struct FloatRange {
     num_increments: usize,
-    start: f64,
-    end: f64,
-    increment: f64,
+    start: Float,
+    end: Float,
+    increment: Float,
     count: usize,
 }
 impl FloatRange {
-    pub fn new(lower_bound: f64, upper_bound: f64, num_increments: usize) -> Self {
+    pub fn new(lower_bound: Float, upper_bound: Float, num_increments: usize) -> Self {
         let increment = if num_increments != 0 {
-            (upper_bound - lower_bound) / num_increments as f64
+            (upper_bound - lower_bound) / num_increments as Float
         } else {
             0.0
         };
@@ -129,11 +122,11 @@ impl FloatRange {
     }
 }
 impl Iterator for FloatRange {
-    type Item = f64;
+    type Item = Float;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.count < self.num_increments + 1 {
-            let mut next = self.start + self.increment * self.count as f64;
+            let mut next = self.start + self.increment * self.count as Float;
             if next >= self.end {
                 next = self.end;
             }

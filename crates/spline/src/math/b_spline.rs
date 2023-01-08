@@ -3,15 +3,15 @@ use crate::{
     knots::KnotVector,
 };
 
-use super::Zero;
+use super::{Float, Zero};
 
 /// Evaluates the basis functions at `u`
 pub fn eval_basis_function(
     degree: usize,
     knot_span: usize,
     knot_vector: &KnotVector,
-    u: f64,
-) -> Vec<f64> {
+    u: Float,
+) -> Vec<Float> {
     // The additional element here (the first one) won't be used.
     // It's just needed to make the indexing in the loop work.
     let mut left = vec![0.0; degree + 1];
@@ -40,8 +40,8 @@ pub fn eval_all_basis_functions(
     degree: usize,
     knot_span: usize,
     knot_vector: &KnotVector,
-    u: f64,
-) -> Vec<Vec<f64>> {
+    u: Float,
+) -> Vec<Vec<Float>> {
     let mut result = vec![vec![0.0; degree + 1]; degree + 1];
 
     for i in 0..=degree {
@@ -60,8 +60,8 @@ pub fn eval_basis_function_derivatives(
     knot_span_index: usize,
     knot_vector: &KnotVector,
     num_derivatives: usize,
-    u: f64,
-) -> Vec<Vec<f64>> {
+    u: Float,
+) -> Vec<Vec<Float>> {
     let mut left = vec![1.0; degree + 1];
     let mut right = vec![1.0; degree + 1];
     let mut ndu = vec![vec![1.0; degree + 1]; degree + 1];
@@ -83,7 +83,7 @@ pub fn eval_basis_function_derivatives(
         ndu[j][j] = saved;
     }
 
-    let mut derivatives: Vec<Vec<f64>> =
+    let mut derivatives: Vec<Vec<Float>> =
         vec![vec![0.0; degree + 1]; usize::min(degree, num_derivatives) + 1];
 
     // Load the basis functions
@@ -92,7 +92,7 @@ pub fn eval_basis_function_derivatives(
     }
 
     // Begin calculating derivatives
-    let mut a: Vec<Vec<f64>> = vec![vec![1.0; degree + 1]; 2];
+    let mut a: Vec<Vec<Float>> = vec![vec![1.0; degree + 1]; 2];
 
     // This section computes the derivatives.
     // Loop over the function index
@@ -144,12 +144,12 @@ pub fn eval_basis_function_derivatives(
     }
 
     // Multiply through by the correct factors
-    let mut r = degree as f64;
+    let mut r = degree as Float;
     for k in 1..=num_derivatives {
         for j in 0..=degree {
             derivatives[k][j] *= r;
         }
-        r *= degree as f64 - k as f64;
+        r *= degree as Float - k as Float;
     }
 
     derivatives
@@ -160,8 +160,8 @@ pub fn eval_single_basis_function(
     degree: usize,
     knot_span_index: usize,
     knot_vector: &KnotVector,
-    u: f64,
-) -> f64 {
+    u: Float,
+) -> Float {
     if knot_span_index == 0 && u == knot_vector[0] {
         return 1.0;
     }
@@ -171,7 +171,7 @@ pub fn eval_single_basis_function(
     }
 
     // TODO: initialize this
-    let mut table = Vec::<f64>::new();
+    let mut table = Vec::<Float>::new();
 
     // Initialize 0th-degree funcs
     for j in 0..=degree {
@@ -214,10 +214,10 @@ pub fn eval_single_basis_function_derivatives(
     knot_span_index: usize,
     knot_vector: &KnotVector,
     num_derivatives: usize,
-    u: f64,
-) -> Vec<f64> {
+    u: Float,
+) -> Vec<Float> {
     // TODO: Initialize this
-    let mut derivatives = Vec::<f64>::new();
+    let mut derivatives = Vec::<Float>::new();
 
     if u < knot_vector[knot_span_index] || u >= knot_vector[knot_span_index + degree + 1] {
         for k in 0..=num_derivatives {
@@ -227,7 +227,7 @@ pub fn eval_single_basis_function_derivatives(
     }
 
     // TODO: Initialize this
-    let mut table = Vec::<Vec<f64>>::new();
+    let mut table = Vec::<Vec<Float>>::new();
 
     // Initialize 0th-degree functions
     for j in 0..=degree {
@@ -257,7 +257,7 @@ pub fn eval_single_basis_function_derivatives(
             } else {
                 let temp = table[j + 1][k - 1] / (knot_right - knot_left);
                 table[j][k] = saved + (knot_right - u) * temp;
-                saved = (knot_span_index as f64 - knot_left) * temp;
+                saved = (knot_span_index as Float - knot_left) * temp;
             }
         }
     }
@@ -266,7 +266,7 @@ pub fn eval_single_basis_function_derivatives(
     for k in 1..=num_derivatives {
         // compute the derivatives
         // TODO: Initialize this
-        let mut column = Vec::<f64>::new();
+        let mut column = Vec::<Float>::new();
         for j in 0..=k {
             // Load appropriate column
             column[j] = table[j][degree - k];
@@ -286,11 +286,11 @@ pub fn eval_single_basis_function_derivatives(
                 let knot_left = knot_vector[knot_span_index + j + 1];
                 let knot_right = knot_vector[knot_span_index + j + degree + jj + 1];
                 if column[j + 1] == 0.0 {
-                    column[j] = (degree - k + jj) as f64 * saved;
+                    column[j] = (degree - k + jj) as Float * saved;
                     saved = 0.0;
                 } else {
                     let temp = column[j + 1] / (knot_right - knot_left);
-                    column[j] = (degree - k + jj) as f64 * (saved - temp);
+                    column[j] = (degree - k + jj) as Float * (saved - temp);
                     saved = temp;
                 }
             }
@@ -303,13 +303,13 @@ pub fn eval_single_basis_function_derivatives(
 }
 
 /// Evaluates a B-Spline curve at `u`.
-pub fn curve_point<T>(control_points: &[T], degree: usize, knot_vector: &KnotVector, u: f64) -> T
+pub fn curve_point<T>(control_points: &[T], degree: usize, knot_vector: &KnotVector, u: Float) -> T
 where
     T: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = T>
-        + std::ops::Add<f64, Output = T>
+        + std::ops::Mul<Float, Output = T>
+        + std::ops::Add<Float, Output = T>
         + std::ops::Add<T, Output = T>,
 {
     let knot_span = knot_vector.find_span(degree, control_points.len(), u);
@@ -333,14 +333,14 @@ pub fn curve_derivatives_1<T>(
     degree: usize,
     knot_vector: &KnotVector,
     num_derivatives: usize,
-    u: f64,
+    u: Float,
 ) -> Vec<T>
 where
     T: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = T>
-        + std::ops::Add<f64, Output = T>
+        + std::ops::Mul<Float, Output = T>
+        + std::ops::Add<Float, Output = T>
         + std::ops::Add<T, Output = T>,
 {
     let du = usize::min(num_derivatives, degree);
@@ -368,17 +368,17 @@ pub fn curve_derivatives_2<T>(
     degree: usize,
     knot_vector: &KnotVector,
     num_derivatives: usize,
-    u: f64,
+    u: Float,
 ) -> ControlPolygon<T>
 where
     T: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = T>
-        + std::ops::Add<f64, Output = T>
+        + std::ops::Mul<Float, Output = T>
+        + std::ops::Add<Float, Output = T>
         + std::ops::Add<T, Output = T>
         + std::ops::Sub<T, Output = T>
-        + std::ops::Div<f64, Output = T>,
+        + std::ops::Div<Float, Output = T>,
 {
     let du = usize::min(num_derivatives, degree);
     let mut derivatives = ControlPolygon::zeros(du + 1);
@@ -422,11 +422,11 @@ where
     T: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = T>
-        + std::ops::Add<f64, Output = T>
+        + std::ops::Mul<Float, Output = T>
+        + std::ops::Add<Float, Output = T>
         + std::ops::Add<T, Output = T>
         + std::ops::Sub<T, Output = T>
-        + std::ops::Div<f64, Output = T>,
+        + std::ops::Div<Float, Output = T>,
 {
     let r = max_control_point - min_control_point;
 
@@ -437,7 +437,7 @@ where
     }
 
     for k in 1..=num_derivatives {
-        let tmp = (degree - k + 1) as f64;
+        let tmp = (degree - k + 1) as Float;
         for i in 0..=(r - k) {
             points[k][i] = ((points[k - 1][i + 1] - points[k - 1][i])
                 / (knot_vector[min_control_point + i + degree + 1]
@@ -455,15 +455,15 @@ pub fn surface_point<T>(
     degree_v: usize,
     knot_vector_u: &KnotVector,
     knot_vector_v: &KnotVector,
-    u: f64,
-    v: f64,
+    u: Float,
+    v: Float,
 ) -> T
 where
     T: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = T>
-        + std::ops::Add<f64, Output = T>
+        + std::ops::Mul<Float, Output = T>
+        + std::ops::Add<Float, Output = T>
         + std::ops::Add<T, Output = T>,
 {
     let num_points_u = control_points.len();
@@ -503,15 +503,15 @@ pub fn surface_derivatives_1<T>(
     knot_vector_u: &KnotVector,
     knot_vector_v: &KnotVector,
     num_derivatives: usize,
-    u: f64,
-    v: f64,
+    u: Float,
+    v: Float,
 ) -> Vec<Vec<T>>
 where
     T: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = T>
-        + std::ops::Add<f64, Output = T>
+        + std::ops::Mul<Float, Output = T>
+        + std::ops::Add<Float, Output = T>
         + std::ops::Add<T, Output = T>,
 {
     let num_points_u = control_points.len();
@@ -575,18 +575,18 @@ pub fn surface_derivatives_2<T>(
     knot_vector_u: &KnotVector,
     knot_vector_v: &KnotVector,
     num_derivatives: usize,
-    u: f64,
-    v: f64,
+    u: Float,
+    v: Float,
 ) -> ControlMesh<T>
 where
     T: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = T>
-        + std::ops::Add<f64, Output = T>
+        + std::ops::Mul<Float, Output = T>
+        + std::ops::Add<Float, Output = T>
         + std::ops::Add<T, Output = T>
         + std::ops::Sub<T, Output = T>
-        + std::ops::Div<f64, Output = T>,
+        + std::ops::Div<Float, Output = T>,
 {
     let du = usize::min(num_derivatives, degree_u);
     let dv = usize::min(num_derivatives, degree_v);
@@ -649,11 +649,11 @@ where
     T: Copy
         + Clone
         + Zero
-        + std::ops::Mul<f64, Output = T>
-        + std::ops::Add<f64, Output = T>
+        + std::ops::Mul<Float, Output = T>
+        + std::ops::Add<Float, Output = T>
         + std::ops::Add<T, Output = T>
         + std::ops::Sub<T, Output = T>
-        + std::ops::Div<f64, Output = T>,
+        + std::ops::Div<Float, Output = T>,
 {
     let du = usize::min(num_derivatives, degree_u);
     let dv = usize::min(num_derivatives, degree_v);

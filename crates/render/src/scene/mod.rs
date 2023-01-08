@@ -137,7 +137,7 @@ impl Scene {
     pub fn point_geometry_buffer(
         &self,
         allocator: &impl MemoryAllocator,
-    ) -> Arc<CpuAccessibleBuffer<[BufferedPointVertex]>> {
+    ) -> Option<Arc<CpuAccessibleBuffer<[BufferedPointVertex]>>> {
         let mut vertices: Vec<BufferedPointVertex> = Vec::new();
 
         for model in self.models.iter() {
@@ -148,24 +148,28 @@ impl Scene {
             }
         }
 
-        let vertex_buffer = CpuAccessibleBuffer::from_iter(
-            allocator,
-            BufferUsage {
-                vertex_buffer: true,
-                ..BufferUsage::empty()
-            },
-            false,
-            vertices,
-        )
-        .unwrap();
+        if vertices.len() > 0 {
+            let vertex_buffer = CpuAccessibleBuffer::from_iter(
+                allocator,
+                BufferUsage {
+                    vertex_buffer: true,
+                    ..BufferUsage::empty()
+                },
+                false,
+                vertices,
+            )
+            .unwrap();
 
-        vertex_buffer
+            Some(vertex_buffer)
+        } else {
+            None
+        }
     }
 
     pub fn edge_geometry_buffer(
         &self,
         allocator: &impl MemoryAllocator,
-    ) -> Arc<CpuAccessibleBuffer<[BufferedEdgeVertex]>> {
+    ) -> Option<Arc<CpuAccessibleBuffer<[BufferedEdgeVertex]>>> {
         let mut vertices: Vec<BufferedEdgeVertex> = Vec::new();
 
         for model in self.models.iter() {
@@ -180,26 +184,30 @@ impl Scene {
             }
         }
 
-        let vertex_buffer = CpuAccessibleBuffer::from_iter(
-            allocator,
-            BufferUsage {
-                vertex_buffer: true,
-                ..BufferUsage::empty()
-            },
-            false,
-            vertices,
-        )
-        .unwrap();
+        if vertices.len() > 0 {
+            let vertex_buffer = CpuAccessibleBuffer::from_iter(
+                allocator,
+                BufferUsage {
+                    vertex_buffer: true,
+                    ..BufferUsage::empty()
+                },
+                false,
+                vertices,
+            )
+            .unwrap();
 
-        vertex_buffer
+            Some(vertex_buffer)
+        } else {
+            None
+        }
     }
 
     pub fn surface_geometry_buffers(
         &self,
         allocator: &impl MemoryAllocator,
     ) -> (
-        Arc<CpuAccessibleBuffer<[BufferedSurfaceVertex]>>,
-        Arc<CpuAccessibleBuffer<[u32]>>,
+        Option<Arc<CpuAccessibleBuffer<[BufferedSurfaceVertex]>>>,
+        Option<Arc<CpuAccessibleBuffer<[u32]>>>,
     ) {
         let mut vertices: Vec<BufferedSurfaceVertex> = Vec::new();
         let mut indices: Vec<u32> = Vec::new();
@@ -221,28 +229,32 @@ impl Scene {
             }
         }
 
-        let vertex_buffer = CpuAccessibleBuffer::from_iter(
-            allocator,
-            BufferUsage {
-                vertex_buffer: true,
-                ..BufferUsage::empty()
-            },
-            false,
-            vertices,
-        )
-        .unwrap();
+        if vertices.len() > 0 && indices.len() > 0 {
+            let vertex_buffer = CpuAccessibleBuffer::from_iter(
+                allocator,
+                BufferUsage {
+                    vertex_buffer: true,
+                    ..BufferUsage::empty()
+                },
+                false,
+                vertices,
+            )
+            .unwrap();
 
-        let index_buffer = CpuAccessibleBuffer::from_iter(
-            allocator,
-            BufferUsage {
-                index_buffer: true,
-                ..BufferUsage::empty()
-            },
-            false,
-            indices,
-        )
-        .unwrap();
+            let index_buffer = CpuAccessibleBuffer::from_iter(
+                allocator,
+                BufferUsage {
+                    index_buffer: true,
+                    ..BufferUsage::empty()
+                },
+                false,
+                indices,
+            )
+            .unwrap();
 
-        (vertex_buffer, index_buffer)
+            (Some(vertex_buffer), Some(index_buffer))
+        } else {
+            (None, None)
+        }
     }
 }

@@ -5,7 +5,8 @@ use vulkano::{
     buffer::{CpuAccessibleBuffer, TypedBufferAccess},
     command_buffer::{
         allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder, CommandBufferUsage,
-        PrimaryCommandBufferAbstract, RenderPassBeginInfo, SubpassContents,
+        PrimaryAutoCommandBuffer, PrimaryCommandBufferAbstract, RenderPassBeginInfo,
+        SubpassContents,
     },
     descriptor_set::{
         allocator::StandardDescriptorSetAllocator, PersistentDescriptorSet, WriteDescriptorSet,
@@ -53,15 +54,15 @@ pub struct Renderer {
     framebuffers_rebuilt: bool,
 
     // Surface buffers
-    surface_vertex_buffer: Arc<CpuAccessibleBuffer<[BufferedSurfaceVertex]>>,
-    surface_index_buffer: Arc<CpuAccessibleBuffer<[u32]>>,
+    surface_vertex_buffer: Option<Arc<CpuAccessibleBuffer<[BufferedSurfaceVertex]>>>,
+    surface_index_buffer: Option<Arc<CpuAccessibleBuffer<[u32]>>>,
     surface_descriptor_set: Arc<PersistentDescriptorSet>,
 
     // Edge buffers
-    edge_vertex_buffer: Arc<CpuAccessibleBuffer<[BufferedEdgeVertex]>>,
+    edge_vertex_buffer: Option<Arc<CpuAccessibleBuffer<[BufferedEdgeVertex]>>>,
 
     // Point buffers
-    point_vertex_buffer: Arc<CpuAccessibleBuffer<[BufferedPointVertex]>>,
+    point_vertex_buffer: Option<Arc<CpuAccessibleBuffer<[BufferedPointVertex]>>>,
 }
 impl Renderer {
     pub fn new<'a>(
@@ -418,11 +419,6 @@ impl Renderer {
         )
         .unwrap();
 
-        let push_constants = surface_vs::ty::PushConstants {
-            model_matrix: self.scene.orientation().matrix().into(),
-            projection_matrix: self.scene.camera().projection_matrix().into(),
-        };
-
         let clear_values = {
             let bg_color = self.scene.bg_color().to_floats();
 
@@ -458,37 +454,14 @@ impl Renderer {
                     ],
                     depth_range: 0.0..1.0,
                 }],
-            )
-            // Surface commands
-            .bind_pipeline_graphics(self.surface_pipeline.clone())
-            .bind_vertex_buffers(0, self.surface_vertex_buffer.clone())
-            .bind_index_buffer(self.surface_index_buffer.clone())
-            .bind_descriptor_sets(
-                PipelineBindPoint::Graphics,
-                self.surface_pipeline.layout().clone(),
-                0,
-                self.surface_descriptor_set.clone(),
-            )
-            .push_constants(self.surface_pipeline.layout().clone(), 0, push_constants)
-            .draw_indexed(self.surface_index_buffer.len() as u32, 1, 0, 0, 0)
-            .unwrap()
-            // Edge commands
-            .next_subpass(SubpassContents::Inline)
-            .unwrap()
-            .bind_pipeline_graphics(self.edge_pipeline.clone())
-            .bind_vertex_buffers(0, self.edge_vertex_buffer.clone())
-            .draw(self.edge_vertex_buffer.len() as u32, 1, 0, 0)
-            .unwrap()
-            // Point commands
-            .next_subpass(SubpassContents::Inline)
-            .unwrap()
-            .bind_pipeline_graphics(self.point_pipeline.clone())
-            .bind_vertex_buffers(0, self.point_vertex_buffer.clone())
-            .draw(self.point_vertex_buffer.len() as u32, 1, 0, 0)
-            .unwrap()
-            // Finish
-            .end_render_pass()
-            .unwrap();
+            );
+
+        self.add_surface_commands(&mut command_buffer_builder);
+        self.add_edge_commands(&mut command_buffer_builder);
+        self.add_point_commands(&mut command_buffer_builder);
+
+        // Finish
+        command_buffer_builder.end_render_pass().unwrap();
 
         let command_buffer = command_buffer_builder.build().unwrap();
 
@@ -498,6 +471,70 @@ impl Renderer {
             .unwrap()
             .wait(None)
             .unwrap();
+    }
+
+    fn add_surface_commands(
+        &mut self,
+        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
+    ) {
+        let push_constants = surface_vs::ty::PushConstants {
+            model_matrix: self.scene.orientation().matrix().into(),
+            projection_matrix: self.scene.camera().projection_matrix().into(),
+        };
+
+        builder
+            .bind_pipeline_graphics(self.surface_pipeline.clone())
+            .push_constants(self.surface_pipeline.layout().clone(), 0, push_constants);
+
+        if let Some(ref surface_vertex_buffer) = self.surface_vertex_buffer {
+            if let Some(ref surface_index_buffer) = self.surface_index_buffer {
+                builder
+                    .bind_vertex_buffers(0, surface_vertex_buffer.clone())
+                    .bind_index_buffer(surface_index_buffer.clone())
+                    .bind_descriptor_sets(
+                        PipelineBindPoint::Graphics,
+                        self.surface_pipeline.layout().clone(),
+                        0,
+                        self.surface_descriptor_set.clone(),
+                    )
+                    .draw_indexed(surface_index_buffer.len() as u32, 1, 0, 0, 0)
+                    .unwrap();
+            }
+        }
+    }
+
+    fn add_edge_commands(
+        &mut self,
+        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
+    ) {
+        builder
+            .next_subpass(SubpassContents::Inline)
+            .unwrap()
+            .bind_pipeline_graphics(self.edge_pipeline.clone());
+
+        if let Some(ref edge_vertex_buffer) = self.edge_vertex_buffer {
+            builder
+                .bind_vertex_buffers(0, edge_vertex_buffer.clone())
+                .draw(edge_vertex_buffer.len() as u32, 1, 0, 0)
+                .unwrap();
+        }
+    }
+
+    fn add_point_commands(
+        &mut self,
+        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
+    ) {
+        builder
+            .next_subpass(SubpassContents::Inline)
+            .unwrap()
+            .bind_pipeline_graphics(self.point_pipeline.clone());
+
+        if let Some(ref point_vertex_buffer) = self.point_vertex_buffer {
+            builder
+                .bind_vertex_buffers(0, point_vertex_buffer.clone())
+                .draw(point_vertex_buffer.len() as u32, 1, 0, 0)
+                .unwrap();
+        }
     }
 
     pub fn view(&self) -> Arc<dyn ImageViewAbstract> {

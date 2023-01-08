@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use cgmath::{point3, vec3, InnerSpace, Rad, Rotation3};
+use cgmath::{point3, vec3, InnerSpace, Quaternion, Rad, Rotation3, Vector3};
 use eframe::{
     egui::{self, PointerButton},
     epaint::{mutex::Mutex, PaintCallback, PaintCallbackInfo, Pos2, Rect, Vec2},
 };
 use egui_winit_vulkano::CallbackFn;
-use render::cgmath_types::{Quat, Vec3};
+use render::{scene::Scene, Rgba};
 use vulkano::pipeline::graphics::viewport::Viewport;
 
 use self::gui_renderer::GuiRenderer;
@@ -73,28 +73,29 @@ pub struct PointerButtonDown {
 }
 
 pub struct SceneViewer {
-    scene: Arc<Mutex<GuiRenderer>>,
+    renderer: Arc<Mutex<GuiRenderer>>,
     scene_rect: egui::Rect,
-    rotation: Quat,
-    offset: Vec3,
+    rotation: Quaternion<f32>,
+    offset: Vector3<f32>,
     pointer_buttons_down: Vec<PointerButtonDown>,
     clicked: Option<ColorId>,
     rotated: bool,
     allow_manual_rotate: bool,
     allow_manual_pan: bool,
-    color: [f32; 4],
+    allow_manual_zoom: bool,
     mouse_pos: Pos2,
 }
 impl SceneViewer {
     pub fn new(
-        rotation: Quat,
-        offset: Vec3,
+        rotation: Quaternion<f32>,
+        offset: Vector3<f32>,
         allow_manual_rotate: bool,
         allow_manual_pan: bool,
-        color: [f32; 4],
+        allow_manual_zoom: bool,
+        scene: Scene,
     ) -> Self {
         Self {
-            scene: Arc::new(Mutex::new(GuiRenderer::empty(color))),
+            renderer: Arc::new(Mutex::new(GuiRenderer::empty(scene))),
             scene_rect: egui::Rect {
                 min: (0.0, 0.0).into(),
                 max: (0.0, 0.0).into(),
@@ -106,7 +107,7 @@ impl SceneViewer {
             rotated: false,
             allow_manual_rotate,
             allow_manual_pan,
-            color,
+            allow_manual_zoom,
             mouse_pos: Pos2 { x: 0.0, y: 0.0 },
         }
     }
@@ -122,11 +123,11 @@ impl SceneViewer {
         Pos2 { x, y }
     }
 
-    pub fn rotation(&mut self) -> Quat {
+    pub fn rotation(&mut self) -> Quaternion<f32> {
         self.rotation
     }
 
-    pub fn set_rotation(&mut self, rotation: Quat) {
+    pub fn set_rotation(&mut self, rotation: Quaternion<f32>) {
         self.rotation = rotation;
     }
 
@@ -159,46 +160,48 @@ impl SceneViewer {
                 self.scene_rect = rect;
 
                 // Handle mouse events
-                let mut scene = self.scene.lock();
+                let mut scene = self.renderer.lock();
                 for event in ui.input().events.iter() {
                     match event {
                         egui::Event::Scroll(pts) => {
-                            let w = self.scene_rect.width() as f32;
-                            let h = self.scene_rect.height() as f32;
+                            if self.allow_manual_zoom {
+                                let w = self.scene_rect.width() as f32;
+                                let h = self.scene_rect.height() as f32;
 
-                            let half_w = w / 2.0;
-                            let half_h = h / 2.0;
+                                let half_w = w / 2.0;
+                                let half_h = h / 2.0;
 
-                            // Mouse pos in pixels relative to top left corner of viewport
-                            let mouse_pix_x = self.mouse_pos.x - self.scene_rect.left();
-                            let mouse_pix_y = self.mouse_pos.y - self.scene_rect.top();
+                                // Mouse pos in pixels relative to top left corner of viewport
+                                let mouse_pix_x = self.mouse_pos.x - self.scene_rect.left();
+                                let mouse_pix_y = self.mouse_pos.y - self.scene_rect.top();
 
-                            // Mouse pos in pixels relative to center of viewport
-                            let mouse_ctr_x = mouse_pix_x - half_w;
-                            let mouse_ctr_y = mouse_pix_y - half_h;
+                                // Mouse pos in pixels relative to center of viewport
+                                let mouse_ctr_x = mouse_pix_x - half_w;
+                                let mouse_ctr_y = mouse_pix_y - half_h;
 
-                            // Mouse pos relative to center of viewport, scaled -1.0 -> 1.0
-                            // on both axes.
-                            let mouse_x = mouse_ctr_x / half_w;
-                            let mouse_y = mouse_ctr_y / half_h;
+                                // Mouse pos relative to center of viewport, scaled -1.0 -> 1.0
+                                // on both axes.
+                                let mouse_x = mouse_ctr_x / half_w;
+                                let mouse_y = mouse_ctr_y / half_h;
 
-                            if let Some(cam_vec_to) =
-                                scene.camera_vec_to(point3(0.0, 0.0, 0.0) + self.offset)
-                            {
-                                let cam_dist = cam_vec_to.magnitude();
-                                if let Some(vp_size) = scene.viewport_size_at_dist(cam_dist) {
-                                    // Vector from the camera origin to the position of the mouse
-                                    // pointer (at the distance from the camera to the model)
-                                    let zoom_vec = vec3(
-                                        vp_size.x * mouse_x / 2.0,
-                                        vp_size.y * mouse_y / 2.0,
-                                        cam_dist,
-                                    ) * pts.y
-                                        * ZOOM_SENSITIVITY;
+                                if let Some(cam_vec_to) =
+                                    scene.camera_vec_to(point3(0.0, 0.0, 0.0) + self.offset)
+                                {
+                                    let cam_dist = cam_vec_to.magnitude();
+                                    if let Some(vp_size) = scene.viewport_size_at_dist(cam_dist) {
+                                        // Vector from the camera origin to the position of the mouse
+                                        // pointer (at the distance from the camera to the model)
+                                        let zoom_vec = vec3(
+                                            vp_size.x * mouse_x / 2.0,
+                                            vp_size.y * mouse_y / 2.0,
+                                            cam_dist,
+                                        ) * pts.y
+                                            * ZOOM_SENSITIVITY;
 
-                                    // Move the model backwards along that vector so that "positive scroll"
-                                    // (mousewheel up) zooms in.
-                                    self.offset -= zoom_vec;
+                                        // Move the model backwards along that vector so that "positive scroll"
+                                        // (mousewheel up) zooms in.
+                                        self.offset -= zoom_vec;
+                                    }
                                 }
                             }
                         }
@@ -216,9 +219,9 @@ impl SceneViewer {
                                     let Vec2 { x: dx, y: dy } = *pos - rotation_drag.last_position;
 
                                     if dy != 0.0 || dx != 0.0 {
-                                        self.rotation = Quat::from_axis_angle(
-                                            Vec3::new(dy, -dx, 0.0).normalize(),
-                                            Rad(Vec3::new(dx, dy, 0.0).magnitude()
+                                        self.rotation = Quaternion::from_axis_angle(
+                                            Vector3::new(dy, -dx, 0.0).normalize(),
+                                            Rad(Vector3::new(dx, dy, 0.0).magnitude()
                                                 * ROTATION_SENSITIVITY),
                                         ) * self.rotation;
                                         self.rotated = true;
@@ -322,7 +325,7 @@ impl SceneViewer {
                 }
 
                 // Clone stuff for the paint callback
-                let scene = self.scene.clone();
+                let scene = self.renderer.clone();
                 let rotation = self.rotation;
                 let position = self.offset;
 
@@ -343,7 +346,7 @@ impl SceneViewer {
     }
 
     pub fn clicked(&self) -> Option<SceneObjectProps> {
-        let mut scene = self.scene.lock();
+        let mut scene = self.renderer.lock();
         scene.get_object(self.clicked).map(|obj| obj.props())
     }
 }

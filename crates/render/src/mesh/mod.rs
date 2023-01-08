@@ -1,6 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-
-use super::cgmath_types::{Point3, Vec3};
+use cgmath::{Point3, Vector3};
 
 #[derive(Default, Debug, Copy, Clone)]
 pub struct SurfaceVertex {
@@ -8,7 +7,7 @@ pub struct SurfaceVertex {
     pub normal: [f32; 3],
 }
 impl SurfaceVertex {
-    pub fn new(position: Point3, normal: Vec3) -> Self {
+    pub fn new(position: Point3<f32>, normal: Vector3<f32>) -> Self {
         Self {
             position: [position.x, position.y, position.z],
             normal: [normal.x, normal.y, normal.z],
@@ -16,6 +15,7 @@ impl SurfaceVertex {
     }
 }
 
+#[derive(Clone)]
 pub struct Surface {
     pub vertices: Vec<SurfaceVertex>,
     pub indices: Vec<u32>,
@@ -46,7 +46,7 @@ pub struct EdgeVertex {
     pub expand: [f32; 3],
 }
 impl EdgeVertex {
-    pub fn new(position: Point3, expand: Vec3) -> Self {
+    pub fn new(position: Point3<f32>, expand: Vector3<f32>) -> Self {
         Self {
             position: [position.x, position.y, position.z],
             expand: [expand.x, expand.y, expand.z],
@@ -54,6 +54,7 @@ impl EdgeVertex {
     }
 }
 
+#[derive(Clone)]
 pub struct Edge {
     pub vertices: Vec<EdgeVertex>,
 }
@@ -75,7 +76,7 @@ pub struct Point {
     pub expand: [f32; 3],
 }
 impl Point {
-    pub fn new(position: Point3, expand: Vec3) -> Self {
+    pub fn new(position: Point3<f32>, expand: Vector3<f32>) -> Self {
         Self {
             position: [position.x, position.y, position.z],
             expand: [expand.x, expand.y, expand.z],

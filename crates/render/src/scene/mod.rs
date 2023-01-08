@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use cgmath::Zero;
+use cgmath::{vec3, Matrix4, Quaternion, Vector3, Zero};
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
     memory::allocator::MemoryAllocator,
@@ -8,7 +8,6 @@ use vulkano::{
 
 use super::{
     camera::Camera,
-    cgmath_types::{vec3, Mat4, Quat, Vec3},
     lights::{AmbientLight, DirectionalLight, PointLight},
     model::{BufferedEdgeVertex, BufferedPointVertex, BufferedSurfaceVertex, Material, Model},
     Rgba,
@@ -16,6 +15,7 @@ use super::{
 use crate::lights::{Std140AmbientLight, Std140DirectionalLight, Std140PointLight};
 use crate::model::Std140Material;
 
+#[derive(Clone)]
 pub struct SceneLights {
     ambient: Vec<AmbientLight>,
     directional: Vec<DirectionalLight>,
@@ -50,31 +50,33 @@ impl SceneLights {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Orientation {
-    offset: Vec3,
-    rotation: Quat,
+    offset: Vector3<f32>,
+    rotation: Quaternion<f32>,
 }
 impl Orientation {
     pub fn zero() -> Self {
         Self {
             offset: vec3(0.0, 0.0, 0.0),
-            rotation: Quat::zero(),
+            rotation: Quaternion::zero(),
         }
     }
 
-    pub fn set_offset(&mut self, offset: Vec3) {
+    pub fn set_offset(&mut self, offset: Vector3<f32>) {
         self.offset = offset;
     }
 
-    pub fn set_rotation(&mut self, rotation: Quat) {
+    pub fn set_rotation(&mut self, rotation: Quaternion<f32>) {
         self.rotation = rotation;
     }
 
-    pub fn matrix(&self) -> Mat4 {
-        Mat4::from_translation(self.offset) * Mat4::from(self.rotation)
+    pub fn matrix(&self) -> Matrix4<f32> {
+        Matrix4::from_translation(self.offset) * Matrix4::from(self.rotation)
     }
 }
 
+#[derive(Clone)]
 pub struct Scene {
     bg_color: Rgba,
     orientation: Orientation,

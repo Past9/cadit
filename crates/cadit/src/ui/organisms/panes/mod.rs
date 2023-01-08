@@ -1,5 +1,15 @@
+use cgmath::{point3, vec3, Deg, InnerSpace};
 use eframe::egui::{self, Ui};
 use egui_dock::NodeIndex;
+use render::{
+    camera::Camera,
+    lights::DirectionalLight,
+    mesh::{Edge, EdgeVertex, Point, Surface, SurfaceVertex},
+    model::{Material, Model, ModelEdge, ModelPoint, ModelSurface},
+    rgba,
+    scene::{Scene, SceneLights},
+    Rgb, Rgba,
+};
 use widgets::editors::{assembly::AssemblyEditor, part::PartEditor, Editor};
 
 use crate::ui::MessageBus;
@@ -74,7 +84,76 @@ pub struct EditorPane {
 impl EditorPane {
     pub fn part() -> Self {
         Self {
-            editor: Box::new(PartEditor::new()),
+            editor: Box::new(PartEditor::new(Scene::new(
+                rgba(0.1, 0.2, 0.4, 1.0),
+                SceneLights::new(
+                    vec![
+                        //AmbientLight::new(Rgb::WHITE, 0.05),
+                        //AmbientLight::new(Rgb::RED, 0.5),
+                    ],
+                    vec![
+                        DirectionalLight::new(vec3(1.0, 0.0, 1.0).normalize(), Rgb::BLUE, 1.0),
+                        DirectionalLight::new(vec3(-1.0, 0.0, 1.0).normalize(), Rgb::YELLOW, 1.0),
+                    ],
+                    vec![
+                        //PointLight::new(point3(3.0, 3.0, -5.0), Rgb::RED, 7.0),
+                        //PointLight::new(point3(-3.0, -3.0, -5.0), Rgb::GREEN, 2.0),
+                    ],
+                ),
+                Camera::create_perspective(
+                    [0, 0],
+                    point3(0.0, 0.0, -5.0),
+                    vec3(0.0, 0.0, 1.0),
+                    vec3(0.0, -1.0, 0.0).normalize(),
+                    Deg(70.0).into(),
+                    0.01,
+                    5.0,
+                ),
+                vec![Model::new(
+                    vec![ModelSurface::new(
+                        0.into(),
+                        Surface::new(
+                            [
+                                SurfaceVertex::new(point3(-0.9, -0.9, 0.0), vec3(0.0, 0.0, -1.0)),
+                                SurfaceVertex::new(point3(-0.9, 0.9, 0.0), vec3(0.0, 0.0, -1.0)),
+                                SurfaceVertex::new(point3(0.9, -0.9, 0.0), vec3(0.0, 0.0, -1.0)),
+                                SurfaceVertex::new(point3(0.6, 0.6, 0.0), vec3(0.0, 0.0, -1.0)),
+                            ],
+                            [0, 1, 2, 2, 1, 3],
+                        ),
+                        0,
+                    )],
+                    vec![ModelEdge::new(
+                        0.into(),
+                        Edge::new([
+                            EdgeVertex::new(point3(-0.9, -0.9, 0.0), vec3(0.0, 0.0, -1.0)),
+                            EdgeVertex::new(point3(-0.9, 0.9, 0.0), vec3(0.0, 0.0, -1.0)),
+                            EdgeVertex::new(point3(0.9, -0.9, 0.0), vec3(0.0, 0.0, -1.0)),
+                            EdgeVertex::new(point3(0.6, 0.6, 0.0), vec3(0.0, 0.0, -1.0)),
+                        ]),
+                        Rgba::BLACK,
+                    )],
+                    vec![
+                        ModelPoint::new(
+                            0.into(),
+                            Point::new(point3(-0.9, -0.9, 0.0), vec3(0.0, 0.0, -1.0)),
+                        ),
+                        ModelPoint::new(
+                            0.into(),
+                            Point::new(point3(-0.9, 0.9, 0.0), vec3(0.0, 0.0, -1.0)),
+                        ),
+                        ModelPoint::new(
+                            0.into(),
+                            Point::new(point3(0.9, -0.9, 0.0), vec3(0.0, 0.0, -1.0)),
+                        ),
+                        ModelPoint::new(
+                            0.into(),
+                            Point::new(point3(0.6, 0.6, 0.0), vec3(0.0, 0.0, -1.0)),
+                        ),
+                    ],
+                )],
+                vec![Material::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],
+            ))),
         }
     }
 

@@ -8,6 +8,7 @@ mod material;
 
 pub use material::*;
 
+#[derive(Clone, Debug)]
 pub struct ModelObjectId(u32);
 impl From<u32> for ModelObjectId {
     fn from(value: u32) -> Self {
@@ -67,6 +68,7 @@ impl BufferedPointVertex {
 }
 vulkano::impl_vertex!(BufferedPointVertex, position, expand);
 
+#[derive(Clone)]
 pub struct ModelSurface {
     id: ModelObjectId,
     surface: Surface,
@@ -90,6 +92,7 @@ impl ModelSurface {
     }
 }
 
+#[derive(Clone)]
 pub struct ModelEdge {
     id: ModelObjectId,
     edge: Edge,
@@ -109,6 +112,7 @@ impl ModelEdge {
     }
 }
 
+#[derive(Clone)]
 pub struct ModelPoint {
     id: ModelObjectId,
     point: Point,
@@ -123,6 +127,7 @@ impl ModelPoint {
     }
 }
 
+#[derive(Clone)]
 pub struct Model {
     surfaces: Vec<ModelSurface>,
     edges: Vec<ModelEdge>,

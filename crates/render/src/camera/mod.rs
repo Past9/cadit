@@ -1,21 +1,162 @@
-use cgmath::{EuclideanSpace, InnerSpace, SquareMatrix};
+use cgmath::{
+    point3, vec2, vec3, vec4, Angle, Deg, EuclideanSpace, InnerSpace, Matrix4, Point3, Quaternion,
+    Rad, Rotation3, SquareMatrix, Vector2, Vector3, Vector4,
+};
 
-use super::cgmath_types::*;
-use cgmath::Angle;
+#[derive(Debug, Clone, Copy)]
+pub enum CameraAngle {
+    // Faces
+    Front,
+    Right,
+    Back,
+    Left,
+    Top,
+    Bottom,
+
+    // Edges
+    FrontRight,
+    BackRight,
+    BackLeft,
+    FrontLeft,
+    FrontTop,
+    BackTop,
+    FrontBottom,
+    BackBottom,
+    RightTop,
+    LeftTop,
+    RightBottom,
+    LeftBottom,
+
+    // Corners
+    FrontRightTop,
+    BackRightTop,
+    BackLeftTop,
+    FrontLeftTop,
+    FrontRightBottom,
+    BackRightBottom,
+    BackLeftBottom,
+    FrontLeftBottom,
+}
+impl CameraAngle {
+    pub fn from_name(name: &str) -> Option<Self> {
+        match &*name {
+            "Front" => Some(Self::Front),
+            "Right" => Some(Self::Right),
+            "Back" => Some(Self::Back),
+            "Left" => Some(Self::Left),
+            "Top" => Some(Self::Top),
+            "Bottom" => Some(Self::Bottom),
+            "FrontRight" => Some(Self::FrontRight),
+            "BackRight" => Some(Self::BackRight),
+            "BackLeft" => Some(Self::BackLeft),
+            "FrontLeft" => Some(Self::FrontLeft),
+            "FrontTop" => Some(Self::FrontTop),
+            "BackTop" => Some(Self::BackTop),
+            "FrontBottom" => Some(Self::FrontBottom),
+            "BackBottom" => Some(Self::BackBottom),
+            "RightTop" => Some(Self::RightTop),
+            "LeftTop" => Some(Self::LeftTop),
+            "RightBottom" => Some(Self::RightBottom),
+            "LeftBottom" => Some(Self::LeftBottom),
+            "FrontRightTop" => Some(Self::FrontRightTop),
+            "BackRightTop" => Some(Self::BackRightTop),
+            "BackLeftTop" => Some(Self::BackLeftTop),
+            "FrontLeftTop" => Some(Self::FrontLeftTop),
+            "FrontRightBottom" => Some(Self::FrontRightBottom),
+            "BackRightBottom" => Some(Self::BackRightBottom),
+            "BackLeftBottom" => Some(Self::BackLeftBottom),
+            "FrontLeftBottom" => Some(Self::FrontLeftBottom),
+            _ => None,
+        }
+    }
+
+    pub fn get_rotation(&self) -> Quaternion<f32> {
+        let x: i32 = match self {
+            // Faces
+            CameraAngle::Front => 0,
+            CameraAngle::Right => 0,
+            CameraAngle::Back => 0,
+            CameraAngle::Left => 0,
+            CameraAngle::Top => 270,
+            CameraAngle::Bottom => 90,
+
+            // Edges
+            CameraAngle::FrontRight => 0,
+            CameraAngle::BackRight => 0,
+            CameraAngle::BackLeft => 0,
+            CameraAngle::FrontLeft => 0,
+            CameraAngle::FrontTop => -45,
+            CameraAngle::BackTop => -45,
+            CameraAngle::FrontBottom => 45,
+            CameraAngle::BackBottom => 45,
+            CameraAngle::RightTop => -45,
+            CameraAngle::LeftTop => -45,
+            CameraAngle::RightBottom => 45,
+            CameraAngle::LeftBottom => 45,
+
+            // Corners
+            CameraAngle::FrontRightTop => -45,
+            CameraAngle::BackRightTop => -45,
+            CameraAngle::BackLeftTop => -45,
+            CameraAngle::FrontLeftTop => -45,
+            CameraAngle::FrontRightBottom => 45,
+            CameraAngle::BackRightBottom => 45,
+            CameraAngle::BackLeftBottom => 45,
+            CameraAngle::FrontLeftBottom => 45,
+        };
+
+        let y: i32 = match self {
+            // Faces
+            CameraAngle::Front => 0,
+            CameraAngle::Right => -90,
+            CameraAngle::Back => 180,
+            CameraAngle::Left => 90,
+            CameraAngle::Top => 0,
+            CameraAngle::Bottom => 0,
+
+            // Edges
+            CameraAngle::FrontRight => -45,
+            CameraAngle::BackRight => -135,
+            CameraAngle::BackLeft => 135,
+            CameraAngle::FrontLeft => 45,
+            CameraAngle::FrontTop => 0,
+            CameraAngle::BackTop => 180,
+            CameraAngle::FrontBottom => 0,
+            CameraAngle::BackBottom => 180,
+            CameraAngle::RightTop => -90,
+            CameraAngle::LeftTop => 90,
+            CameraAngle::RightBottom => -90,
+            CameraAngle::LeftBottom => 90,
+
+            // Corners
+            CameraAngle::FrontRightTop => -45,
+            CameraAngle::BackRightTop => -135,
+            CameraAngle::BackLeftTop => 135,
+            CameraAngle::FrontLeftTop => 45,
+            CameraAngle::FrontRightBottom => -45,
+            CameraAngle::BackRightBottom => -135,
+            CameraAngle::BackLeftBottom => 135,
+            CameraAngle::FrontLeftBottom => 45,
+        };
+
+        Quaternion::from_angle_x(Deg(x as f32)) * Quaternion::from_angle_y(Deg(y as f32))
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum ProjectionType {
     Orthographic { height: f32 },
-    Perspective { fov_y: Rad },
+    Perspective { fov_y: Rad<f32> },
 }
 
+#[derive(Clone, Debug)]
 struct Frustum {
-    near: Vec4,
-    far: Vec4,
-    right: Vec4,
-    left: Vec4,
-    top: Vec4,
-    bottom: Vec4,
+    near: Vector4<f32>,
+    far: Vector4<f32>,
+    right: Vector4<f32>,
+    left: Vector4<f32>,
+    top: Vector4<f32>,
+    bottom: Vector4<f32>,
 }
 impl Frustum {
     pub fn zero() -> Self {
@@ -30,25 +171,26 @@ impl Frustum {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Camera {
     viewport_in_pixels: [u32; 2],
     projection_type: ProjectionType,
     near_dist: f32,
     far_dist: f32,
-    position: Point3,
-    direction: Vec3,
-    up: Vec3,
-    view_matrix: Mat4,
-    perspective_matrix: Mat4,
-    screen_to_ray_matrix: Mat4,
+    position: Point3<f32>,
+    direction: Vector3<f32>,
+    up: Vector3<f32>,
+    view_matrix: Matrix4<f32>,
+    perspective_matrix: Matrix4<f32>,
+    screen_to_ray_matrix: Matrix4<f32>,
     frustum: Frustum,
 }
 impl Camera {
     pub fn create_orthographic(
         viewport_in_pixels: [u32; 2],
-        position: Point3,
-        direction: Vec3,
-        up: Vec3,
+        position: Point3<f32>,
+        direction: Vector3<f32>,
+        up: Vector3<f32>,
         height: f32,
         near_dist: f32,
         far_dist: f32,
@@ -64,16 +206,16 @@ impl Camera {
         camera
     }
 
-    pub fn projection_matrix(&self) -> Mat4 {
+    pub fn projection_matrix(&self) -> Matrix4<f32> {
         self.perspective_matrix() * self.view_matrix()
     }
 
     pub fn create_perspective(
         viewport_in_pixels: [u32; 2],
-        position: Point3,
-        direction: Vec3,
-        up: Vec3,
-        fov_y: Rad,
+        position: Point3<f32>,
+        direction: Vector3<f32>,
+        up: Vector3<f32>,
+        fov_y: Rad<f32>,
         near_dist: f32,
         far_dist: f32,
     ) -> Self {
@@ -119,7 +261,7 @@ impl Camera {
         self.update_frustum();
     }
 
-    pub fn orient(&mut self, position: Point3, direction: Vec3, up: Vec3) {
+    pub fn orient(&mut self, position: Point3<f32>, direction: Vector3<f32>, up: Vector3<f32>) {
         self.position = position;
         self.direction = direction;
         self.up = up;
@@ -135,7 +277,7 @@ impl Camera {
         top: f32,
         near: f32,
         far: f32,
-    ) -> Mat4 {
+    ) -> Matrix4<f32> {
         let c0r0 = 2.0 / (right - left);
         let c0r1 = 0.0;
         let c0r2 = 0.0;
@@ -157,7 +299,7 @@ impl Camera {
         let c3r3 = 1.0;
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
-        Mat4::new(
+        Matrix4::new(
             c0r0, c0r1, c0r2, c0r3,
             c1r0, c1r1, c1r2, c1r3,
             c2r0, c2r1, c2r2, c2r3,
@@ -165,7 +307,7 @@ impl Camera {
         )
     }
 
-    fn make_perspective_matrix(fov_y: Rad, aspect: f32, near: f32, far: f32) -> Mat4 {
+    fn make_perspective_matrix(fov_y: Rad<f32>, aspect: f32, near: f32, far: f32) -> Matrix4<f32> {
         let f = Rad::cot(fov_y / 2.0);
 
         let c0r0 = f / aspect;
@@ -189,7 +331,7 @@ impl Camera {
         let c3r3 = 0.0;
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
-        Mat4::new(
+        Matrix4::new(
             c0r0, c0r1, c0r2, c0r3,
             c1r0, c1r1, c1r2, c1r3,
             c2r0, c2r1, c2r2, c2r3,
@@ -197,13 +339,13 @@ impl Camera {
         )
     }
 
-    fn make_view_matrix(pos: Point3, dir: Vec3, up: Vec3) -> Mat4 {
+    fn make_view_matrix(pos: Point3<f32>, dir: Vector3<f32>, up: Vector3<f32>) -> Matrix4<f32> {
         let f = dir.normalize();
         let s = f.cross(up).normalize();
         let u = f.cross(s);
 
         #[cfg_attr(rustfmt, rustfmt_skip)]
-        Mat4::new(
+        Matrix4::new(
             s.x.clone(), u.x.clone(), f.x.clone(), 0.0,
             s.y.clone(), u.y.clone(), f.y.clone(), 0.0,
             s.z.clone(), u.z.clone(), f.z.clone(), 0.0,
@@ -211,11 +353,11 @@ impl Camera {
         )
     }
 
-    pub fn vec_to(&self, location: Point3) -> Vec3 {
+    pub fn vec_to(&self, location: Point3<f32>) -> Vector3<f32> {
         location - self.position
     }
 
-    pub fn viewport_size_at_dist(&self, dist: f32) -> Vec2 {
+    pub fn viewport_size_at_dist(&self, dist: f32) -> Vector2<f32> {
         match self.projection_type {
             ProjectionType::Orthographic { height } => vec2(height * self.aspect(), height),
             ProjectionType::Perspective { fov_y } => {
@@ -237,11 +379,11 @@ impl Camera {
         self.viewport_in_pixels[0] as f32 / self.viewport_in_pixels[1] as f32
     }
 
-    pub fn view_matrix(&self) -> &Mat4 {
+    pub fn view_matrix(&self) -> &Matrix4<f32> {
         &self.view_matrix
     }
 
-    pub fn perspective_matrix(&self) -> &Mat4 {
+    pub fn perspective_matrix(&self) -> &Matrix4<f32> {
         &self.perspective_matrix
     }
 
@@ -277,9 +419,9 @@ impl Camera {
             position: point3(0.0, 0.0, 0.0),
             direction: vec3(0.0, 0.0, 0.0),
             up: vec3(0.0, 0.0, 0.0),
-            view_matrix: Mat4::identity(),
-            perspective_matrix: Mat4::identity(),
-            screen_to_ray_matrix: Mat4::identity(),
+            view_matrix: Matrix4::identity(),
+            perspective_matrix: Matrix4::identity(),
+            screen_to_ray_matrix: Matrix4::identity(),
             frustum: Frustum::zero(),
         }
     }

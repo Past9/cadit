@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use cgmath::{Point3, Vector2, Vector3};
 use vulkano::{
     buffer::{CpuAccessibleBuffer, TypedBufferAccess},
     command_buffer::{
@@ -34,7 +35,6 @@ use vulkano::{
 use crate::PixelViewport;
 
 use super::{
-    cgmath_types::{Point3, Vec2, Vec3},
     model::{BufferedEdgeVertex, BufferedPointVertex, BufferedSurfaceVertex},
     scene::Scene,
 };
@@ -132,11 +132,11 @@ impl Renderer {
         }
     }
 
-    pub fn camera_vec_to(&self, location: Point3) -> Vec3 {
+    pub fn camera_vec_to(&self, location: Point3<f32>) -> Vector3<f32> {
         self.scene.camera().vec_to(location)
     }
 
-    pub fn viewport_size_at_dist(&self, dist: f32) -> Vec2 {
+    pub fn viewport_size_at_dist(&self, dist: f32) -> Vector2<f32> {
         self.scene.camera().viewport_size_at_dist(dist)
     }
 

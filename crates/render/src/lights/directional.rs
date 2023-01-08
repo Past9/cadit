@@ -1,24 +1,22 @@
 use std::sync::Arc;
 
+use cgmath::{vec3, Vector3};
 use crevice::std140::AsStd140;
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
     memory::allocator::MemoryAllocator,
 };
 
-use crate::{
-    cgmath_types::{vec3, Vec3},
-    Rgb,
-};
+use crate::Rgb;
 
 #[derive(AsStd140, Clone, Debug)]
 pub struct DirectionalLight {
-    direction: Vec3,
+    direction: Vector3<f32>,
     color: Rgb,
     intensity: f32,
 }
 impl DirectionalLight {
-    pub fn new(direction: Vec3, color: Rgb, intensity: f32) -> Self {
+    pub fn new(direction: Vector3<f32>, color: Rgb, intensity: f32) -> Self {
         Self {
             direction,
             color,

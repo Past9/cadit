@@ -1,35 +1,25 @@
-use cgmath::{Deg, InnerSpace};
+use cgmath::{Point3, Quaternion, Vector2, Vector3};
 use eframe::epaint::{PaintCallbackInfo, Pos2};
 use egui_winit_vulkano::{CallbackContext, RenderResources};
 use vulkano::image::SampleCount;
 
-use render::{
-    camera::Camera,
-    cgmath_types::{point3, vec3, Point3, Quat, Vec2, Vec3},
-    lights::DirectionalLight,
-    mesh::{Edge, EdgeVertex, Point, Surface, SurfaceVertex},
-    model::{Material, Model, ModelEdge, ModelPoint, ModelSurface},
-    renderer::Renderer,
-    rgba,
-    scene::{Scene, SceneLights},
-    PixelViewport, Rgb, Rgba,
-};
+use render::{renderer::Renderer, scene::Scene, PixelViewport};
 
 use super::{egui_transfer::EguiTransfer, ColorId, SceneObject};
 
 pub(super) struct GuiRenderer {
-    color: [f32; 4],
+    scene: Option<Scene>,
     internal: Option<InternalGuiRenderer>,
 }
 impl GuiRenderer {
-    pub(super) fn empty(color: [f32; 4]) -> Self {
+    pub(super) fn empty(scene: Scene) -> Self {
         Self {
-            color,
+            scene: Some(scene),
             internal: None,
         }
     }
 
-    pub(super) fn camera_vec_to(&self, location: Point3) -> Option<Vec3> {
+    pub(super) fn camera_vec_to(&self, location: Point3<f32>) -> Option<Vector3<f32>> {
         if let Some(ref renderer) = self.internal {
             Some(renderer.camera_vec_to(location))
         } else {
@@ -37,7 +27,7 @@ impl GuiRenderer {
         }
     }
 
-    pub(super) fn viewport_size_at_dist(&self, dist: f32) -> Option<Vec2> {
+    pub(super) fn viewport_size_at_dist(&self, dist: f32) -> Option<Vector2<f32>> {
         if let Some(ref renderer) = self.internal {
             Some(renderer.viewport_size_at_dist(dist))
         } else {
@@ -83,7 +73,7 @@ impl GuiRenderer {
         self.require_internal_mut(&ctx.resources).render(info, ctx);
     }
 
-    pub(super) fn set_rotation(&mut self, rotation: Quat) {
+    pub(super) fn set_rotation(&mut self, rotation: Quaternion<f32>) {
         if let Some(ref mut internal) = self.internal {
             internal
                 .scene_renderer
@@ -93,7 +83,7 @@ impl GuiRenderer {
         }
     }
 
-    pub(super) fn set_position(&mut self, offset: Vec3) {
+    pub(super) fn set_position(&mut self, offset: Vector3<f32>) {
         if let Some(ref mut internal) = self.internal {
             internal
                 .scene_renderer
@@ -105,7 +95,7 @@ impl GuiRenderer {
 
     fn require_internal<'a>(&mut self, resources: &RenderResources<'a>) -> &InternalGuiRenderer {
         self.internal
-            .get_or_insert_with(|| InternalGuiRenderer::new(resources))
+            .get_or_insert_with(|| InternalGuiRenderer::new(self.scene.take().unwrap(), resources))
     }
 
     fn require_internal_mut<'a>(
@@ -113,7 +103,7 @@ impl GuiRenderer {
         resources: &RenderResources<'a>,
     ) -> &mut InternalGuiRenderer {
         self.internal
-            .get_or_insert_with(|| InternalGuiRenderer::new(resources))
+            .get_or_insert_with(|| InternalGuiRenderer::new(self.scene.take().unwrap(), resources))
     }
 }
 
@@ -122,78 +112,9 @@ struct InternalGuiRenderer {
     transfer: EguiTransfer,
 }
 impl InternalGuiRenderer {
-    fn new<'a>(resources: &RenderResources<'a>) -> Self {
+    fn new<'a>(scene: Scene, resources: &RenderResources<'a>) -> Self {
         let renderer = Renderer::new(
-            Scene::new(
-                rgba(0.0, 0.05, 0.08, 1.0),
-                SceneLights::new(
-                    vec![
-                        //AmbientLight::new(Rgb::WHITE, 0.05),
-                        //AmbientLight::new(Rgb::RED, 0.5),
-                    ],
-                    vec![
-                        DirectionalLight::new(vec3(1.0, 0.0, 1.0).normalize(), Rgb::BLUE, 1.0),
-                        DirectionalLight::new(vec3(-1.0, 0.0, 1.0).normalize(), Rgb::YELLOW, 1.0),
-                    ],
-                    vec![
-                        //PointLight::new(point3(3.0, 3.0, -5.0), Rgb::RED, 7.0),
-                        //PointLight::new(point3(-3.0, -3.0, -5.0), Rgb::GREEN, 2.0),
-                    ],
-                ),
-                Camera::create_perspective(
-                    [0, 0],
-                    point3(0.0, 0.0, -5.0),
-                    vec3(0.0, 0.0, 1.0),
-                    vec3(0.0, -1.0, 0.0).normalize(),
-                    Deg(70.0).into(),
-                    0.01,
-                    5.0,
-                ),
-                vec![Model::new(
-                    vec![ModelSurface::new(
-                        0.into(),
-                        Surface::new(
-                            [
-                                SurfaceVertex::new(point3(-0.9, -0.9, 0.0), vec3(0.0, 0.0, -1.0)),
-                                SurfaceVertex::new(point3(-0.9, 0.9, 0.0), vec3(0.0, 0.0, -1.0)),
-                                SurfaceVertex::new(point3(0.9, -0.9, 0.0), vec3(0.0, 0.0, -1.0)),
-                                SurfaceVertex::new(point3(0.6, 0.6, 0.0), vec3(0.0, 0.0, -1.0)),
-                            ],
-                            [0, 1, 2, 2, 1, 3],
-                        ),
-                        0,
-                    )],
-                    vec![ModelEdge::new(
-                        0.into(),
-                        Edge::new([
-                            EdgeVertex::new(point3(-0.9, -0.9, 0.0), vec3(0.0, 0.0, -1.0)),
-                            EdgeVertex::new(point3(-0.9, 0.9, 0.0), vec3(0.0, 0.0, -1.0)),
-                            EdgeVertex::new(point3(0.9, -0.9, 0.0), vec3(0.0, 0.0, -1.0)),
-                            EdgeVertex::new(point3(0.6, 0.6, 0.0), vec3(0.0, 0.0, -1.0)),
-                        ]),
-                        Rgba::BLACK,
-                    )],
-                    vec![
-                        ModelPoint::new(
-                            0.into(),
-                            Point::new(point3(-0.9, -0.9, 0.0), vec3(0.0, 0.0, -1.0)),
-                        ),
-                        ModelPoint::new(
-                            0.into(),
-                            Point::new(point3(-0.9, 0.9, 0.0), vec3(0.0, 0.0, -1.0)),
-                        ),
-                        ModelPoint::new(
-                            0.into(),
-                            Point::new(point3(0.9, -0.9, 0.0), vec3(0.0, 0.0, -1.0)),
-                        ),
-                        ModelPoint::new(
-                            0.into(),
-                            Point::new(point3(0.6, 0.6, 0.0), vec3(0.0, 0.0, -1.0)),
-                        ),
-                    ],
-                )],
-                vec![Material::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],
-            ),
+            scene,
             SampleCount::Sample8,
             &resources.memory_allocator,
             &resources.descriptor_set_allocator,
@@ -207,11 +128,11 @@ impl InternalGuiRenderer {
         }
     }
 
-    fn camera_vec_to(&self, location: Point3) -> Vec3 {
+    fn camera_vec_to(&self, location: Point3<f32>) -> Vector3<f32> {
         self.scene_renderer.camera_vec_to(location)
     }
 
-    fn viewport_size_at_dist(&self, dist: f32) -> Vec2 {
+    fn viewport_size_at_dist(&self, dist: f32) -> Vector2<f32> {
         self.scene_renderer.viewport_size_at_dist(dist)
     }
 
@@ -258,14 +179,14 @@ impl InternalGuiRenderer {
         self.scene_renderer.scene_mut()
     }
 
-    fn set_rotation(&mut self, rotation: Quat) {
+    fn set_rotation(&mut self, rotation: Quaternion<f32>) {
         self.scene_renderer
             .scene_mut()
             .orientation_mut()
             .set_rotation(rotation);
     }
 
-    fn set_offset(&mut self, offset: Vec3) {
+    fn set_offset(&mut self, offset: Vector3<f32>) {
         self.scene_renderer
             .scene_mut()
             .orientation_mut()

@@ -1,24 +1,22 @@
 use std::sync::Arc;
 
+use cgmath::{point3, Point3};
 use crevice::std140::AsStd140;
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
     memory::allocator::MemoryAllocator,
 };
 
-use crate::{
-    cgmath_types::{point3, Point3},
-    Rgb,
-};
+use crate::Rgb;
 
 #[derive(AsStd140, Clone, Debug)]
 pub struct PointLight {
-    position: Point3,
+    position: Point3<f32>,
     color: Rgb,
     intensity: f32,
 }
 impl PointLight {
-    pub fn new(position: Point3, color: Rgb, intensity: f32) -> Self {
+    pub fn new(position: Point3<f32>, color: Rgb, intensity: f32) -> Self {
         Self {
             position,
             color,

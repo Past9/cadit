@@ -1,0 +1,282 @@
+use cgmath::{vec4, Vector3, Vector4};
+
+use crate::{
+    control_points::{ControlMesh, ControlPolygon},
+    knots::KnotVector,
+    math::{
+        b_spline::surface_derivatives_2,
+        nurbs::{self, insert_surface_knots},
+    },
+};
+
+use super::SurfaceFunction;
+
+#[derive(Clone, Copy, Debug)]
+pub enum SurfaceDirection {
+    U,
+    V,
+}
+impl SurfaceDirection {
+    pub fn name(&self) -> String {
+        match self {
+            SurfaceDirection::U => "U",
+            SurfaceDirection::V => "V",
+        }
+        .into()
+    }
+}
+
+pub struct NurbsSurface {
+    pub control_points: ControlMesh<Vector4<f64>>,
+    pub knot_vector_u: KnotVector,
+    pub knot_vector_v: KnotVector,
+    pub degree_u: usize,
+    pub degree_v: usize,
+}
+impl NurbsSurface {
+    pub fn new(
+        control_points: ControlMesh<Vector4<f64>>,
+        knot_vector_u: KnotVector,
+        knot_vector_v: KnotVector,
+        degree_u: usize,
+        degree_v: usize,
+    ) -> Self {
+        assert_eq!(
+            knot_vector_u.len(),
+            control_points.len() + degree_u + 1,
+            "Incorrect degree ({}), knot vector length ({}), or number of control points ({}) for dimension U",
+            degree_u,
+            knot_vector_u.len(),
+            control_points.len()
+        );
+
+        assert_eq!(
+            knot_vector_v.len(),
+            control_points[0].len() + degree_v + 1,
+            "Incorrect degree ({}), knot vector length ({}), or number of control points ({}) for dimension V",
+            degree_v,
+            knot_vector_v.len(),
+            control_points[0].len()
+        );
+
+        Self {
+            control_points: control_points,
+            knot_vector_u: knot_vector_u,
+            knot_vector_v: knot_vector_v,
+            degree_u,
+            degree_v,
+        }
+    }
+
+    pub fn split_at(&self, position: f64, direction: SurfaceDirection) -> (Self, Self) {
+        match direction {
+            SurfaceDirection::U => {
+                let knot_multiplicity = self.knot_vector_u.find_multiplicity(position);
+                let num_insertions = self.degree_u - knot_multiplicity;
+                let split = self.insert_knots(num_insertions, position, direction);
+
+                if let Some(knot_index) = split.knot_vector_u.find_index(position) {
+                    let knot_span = self.knot_vector_u.find_span(
+                        self.degree_u,
+                        self.control_points.len(),
+                        position,
+                    );
+
+                    let kv_len = knot_index + split.degree_u;
+                    let cp_len = kv_len - split.degree_u - 1;
+
+                    let surf1 = Self::new(
+                        ControlMesh::from_slice(&split.control_points[..cp_len]),
+                        KnotVector::from_slice(&split.knot_vector_u[..kv_len]),
+                        split.knot_vector_v.clone(),
+                        split.degree_u,
+                        split.degree_v,
+                    );
+
+                    let surf2 = Self::new(
+                        ControlMesh::from_slice(&split.control_points[knot_span + 1..]),
+                        KnotVector::from_slice(&split.knot_vector_u[knot_index..]),
+                        split.knot_vector_v.clone(),
+                        split.degree_u,
+                        split.degree_v,
+                    );
+
+                    (surf1, surf2)
+                } else {
+                    panic!(
+                        "Could not find knots at {} position {} after splitting surface",
+                        direction.name(),
+                        position
+                    );
+                }
+            }
+            SurfaceDirection::V => {
+                let knot_multiplicity = self.knot_vector_v.find_multiplicity(position);
+                let num_insertions = self.degree_v - knot_multiplicity;
+                let split = self.insert_knots(num_insertions, position, direction);
+
+                if let Some(knot_index) = split.knot_vector_v.find_index(position) {
+                    let knot_span = self.knot_vector_v.find_span(
+                        self.degree_v,
+                        self.control_points.len(),
+                        position,
+                    );
+
+                    let kv_len = knot_index + split.degree_v;
+                    let cp_len = kv_len - split.degree_v - 1;
+                    let surf1 = Self::new(
+                        ControlMesh::from_iter(
+                            split
+                                .control_points
+                                .iter()
+                                .map(|row| ControlPolygon::from_slice(&row[..cp_len])),
+                        ),
+                        split.knot_vector_u.clone(),
+                        KnotVector::from_slice(&split.knot_vector_v[..kv_len]),
+                        split.degree_u,
+                        split.degree_v,
+                    );
+
+                    let surf2 = Self::new(
+                        ControlMesh::from_iter(
+                            split
+                                .control_points
+                                .iter()
+                                .map(|row| ControlPolygon::from_slice(&row[knot_span + 1..])),
+                        ),
+                        split.knot_vector_u.clone(),
+                        KnotVector::from_slice(&split.knot_vector_v[knot_index..]),
+                        split.degree_u,
+                        split.degree_v,
+                    );
+
+                    (surf1, surf2)
+                } else {
+                    panic!(
+                        "Could not find knots at {} position {} after splitting surface",
+                        direction.name(),
+                        position
+                    );
+                }
+            }
+        }
+    }
+
+    pub fn insert_knots(
+        &self,
+        num_new_knots: usize,
+        position: f64,
+        direction: SurfaceDirection,
+    ) -> Self {
+        let (new_knot_vector_u, new_knot_vector_v, new_control_points) = insert_surface_knots(
+            self.degree_u,
+            self.degree_v,
+            direction,
+            &self.knot_vector_u,
+            &self.knot_vector_v,
+            num_new_knots,
+            position,
+            &self.control_points.to_weighted(),
+        );
+
+        Self::new(
+            new_control_points.to_unweighted(),
+            new_knot_vector_u,
+            new_knot_vector_v,
+            self.degree_u,
+            self.degree_v,
+        )
+    }
+
+    pub fn example_1() -> Self {
+        let w = 0.25;
+        Self::new(
+            ControlMesh::new([
+                ControlPolygon::new([
+                    vec4(-3.0, 2.0, -3.0, 1.0),
+                    vec4(-1.0, 2.0, -3.0, w),
+                    vec4(1.0, 2.0, -3.0, w),
+                    vec4(3.0, 2.0, -3.0, 1.0),
+                ]),
+                ControlPolygon::new([
+                    vec4(-3.0, 2.0, -1.0, w),
+                    vec4(-1.0, -2.0, -1.0, 1.0),
+                    vec4(1.0, -2.0, -1.0, 1.0),
+                    vec4(3.0, 2.0, -1.0, w),
+                ]),
+                ControlPolygon::new([
+                    vec4(-3.0, 2.0, 1.0, w),
+                    vec4(-1.0, -2.0, 1.0, 1.0),
+                    vec4(1.0, -2.0, 1.0, 1.0),
+                    vec4(3.0, 2.0, 1.0, w),
+                ]),
+                ControlPolygon::new([
+                    vec4(-3.0, 2.0, 3.0, 1.0),
+                    vec4(-1.0, 2.0, 3.0, w),
+                    vec4(1.0, 2.0, 3.0, w),
+                    vec4(3.0, 2.0, 3.0, 1.0),
+                ]),
+                ControlPolygon::new([
+                    vec4(-3.0, 2.0, 5.0, 1.0),
+                    vec4(-1.0, 2.0, 5.0, w),
+                    vec4(1.0, 2.0, 5.0, w),
+                    vec4(3.0, 2.0, 5.0, 1.0),
+                ]),
+            ]),
+            KnotVector::new([0.0, 0.0, 0.0, 0.5, 1.0, 2.0, 2.0, 2.0]),
+            KnotVector::new([0.0, 0.0, 0.0, 1.0, 2.0, 2.0, 2.0]),
+            2,
+            2,
+        )
+    }
+}
+impl SurfaceFunction for NurbsSurface {
+    fn min_u(&self) -> f64 {
+        self.knot_vector_u[0]
+    }
+
+    fn max_u(&self) -> f64 {
+        self.knot_vector_u[self.knot_vector_u.len() - 1]
+    }
+
+    fn min_v(&self) -> f64 {
+        self.knot_vector_v[0]
+    }
+
+    fn max_v(&self) -> f64 {
+        self.knot_vector_v[self.knot_vector_v.len() - 1]
+    }
+
+    fn point(&self, u: f64, v: f64) -> Vector3<f64> {
+        let first = false;
+
+        if first {
+            nurbs::surface_point(
+                &self.control_points,
+                self.degree_u,
+                self.degree_v,
+                &self.knot_vector_u,
+                &self.knot_vector_v,
+                u,
+                v,
+            )
+        } else {
+            let num_derivatives = 2;
+
+            let weighted_derivatives = surface_derivatives_2(
+                &self.control_points.to_weighted(),
+                self.degree_u,
+                self.degree_v,
+                &self.knot_vector_u,
+                &self.knot_vector_v,
+                num_derivatives,
+                u,
+                v,
+            );
+
+            let derivatives = nurbs::surface_derivatives(&weighted_derivatives, num_derivatives);
+
+            derivatives[0][0]
+        }
+    }
+}

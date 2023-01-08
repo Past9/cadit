@@ -1,4 +1,7 @@
 #![allow(dead_code)]
+use std::ops::Add;
+
+use cgmath::vec4;
 use ui::CaditUi;
 use window::{run_window, WindowDescriptor};
 

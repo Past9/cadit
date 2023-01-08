@@ -460,7 +460,6 @@ impl Renderer {
         self.add_edge_commands(&mut command_buffer_builder);
         self.add_point_commands(&mut command_buffer_builder);
 
-        // Finish
         command_buffer_builder.end_render_pass().unwrap();
 
         let command_buffer = command_buffer_builder.build().unwrap();
@@ -474,7 +473,7 @@ impl Renderer {
     }
 
     fn add_surface_commands(
-        &mut self,
+        &self,
         builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
     ) {
         let push_constants = surface_vs::ty::PushConstants {
@@ -503,10 +502,7 @@ impl Renderer {
         }
     }
 
-    fn add_edge_commands(
-        &mut self,
-        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
-    ) {
+    fn add_edge_commands(&self, builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>) {
         builder
             .next_subpass(SubpassContents::Inline)
             .unwrap()
@@ -520,10 +516,7 @@ impl Renderer {
         }
     }
 
-    fn add_point_commands(
-        &mut self,
-        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
-    ) {
+    fn add_point_commands(&self, builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>) {
         builder
             .next_subpass(SubpassContents::Inline)
             .unwrap()

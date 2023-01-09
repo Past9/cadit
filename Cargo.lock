@@ -1981,6 +1981,7 @@ dependencies = [
  "egui-modal",
  "egui_dock",
  "render",
+ "spline",
  "thiserror",
  "widgets",
  "window",

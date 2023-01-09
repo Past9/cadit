@@ -357,6 +357,8 @@ where
                 knot_vector_u.find_span(degree_u, weighted_control_points.len(), position);
             let knot_multiplicity_u = knot_vector_u.find_multiplicity(position);
 
+            println!("{} {} {}", num_insertions, knot_multiplicity_u, degree_u);
+
             assert!(
                 num_insertions + knot_multiplicity_u <= degree_u,
                 "Maximum number of knots already exist at u = {}",

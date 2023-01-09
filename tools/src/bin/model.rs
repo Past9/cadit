@@ -34,39 +34,20 @@ pub struct App {
 }
 impl App {
     pub fn new() -> Self {
-        let mut new_surface = spline::surfaces::nurbs::NurbsSurface::example_1();
+        let surface = spline::surfaces::nurbs::NurbsSurface::example_1();
 
         let start = Instant::now();
 
-        let res = 100;
-        let margin = 0.0001;
+        let res_u = 100;
+        let res_v = 100;
 
-        let min_u = new_surface.knot_vector_u[0] + margin;
-        let max_u = new_surface.knot_vector_u[new_surface.knot_vector_u.len() - 1] - margin;
+        let points = surface.points(res_u, res_v);
 
-        let min_v = new_surface.knot_vector_v[0] + margin;
-        let max_v = new_surface.knot_vector_v[new_surface.knot_vector_v.len() - 1] - margin;
+        let s1pts = points.iter().map(|p| p.iter()).flatten().map(|p| p.clone());
 
-        for i in FloatRange::new(0.0, 1.0, res) {
-            let u = i * (max_u - min_u) + min_u;
-            new_surface = new_surface.insert_knots(1, u, SurfaceDirection::U);
+        //println!("{:#?}", surf1.control_points);
 
-            let v = i * (max_v - min_v) + min_v;
-            new_surface = new_surface.insert_knots(1, v, SurfaceDirection::V);
-        }
-
-        let (surf1, tempsurf) = new_surface.split_at(0.75, SurfaceDirection::U);
-        let (surf2, surf3) = tempsurf.split_at(0.75, SurfaceDirection::V);
-
-        let offset = 0.2;
-
-        let s1pts = surf1
-            .control_points
-            .iter()
-            .map(|p| p.iter())
-            .flatten()
-            .map(|p| p.clone().cartesian_components() + Vec3::new(0.0, 0.0, -offset));
-
+        /*
         let s2pts = surf2
             .control_points
             .iter()
@@ -80,10 +61,11 @@ impl App {
             .map(|p| p.iter())
             .flatten()
             .map(|p| p.clone().cartesian_components() + Vec3::new(offset, 0.0, offset));
+        */
 
         let points = s1pts
-            .chain(s2pts)
-            .chain(s3pts)
+            //.chain(s2pts)
+            //.chain(s3pts)
             .map(|p| {
                 ModelPoint::new(
                     0.into(),

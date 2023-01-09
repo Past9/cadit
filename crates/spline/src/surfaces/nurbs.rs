@@ -4,7 +4,7 @@ use crate::{
     math::{
         b_spline::surface_derivatives_2,
         nurbs::{self, insert_surface_knots},
-        Float, Vec3, Vec4,
+        Float, FloatRange, Vec3, Vec4,
     },
 };
 
@@ -227,6 +227,18 @@ impl NurbsSurface {
             2,
             2,
         )
+    }
+
+    pub fn points(&self, res_u: usize, res_v: usize) -> Vec<Vec<Vec3>> {
+        let mut points = Vec::new();
+        for u in FloatRange::new(self.min_u(), self.max_u(), res_u) {
+            let v_points = FloatRange::new(self.min_v(), self.max_v(), res_v)
+                .map(|v| self.point(u, v))
+                .collect::<Vec<_>>();
+            points.push(v_points);
+        }
+
+        points
     }
 }
 impl SurfaceFunction for NurbsSurface {

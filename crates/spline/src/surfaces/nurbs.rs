@@ -187,6 +187,25 @@ impl NurbsSurface {
         )
     }
 
+    pub fn example_warped_square() -> Self {
+        Self::new(
+            ControlMesh::new([
+                ControlPolygon::new([
+                    Vec4::new(-2.0, -1.0, -2.0, 1.0),
+                    Vec4::new(2.0, 1.0, -2.0, 1.0),
+                ]),
+                ControlPolygon::new([
+                    Vec4::new(-2.0, 1.0, 2.0, 1.0),
+                    Vec4::new(2.0, -1.0, 2.0, 1.0),
+                ]),
+            ]),
+            KnotVector::new([0.0, 0.0, 1.0, 1.0]),
+            KnotVector::new([0.0, 0.0, 1.0, 1.0]),
+            1,
+            1,
+        )
+    }
+
     pub fn example_1() -> Self {
         let w = 0.25;
         Self::new(
@@ -272,7 +291,7 @@ impl SurfaceFunction for NurbsSurface {
                 v,
             )
         } else {
-            let num_derivatives = 2;
+            let num_derivatives = 0;
 
             let weighted_derivatives = surface_derivatives_2(
                 &self.control_points.to_weighted(),

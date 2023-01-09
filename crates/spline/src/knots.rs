@@ -54,6 +54,10 @@ impl KnotVector {
         let mut high = num_ctrl_points + 1;
         let mut mid = (low + high) / 2;
 
+        let mut last_low = low;
+        let mut last_mid = mid;
+        let mut last_high = high;
+
         while pos < self.knots[mid] || pos >= self.knots[mid + 1] {
             if pos < self.knots[mid] {
                 high = mid;
@@ -62,6 +66,14 @@ impl KnotVector {
             }
 
             mid = (low + high) / 2;
+
+            if low == last_low && mid == last_mid && high == last_high {
+                panic!("Infinite loop while searching for knot span");
+            }
+
+            last_low = low;
+            last_mid = mid;
+            last_high = high;
         }
 
         return mid;

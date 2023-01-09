@@ -34,16 +34,31 @@ pub struct App {
 }
 impl App {
     pub fn new() -> Self {
-        let surface = spline::surfaces::nurbs::NurbsSurface::example_1();
-
         let start = Instant::now();
+        let surface = spline::surfaces::nurbs::NurbsSurface::example_1();
+        let points = surface.points(100, 100);
+
+        /*
+        let curve = spline::curves::nurbs::NurbsCurve::example_simple();
+
 
         let res_u = 100;
         let res_v = 100;
 
-        let points = surface.points(res_u, res_v);
+        let points = curve.points(res_u);
+        //let s1pts = points.clone();
+        let s1pts = curve.control_points.iter().map(|p| p.clone());
+        */
 
         let s1pts = points.iter().map(|p| p.iter()).flatten().map(|p| p.clone());
+        /*
+        let s1pts = surface
+            .control_points
+            .iter()
+            .map(|p| p.iter())
+            .flatten()
+            .map(|p| p.clone());
+            */
 
         //println!("{:#?}", surf1.control_points);
 

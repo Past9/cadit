@@ -4,7 +4,7 @@ use crate::{
     math::{
         b_spline::curve_derivatives_2,
         nurbs::{self, insert_curve_knots, refine_curve},
-        Float, Vec3, Vec4,
+        Float, FloatRange, Vec2, Vec3, Vec4,
     },
 };
 
@@ -98,6 +98,18 @@ impl NurbsCurve {
         )
     }
 
+    pub fn example_simple() -> Self {
+        Self::new(
+            ControlPolygon::new([
+                Vec4::new(-2.0, 2.0, 0.0, 1.0),
+                Vec4::new(0.0, -2.0, 0.0, 1.0),
+                Vec4::new(2.0, 2.0, 0.0, 1.0),
+            ]),
+            KnotVector::new([0.0, 0.0, 0.0, 1.0, 1.0, 1.0]),
+            2,
+        )
+    }
+
     pub fn example_refinement() -> Self {
         Self::new(
             ControlPolygon::new([
@@ -144,6 +156,12 @@ impl NurbsCurve {
             ]),
             2,
         )
+    }
+
+    pub fn points(&self, res_u: usize) -> Vec<Vec3> {
+        FloatRange::new(self.min_u(), self.max_u(), res_u)
+            .map(|u| self.point(u))
+            .collect::<Vec<_>>()
     }
 }
 impl CurveFunction for NurbsCurve {

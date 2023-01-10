@@ -3,7 +3,7 @@ use crate::{
     knots::KnotVector,
 };
 
-use super::{Float, Zero};
+use super::{Float, HPoint3, Point3, WPoint3, Zero, ZeroHomogeneous};
 
 /// Evaluates the basis functions at `u`
 pub fn eval_basis_function(
@@ -303,19 +303,18 @@ pub fn eval_single_basis_function_derivatives(
 }
 
 /// Evaluates a B-Spline curve at `u`.
-pub fn curve_point<T>(control_points: &[T], degree: usize, knot_vector: &KnotVector, u: Float) -> T
+pub fn curve_point(
+    control_points: &[HPoint3],
+    degree: usize,
+    knot_vector: &KnotVector,
+    u: Float,
+) -> HPoint3
 where
-    T: Copy
-        + Clone
-        + Zero
-        + std::ops::Mul<Float, Output = T>
-        + std::ops::Add<Float, Output = T>
-        + std::ops::Add<T, Output = T>,
 {
     let knot_span = knot_vector.find_span(degree, control_points.len(), u);
     let basis_values = eval_basis_function(degree, knot_span, knot_vector, u);
 
-    let mut point = T::zero();
+    let mut point = HPoint3::zero();
     for i in 0..=degree {
         point = point + control_points[knot_span - degree + i] * basis_values[i];
     }
@@ -328,23 +327,15 @@ where
 /// derivative and evaluating them.
 ///
 /// Appears to be slower than `curve_derivatives_2`.
-pub fn curve_derivatives_1<T>(
-    control_points: &[T],
+pub fn curve_derivatives_1(
+    control_points: &[HPoint3],
     degree: usize,
     knot_vector: &KnotVector,
     num_derivatives: usize,
     u: Float,
-) -> Vec<T>
-where
-    T: Copy
-        + Clone
-        + Zero
-        + std::ops::Mul<Float, Output = T>
-        + std::ops::Add<Float, Output = T>
-        + std::ops::Add<T, Output = T>,
-{
+) -> Vec<HPoint3> {
     let du = usize::min(num_derivatives, degree);
-    let mut derivatives = vec![T::zero(); du + 1];
+    let mut derivatives = vec![HPoint3::zero(); du + 1];
 
     let knot_span = knot_vector.find_span(degree, control_points.len(), u);
     let basis_derivatives = eval_basis_function_derivatives(degree, knot_span, knot_vector, du, u);
@@ -363,28 +354,18 @@ where
 /// Creates a new derivative curve for each derivative and evaluates it at `u`.
 ///
 /// Appears to be faster than `curve_derivatives_1`.
-pub fn curve_derivatives_2<T>(
-    control_points: &ControlPolygon<T>,
+pub fn curve_derivatives_2(
+    control_points: &ControlPolygon,
     degree: usize,
     knot_vector: &KnotVector,
     num_derivatives: usize,
     u: Float,
-) -> ControlPolygon<T>
-where
-    T: Copy
-        + Clone
-        + Zero
-        + std::ops::Mul<Float, Output = T>
-        + std::ops::Add<Float, Output = T>
-        + std::ops::Add<T, Output = T>
-        + std::ops::Sub<T, Output = T>
-        + std::ops::Div<Float, Output = T>,
-{
+) -> ControlPolygon {
     let du = usize::min(num_derivatives, degree);
     let mut derivatives = ControlPolygon::zeros(du + 1);
 
     for k in (degree + 1)..=num_derivatives {
-        derivatives[k] = T::zero();
+        derivatives[k] = HPoint3::zero();
     }
 
     let knot_span = knot_vector.find_span(degree, control_points.len(), u);
@@ -399,7 +380,7 @@ where
     );
 
     for k in 0..=du {
-        derivatives[k] = T::zero();
+        derivatives[k] = HPoint3::zero();
         for j in 0..=(degree - k) {
             derivatives[k] =
                 derivatives[k] + (derivative_control_points[k][j] * basis_functions[j][degree - k]);
@@ -410,24 +391,14 @@ where
 }
 
 /// Creates derivative curves up to `num_derivatives` for a B-Spline curve.
-pub fn curve_derivative_control_points<T>(
-    control_points: &ControlPolygon<T>,
+pub fn curve_derivative_control_points(
+    control_points: &ControlPolygon,
     degree: usize,
     knot_vector: &KnotVector,
     min_control_point: usize,
     max_control_point: usize,
     num_derivatives: usize,
-) -> Vec<ControlPolygon<T>>
-where
-    T: Copy
-        + Clone
-        + Zero
-        + std::ops::Mul<Float, Output = T>
-        + std::ops::Add<Float, Output = T>
-        + std::ops::Add<T, Output = T>
-        + std::ops::Sub<T, Output = T>
-        + std::ops::Div<Float, Output = T>,
-{
+) -> Vec<ControlPolygon> {
     let r = max_control_point - min_control_point;
 
     let mut points = vec![ControlPolygon::zeros(r + 1); num_derivatives + 1];
@@ -437,12 +408,14 @@ where
     }
 
     for k in 1..=num_derivatives {
+        println!("LOOP");
         let tmp = (degree - k + 1) as Float;
         for i in 0..=(r - k) {
             points[k][i] = ((points[k - 1][i + 1] - points[k - 1][i])
                 / (knot_vector[min_control_point + i + degree + 1]
                     - knot_vector[min_control_point + i + k]))
                 * tmp;
+            println!("PT {:?}", points[k][i]);
         }
     }
 
@@ -461,7 +434,7 @@ pub fn surface_point<T>(
 where
     T: Copy
         + Clone
-        + Zero
+        + ZeroHomogeneous
         + std::ops::Mul<Float, Output = T>
         + std::ops::Add<Float, Output = T>
         + std::ops::Add<T, Output = T>,
@@ -477,10 +450,10 @@ where
 
     let index_u = knot_span_u - degree_u;
 
-    let mut point = T::zero();
+    let mut point = T::zero_h();
 
     for l in 0..=degree_v {
-        let mut temp = T::zero();
+        let mut temp = T::zero_h();
         let index_v = knot_span_v - degree_v + l;
         for k in 0..=degree_u {
             temp = temp + control_points[index_u + k][index_v] * basis_values_u[k];
@@ -509,7 +482,7 @@ pub fn surface_derivatives_1<T>(
 where
     T: Copy
         + Clone
-        + Zero
+        + ZeroHomogeneous
         + std::ops::Mul<Float, Output = T>
         + std::ops::Add<Float, Output = T>
         + std::ops::Add<T, Output = T>,
@@ -519,17 +492,17 @@ where
 
     let du = usize::min(num_derivatives, degree_u);
     let dv = usize::min(num_derivatives, degree_v);
-    let mut derivatives = vec![vec![T::zero(); dv + 1]; du + 1];
+    let mut derivatives = vec![vec![T::zero_h(); dv + 1]; du + 1];
 
     for k in (degree_u + 1)..=num_derivatives {
         for l in 0..=(num_derivatives - k) {
-            derivatives[k][l] = T::zero();
+            derivatives[k][l] = T::zero_h();
         }
     }
 
     for l in (degree_v + 1)..=num_derivatives {
         for k in 0..=(num_derivatives - l) {
-            derivatives[k][l] = T::zero();
+            derivatives[k][l] = T::zero_h();
         }
     }
 
@@ -541,11 +514,11 @@ where
     let basis_derivative_values_v =
         eval_basis_function_derivatives(degree_v, knot_span_v, knot_vector_v, num_derivatives, v);
 
-    let mut temp = vec![T::zero(); degree_v + 1];
+    let mut temp = vec![T::zero_h(); degree_v + 1];
 
     for k in 0..=du {
         for s in 0..=degree_v {
-            temp[s] = T::zero();
+            temp[s] = T::zero_h();
             for r in 0..=degree_u {
                 temp[s] = temp[s]
                     + control_points[knot_span_u - degree_u + r][knot_span_v - degree_v + s]
@@ -554,7 +527,7 @@ where
         }
         let dd = usize::min(num_derivatives - k, dv);
         for l in 0..=dd {
-            derivatives[k][l] = T::zero();
+            derivatives[k][l] = T::zero_h();
             for s in 0..=degree_v {
                 derivatives[k][l] = derivatives[k][l] + temp[s] * basis_derivative_values_v[l][s];
             }
@@ -568,8 +541,8 @@ where
 /// Creates a new derivative curve for each derivative and evaluates it at (`u`, `v`).
 ///
 /// Appears to be slower than `surface_derivatives_1`.
-pub fn surface_derivatives_2<T>(
-    control_points: &ControlMesh<T>,
+pub fn surface_derivatives_2(
+    control_points: &Vec<Vec<WPoint3>>,
     degree_u: usize,
     degree_v: usize,
     knot_vector_u: &KnotVector,
@@ -577,21 +550,11 @@ pub fn surface_derivatives_2<T>(
     num_derivatives: usize,
     u: Float,
     v: Float,
-) -> ControlMesh<T>
-where
-    T: Copy
-        + Clone
-        + Zero
-        + std::ops::Mul<Float, Output = T>
-        + std::ops::Add<Float, Output = T>
-        + std::ops::Add<T, Output = T>
-        + std::ops::Sub<T, Output = T>
-        + std::ops::Div<Float, Output = T>,
-{
+) -> ControlMesh {
     let du = usize::min(num_derivatives, degree_u);
     let dv = usize::min(num_derivatives, degree_v);
 
-    let mut derivatives = ControlMesh::zeros(dv + 1, du + 1);
+    let mut derivatives = ControlMesh::zeros_h(dv + 1, du + 1);
 
     let knot_span_u = knot_vector_u.find_span(degree_u, control_points.len(), u);
     let knot_span_v = knot_vector_v.find_span(degree_v, control_points[0].len(), v);
@@ -616,9 +579,9 @@ where
         let dd = usize::min(num_derivatives - k, dv);
 
         for l in 0..=dd {
-            derivatives[k][l] = T::zero();
+            derivatives[k][l] = HPoint3::zero();
             for i in 0..=(degree_v - l) {
-                let mut tmp = T::zero();
+                let mut tmp = HPoint3::zero();
                 for j in 0..=(degree_u - k) {
                     tmp = tmp
                         + derivative_control_points[k][l][j][i]
@@ -633,8 +596,8 @@ where
     derivatives
 }
 
-pub fn surface_derivative_control_points<T>(
-    control_points: &ControlMesh<T>,
+pub fn surface_derivative_control_points(
+    control_points: &Vec<Vec<WPoint3>>,
     degree_u: usize,
     degree_v: usize,
     knot_vector_u: &KnotVector,
@@ -644,23 +607,13 @@ pub fn surface_derivative_control_points<T>(
     min_control_point_v: usize,
     max_control_point_v: usize,
     num_derivatives: usize,
-) -> Vec<Vec<ControlMesh<T>>>
-where
-    T: Copy
-        + Clone
-        + Zero
-        + std::ops::Mul<Float, Output = T>
-        + std::ops::Add<Float, Output = T>
-        + std::ops::Add<T, Output = T>
-        + std::ops::Sub<T, Output = T>
-        + std::ops::Div<Float, Output = T>,
-{
+) -> Vec<Vec<ControlMesh>> {
     let du = usize::min(num_derivatives, degree_u);
     let dv = usize::min(num_derivatives, degree_v);
     let r = max_control_point_u - min_control_point_u;
     let s = max_control_point_v - min_control_point_v;
 
-    let mut points = vec![vec![ControlMesh::zeros(r + 1, s + 1); dv + 1]; du + 1];
+    let mut points = vec![vec![ControlMesh::zeros_h(r + 1, s + 1); dv + 1]; du + 1];
 
     for j in min_control_point_v..=max_control_point_v {
         let temp = curve_derivative_control_points(

@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use crate::math::{Float, FloatRange, Vec3, Vector};
+use crate::math::{Float, FloatRange, Point3, Vector};
 
 pub mod nurbs;
 
@@ -72,13 +72,13 @@ fn make_mesh_points(points: &[Vec<Vec3>]) -> Vec<Vec<SurfacePoint>> {
 
 #[derive(Clone, Debug)]
 pub struct SurfacePoint {
-    pub pos: Vec3,
-    pub der_u: Vec3,
-    pub der_v: Vec3,
-    pub normal: Vec3,
+    pub pos: Point3,
+    pub der_u: Point3,
+    pub der_v: Point3,
+    pub normal: Point3,
 }
 impl SurfacePoint {
-    pub fn new(pos: Vec3, der_u: Vec3, der_v: Vec3) -> Self {
+    pub fn new(pos: Point3, der_u: Point3, der_v: Point3) -> Self {
         Self {
             pos,
             der_u,
@@ -94,9 +94,9 @@ pub trait SurfaceFunction {
     fn min_v(&self) -> Float;
     fn max_v(&self) -> Float;
 
-    fn point(&self, u: Float, v: Float) -> Vec3;
+    fn point(&self, u: Float, v: Float) -> Point3;
 
-    fn create(&self, u_res: usize, v_res: usize) -> Vec<Vec3> {
+    fn create(&self, u_res: usize, v_res: usize) -> Vec<Point3> {
         let mut points = Vec::new();
 
         let start = Instant::now();

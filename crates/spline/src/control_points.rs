@@ -1,25 +1,23 @@
 use std::slice::Iter;
 
-use crate::math::{Float, Homogeneous, Zero};
+use crate::math::{Float, HPoint3, Homogeneous, Point3, WPoint3, Zero, ZeroHomogeneous};
 
 #[derive(Clone, Debug)]
-pub struct ControlPolygon<H>
-where
-    H: Clone + Zero,
-{
-    vertices: Vec<H>,
+pub struct ControlPolygon {
+    vertices: Vec<HPoint3>,
 }
-impl<H> ControlPolygon<H>
-where
-    H: Clone + Zero,
-{
-    pub fn new<const N: usize>(vertices: [H; N]) -> Self {
+impl ControlPolygon {
+    pub fn new<const N: usize>(vertices: [HPoint3; N]) -> Self {
         Self {
             vertices: vertices.to_vec(),
         }
     }
 
-    pub fn from_slice(vertices: &[H]) -> Self {
+    pub fn truncate(&mut self, len: usize) {
+        self.vertices.truncate(len);
+    }
+
+    pub fn from_slice(vertices: &[HPoint3]) -> Self {
         Self {
             vertices: vertices.to_vec(),
         }
@@ -27,7 +25,7 @@ where
 
     pub fn zeros(size: usize) -> Self {
         Self {
-            vertices: vec![H::zero(); size],
+            vertices: vec![HPoint3::zero(); size],
         }
     }
 
@@ -35,82 +33,29 @@ where
         self.vertices.len()
     }
 
-    pub fn iter(&self) -> Iter<H> {
+    pub fn iter(&self) -> Iter<HPoint3> {
         self.vertices.iter()
     }
 
-    pub fn to_weighted<C>(&self) -> Self
-    where
-        H: Copy
-            + Clone
-            + Zero
-            + std::ops::Mul<Float, Output = H>
-            + std::ops::Add<Float, Output = H>
-            + std::ops::Add<H, Output = H>
-            + Homogeneous<C>,
-        C: Copy + Clone + std::ops::Mul<Float, Output = C> + std::ops::Div<Float, Output = C>,
-    {
-        ControlPolygon::from_iter(self.vertices.iter().map(|v| v.to_weighted()))
+    pub fn weight(&self) -> Vec<WPoint3> {
+        self.vertices.iter().map(|v| v.weight()).collect()
     }
 
-    pub fn to_unweighted<C>(&self) -> Self
-    where
-        H: Copy
-            + Clone
-            + Zero
-            + std::ops::Mul<Float, Output = H>
-            + std::ops::Add<Float, Output = H>
-            + std::ops::Add<H, Output = H>
-            + Homogeneous<C>,
-        C: Copy + Clone + std::ops::Mul<Float, Output = C> + std::ops::Div<Float, Output = C>,
-    {
-        ControlPolygon::from_iter(self.vertices.iter().map(|v| v.to_unweighted()))
-    }
-
-    pub fn to_cartesian<C>(&self) -> ControlPolygon<C>
-    where
-        H: Copy
-            + Clone
-            + Zero
-            + std::ops::Mul<Float, Output = H>
-            + std::ops::Add<Float, Output = H>
-            + std::ops::Add<H, Output = H>
-            + Homogeneous<C>,
-        C: Copy
-            + Clone
-            + std::ops::Mul<Float, Output = C>
-            + std::ops::Div<Float, Output = C>
-            + std::ops::Add<Float, Output = C>
-            + std::ops::Add<C, Output = C>
-            + Zero,
-    {
-        ControlPolygon::from_iter(self.vertices.iter().map(|v| v.to_cartesian()))
+    pub fn to_cartesian(&self) -> Vec<Point3> {
+        //ControlPolygon::from_iter(self.vertices.iter().map(|v| v.to_cartesian()))
+        todo!()
     }
 }
-impl<H> FromIterator<H> for ControlPolygon<H>
-where
-    H: Copy
-        + Clone
-        + Zero
-        + std::ops::Mul<Float, Output = H>
-        + std::ops::Add<Float, Output = H>
-        + std::ops::Add<H, Output = H>,
-{
-    fn from_iter<I: IntoIterator<Item = H>>(vertices: I) -> Self {
+impl FromIterator<HPoint3> for ControlPolygon {
+    fn from_iter<I: IntoIterator<Item = HPoint3>>(vertices: I) -> Self {
         Self {
             vertices: Vec::from_iter(vertices),
         }
     }
 }
-impl<H, Idx> std::ops::Index<Idx> for ControlPolygon<H>
+impl<Idx> std::ops::Index<Idx> for ControlPolygon
 where
-    Idx: std::slice::SliceIndex<[H]>,
-    H: Copy
-        + Clone
-        + Zero
-        + std::ops::Mul<Float, Output = H>
-        + std::ops::Add<Float, Output = H>
-        + std::ops::Add<H, Output = H>,
+    Idx: std::slice::SliceIndex<[HPoint3]>,
 {
     type Output = Idx::Output;
 
@@ -118,15 +63,9 @@ where
         &self.vertices[index]
     }
 }
-impl<H, Idx> std::ops::IndexMut<Idx> for ControlPolygon<H>
+impl<Idx> std::ops::IndexMut<Idx> for ControlPolygon
 where
-    Idx: std::slice::SliceIndex<[H]>,
-    H: Copy
-        + Clone
-        + Zero
-        + std::ops::Mul<Float, Output = H>
-        + std::ops::Add<Float, Output = H>
-        + std::ops::Add<H, Output = H>,
+    Idx: std::slice::SliceIndex<[HPoint3]>,
 {
     fn index_mut(&mut self, index: Idx) -> &mut Self::Output {
         &mut self.vertices[index]
@@ -134,39 +73,23 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub struct ControlMesh<H>
-where
-    H: Copy
-        + Clone
-        + Zero
-        + std::ops::Mul<Float, Output = H>
-        + std::ops::Add<Float, Output = H>
-        + std::ops::Add<H, Output = H>,
-{
-    rows: Vec<ControlPolygon<H>>,
+pub struct ControlMesh {
+    rows: Vec<ControlPolygon>,
 }
-impl<H> ControlMesh<H>
-where
-    H: Copy
-        + Clone
-        + Zero
-        + std::ops::Mul<Float, Output = H>
-        + std::ops::Add<Float, Output = H>
-        + std::ops::Add<H, Output = H>,
-{
-    pub fn new<const N: usize>(rows: [ControlPolygon<H>; N]) -> Self {
+impl ControlMesh {
+    pub fn new<const N: usize>(rows: [ControlPolygon; N]) -> Self {
         Self {
             rows: rows.to_vec(),
         }
     }
 
-    pub fn from_slice(rows: &[ControlPolygon<H>]) -> Self {
+    pub fn from_slice(rows: &[ControlPolygon]) -> Self {
         Self {
             rows: rows.to_vec(),
         }
     }
 
-    pub fn zeros(u_size: usize, v_size: usize) -> Self {
+    pub fn zeros_h(u_size: usize, v_size: usize) -> Self {
         Self {
             rows: vec![ControlPolygon::zeros(v_size); u_size],
         }
@@ -176,82 +99,32 @@ where
         self.rows.len()
     }
 
-    pub fn iter(&self) -> Iter<ControlPolygon<H>> {
+    pub fn iter(&self) -> Iter<ControlPolygon> {
         self.rows.iter()
     }
 
-    pub fn to_weighted<C>(&self) -> Self
-    where
-        H: Copy
-            + Clone
-            + Zero
-            + std::ops::Mul<Float, Output = H>
-            + std::ops::Add<Float, Output = H>
-            + std::ops::Add<H, Output = H>
-            + Homogeneous<C>,
-        C: Copy + Clone + std::ops::Mul<Float, Output = C> + std::ops::Div<Float, Output = C>,
-    {
-        ControlMesh::from_iter(self.rows.iter().map(|v| v.to_weighted()))
+    pub fn weight(&self) -> Vec<Vec<WPoint3>> {
+        self.rows.iter().map(|v| v.weight()).collect()
     }
 
-    pub fn to_unweighted<C>(&self) -> Self
-    where
-        H: Copy
-            + Clone
-            + Zero
-            + std::ops::Mul<Float, Output = H>
-            + std::ops::Add<Float, Output = H>
-            + std::ops::Add<H, Output = H>
-            + Homogeneous<C>,
-        C: Copy + Clone + std::ops::Mul<Float, Output = C> + std::ops::Div<Float, Output = C>,
-    {
+    pub fn to_unweighted(&self) -> Self {
         ControlMesh::from_iter(self.rows.iter().map(|v| v.to_unweighted()))
     }
 
-    pub fn to_cartesian<C>(&self) -> ControlMesh<C>
-    where
-        H: Copy
-            + Clone
-            + Zero
-            + std::ops::Mul<Float, Output = H>
-            + std::ops::Add<Float, Output = H>
-            + std::ops::Add<H, Output = H>
-            + Homogeneous<C>,
-        C: Copy
-            + Clone
-            + std::ops::Mul<Float, Output = C>
-            + std::ops::Div<Float, Output = C>
-            + std::ops::Add<Float, Output = C>
-            + std::ops::Add<C, Output = C>
-            + Zero,
-    {
+    pub fn to_cartesian(&self) -> ControlMesh {
         ControlMesh::from_iter(self.rows.iter().map(|v| v.to_cartesian()))
     }
 }
-impl<H> FromIterator<ControlPolygon<H>> for ControlMesh<H>
-where
-    H: Copy
-        + Clone
-        + Zero
-        + std::ops::Mul<Float, Output = H>
-        + std::ops::Add<Float, Output = H>
-        + std::ops::Add<H, Output = H>,
-{
-    fn from_iter<I: IntoIterator<Item = ControlPolygon<H>>>(rows: I) -> Self {
+impl FromIterator<ControlPolygon> for ControlMesh {
+    fn from_iter<I: IntoIterator<Item = ControlPolygon>>(rows: I) -> Self {
         Self {
             rows: Vec::from_iter(rows),
         }
     }
 }
-impl<H, Idx> std::ops::Index<Idx> for ControlMesh<H>
+impl<Idx> std::ops::Index<Idx> for ControlMesh
 where
-    Idx: std::slice::SliceIndex<[ControlPolygon<H>]>,
-    H: Copy
-        + Clone
-        + Zero
-        + std::ops::Mul<Float, Output = H>
-        + std::ops::Add<Float, Output = H>
-        + std::ops::Add<H, Output = H>,
+    Idx: std::slice::SliceIndex<[ControlPolygon]>,
 {
     type Output = Idx::Output;
 
@@ -259,15 +132,9 @@ where
         &self.rows[index]
     }
 }
-impl<H, Idx> std::ops::IndexMut<Idx> for ControlMesh<H>
+impl<Idx> std::ops::IndexMut<Idx> for ControlMesh
 where
-    Idx: std::slice::SliceIndex<[ControlPolygon<H>]>,
-    H: Copy
-        + Clone
-        + Zero
-        + std::ops::Mul<Float, Output = H>
-        + std::ops::Add<Float, Output = H>
-        + std::ops::Add<H, Output = H>,
+    Idx: std::slice::SliceIndex<[ControlPolygon]>,
 {
     fn index_mut(&mut self, index: Idx) -> &mut Self::Output {
         &mut self.rows[index]

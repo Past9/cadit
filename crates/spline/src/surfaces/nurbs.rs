@@ -4,7 +4,7 @@ use crate::{
     math::{
         b_spline::surface_derivatives_2,
         nurbs::{self, insert_surface_knots},
-        Float, FloatRange, Vec3, Vec4,
+        Float, FloatRange, HPoint3, Point3, Vec4,
     },
 };
 
@@ -26,7 +26,7 @@ impl SurfaceDirection {
 }
 
 pub struct NurbsSurface {
-    pub control_points: ControlMesh<Vec4>,
+    pub control_points: ControlMesh,
     pub knot_vector_u: KnotVector,
     pub knot_vector_v: KnotVector,
     pub degree_u: usize,
@@ -34,7 +34,7 @@ pub struct NurbsSurface {
 }
 impl NurbsSurface {
     pub fn new(
-        control_points: ControlMesh<Vec4>,
+        control_points: ControlMesh,
         knot_vector_u: KnotVector,
         knot_vector_v: KnotVector,
         degree_u: usize,
@@ -175,7 +175,7 @@ impl NurbsSurface {
             &self.knot_vector_v,
             num_new_knots,
             position,
-            &self.control_points.to_weighted(),
+            &self.control_points.weight(),
         );
 
         Self::new(
@@ -191,12 +191,12 @@ impl NurbsSurface {
         Self::new(
             ControlMesh::new([
                 ControlPolygon::new([
-                    Vec4::new(-2.0, -1.0, -2.0, 1.0),
-                    Vec4::new(2.0, 1.0, -2.0, 1.0),
+                    HPoint3::new(-2.0, -1.0, -2.0, 1.0),
+                    HPoint3::new(2.0, 1.0, -2.0, 1.0),
                 ]),
                 ControlPolygon::new([
-                    Vec4::new(-2.0, 1.0, 2.0, 1.0),
-                    Vec4::new(2.0, -1.0, 2.0, 1.0),
+                    HPoint3::new(-2.0, 1.0, 2.0, 1.0),
+                    HPoint3::new(2.0, -1.0, 2.0, 1.0),
                 ]),
             ]),
             KnotVector::new([0.0, 0.0, 1.0, 1.0]),
@@ -211,34 +211,34 @@ impl NurbsSurface {
         Self::new(
             ControlMesh::new([
                 ControlPolygon::new([
-                    Vec4::new(-3.0, 2.0, -3.0, 1.0),
-                    Vec4::new(-1.0, 2.0, -3.0, w),
-                    Vec4::new(1.0, 2.0, -3.0, w),
-                    Vec4::new(3.0, 2.0, -3.0, 1.0),
+                    HPoint3::new(-3.0, 2.0, -3.0, 1.0),
+                    HPoint3::new(-1.0, 2.0, -3.0, w),
+                    HPoint3::new(1.0, 2.0, -3.0, w),
+                    HPoint3::new(3.0, 2.0, -3.0, 1.0),
                 ]),
                 ControlPolygon::new([
-                    Vec4::new(-3.0, 2.0, -1.0, w),
-                    Vec4::new(-1.0, -2.0, -1.0, 1.0),
-                    Vec4::new(1.0, -2.0, -1.0, 1.0),
-                    Vec4::new(3.0, 2.0, -1.0, w),
+                    HPoint3::new(-3.0, 2.0, -1.0, w),
+                    HPoint3::new(-1.0, -2.0, -1.0, 1.0),
+                    HPoint3::new(1.0, -2.0, -1.0, 1.0),
+                    HPoint3::new(3.0, 2.0, -1.0, w),
                 ]),
                 ControlPolygon::new([
-                    Vec4::new(-3.0, 2.0, 1.0, w),
-                    Vec4::new(-1.0, -2.0, 1.0, 1.0),
-                    Vec4::new(1.0, -2.0, 1.0, 1.0),
-                    Vec4::new(3.0, 2.0, 1.0, w),
+                    HPoint3::new(-3.0, 2.0, 1.0, w),
+                    HPoint3::new(-1.0, -2.0, 1.0, 1.0),
+                    HPoint3::new(1.0, -2.0, 1.0, 1.0),
+                    HPoint3::new(3.0, 2.0, 1.0, w),
                 ]),
                 ControlPolygon::new([
-                    Vec4::new(-3.0, 2.0, 3.0, 1.0),
-                    Vec4::new(-1.0, 2.0, 3.0, w),
-                    Vec4::new(1.0, 2.0, 3.0, w),
-                    Vec4::new(3.0, 2.0, 3.0, 1.0),
+                    HPoint3::new(-3.0, 2.0, 3.0, 1.0),
+                    HPoint3::new(-1.0, 2.0, 3.0, w),
+                    HPoint3::new(1.0, 2.0, 3.0, w),
+                    HPoint3::new(3.0, 2.0, 3.0, 1.0),
                 ]),
                 ControlPolygon::new([
-                    Vec4::new(-3.0, 2.0, 5.0, 1.0),
-                    Vec4::new(-1.0, 2.0, 5.0, w),
-                    Vec4::new(1.0, 2.0, 5.0, w),
-                    Vec4::new(3.0, 2.0, 5.0, 1.0),
+                    HPoint3::new(-3.0, 2.0, 5.0, 1.0),
+                    HPoint3::new(-1.0, 2.0, 5.0, w),
+                    HPoint3::new(1.0, 2.0, 5.0, w),
+                    HPoint3::new(3.0, 2.0, 5.0, 1.0),
                 ]),
             ]),
             KnotVector::new([0.0, 0.0, 0.0, 0.5, 1.0, 2.0, 2.0, 2.0]),
@@ -248,7 +248,7 @@ impl NurbsSurface {
         )
     }
 
-    pub fn points(&self, res_u: usize, res_v: usize) -> Vec<Vec<Vec3>> {
+    pub fn points(&self, res_u: usize, res_v: usize) -> Vec<Vec<Point3>> {
         let mut points = Vec::new();
         for u in FloatRange::new(self.min_u(), self.max_u(), res_u) {
             let v_points = FloatRange::new(self.min_v(), self.max_v(), res_v)
@@ -277,7 +277,7 @@ impl SurfaceFunction for NurbsSurface {
         self.knot_vector_v[self.knot_vector_v.len() - 1]
     }
 
-    fn point(&self, u: Float, v: Float) -> Vec3 {
+    fn point(&self, u: Float, v: Float) -> Point3 {
         let first = false;
 
         if first {
@@ -294,7 +294,7 @@ impl SurfaceFunction for NurbsSurface {
             let num_derivatives = 0;
 
             let weighted_derivatives = surface_derivatives_2(
-                &self.control_points.to_weighted(),
+                &self.control_points.weight(),
                 self.degree_u,
                 self.degree_v,
                 &self.knot_vector_u,

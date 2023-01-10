@@ -1,15 +1,114 @@
 use auto_ops::{impl_op_ex, impl_op_ex_commutative};
-use std::iter::Sum;
+use std::{
+    iter::Sum,
+    ops::{Add, Mul, Sub},
+};
 
-use super::{Float, Homogeneous, Vec2, Vector, Zero};
+use super::{Float, Homogeneous, Vec2, Vector, Zero, ZeroHomogeneous};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Vec3 {
+pub struct WPoint3 {
+    x: Float,
+    y: Float,
+    z: Float,
+    h: Float,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct HPoint3 {
+    x: Float,
+    y: Float,
+    z: Float,
+    h: Float,
+}
+impl HPoint3 {
+    pub fn new(x: Float, y: Float, z: Float, h: Float) -> Self {
+        Self { x, y, z, h }
+    }
+
+    pub fn weight(&self) -> WPoint3 {
+        WPoint3 {
+            x: self.x * self.h,
+            y: self.y * self.h,
+            z: self.z * self.h,
+            h: self.h,
+        }
+    }
+}
+impl Zero for HPoint3 {
+    fn zero() -> Self {
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            h: 1.0,
+        }
+    }
+}
+impl Sub for HPoint3 {
+    type Output = HPoint3;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        let xa = self.x;
+        let ya = self.y;
+        let za = self.z;
+        let wa = self.h;
+
+        let xb = rhs.x;
+        let yb = rhs.y;
+        let zb = rhs.z;
+        let wb = rhs.h;
+
+        Self {
+            x: wa * xb - wb * xa,
+            y: wa * yb - wb * ya,
+            z: wa * zb - wb * za,
+            h: wa * wb,
+        }
+    }
+}
+impl Add for HPoint3 {
+    type Output = HPoint3;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        let xa = self.x;
+        let ya = self.y;
+        let za = self.z;
+        let wa = self.h;
+
+        let xb = rhs.x;
+        let yb = rhs.y;
+        let zb = rhs.z;
+        let wb = rhs.h;
+
+        Self {
+            x: wa * xb + wb * xa,
+            y: wa * yb + wb * ya,
+            z: wa * zb + wb * za,
+            h: wa * wb,
+        }
+    }
+}
+impl Mul<Float> for HPoint3 {
+    type Output = HPoint3;
+
+    fn mul(self, rhs: Float) -> Self::Output {
+        Self {
+            x: self.x * rhs,
+            y: self.y * rhs,
+            z: self.z * rhs,
+            h: self.h * rhs,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Point3 {
     pub x: Float,
     pub y: Float,
     pub z: Float,
 }
-impl Vec3 {
+impl Point3 {
     pub fn new(x: Float, y: Float, z: Float) -> Self {
         Self { x, y, z }
     }
@@ -26,7 +125,7 @@ impl Vec3 {
         [self.x as f64, self.y as f64, self.z as f64]
     }
 }
-impl Vector for Vec3 {
+impl Vector for Point3 {
     fn magnitude(&self) -> Float {
         (self.x.powi(2) + self.y.powi(2) + self.z.powi(2)).sqrt()
     }
@@ -47,8 +146,12 @@ impl Vector for Vec3 {
             z: self.x * other.y - self.y * other.x,
         }
     }
+
+    fn dot(&self, other: &Self) -> f64 {
+        self.x * other.x + self.y * other.y + self.z * other.z
+    }
 }
-impl Homogeneous<Vec2> for Vec3 {
+impl Homogeneous<Vec2> for Point3 {
     fn homogeneous_component(&self) -> Float {
         self.z
     }
@@ -58,30 +161,35 @@ impl Homogeneous<Vec2> for Vec3 {
     }
 
     fn from_cartesian(cartesian: Vec2, homogeneous: Float) -> Self {
-        Vec3::new(cartesian.x, cartesian.y, homogeneous)
+        Point3::new(cartesian.x, cartesian.y, homogeneous)
     }
 }
-impl Zero for Vec3 {
+impl ZeroHomogeneous for Point3 {
+    fn zero_h() -> Self {
+        Self::new(0.0, 0.0, 1.0)
+    }
+}
+impl Zero for Point3 {
     fn zero() -> Self {
         Self::new(0.0, 0.0, 0.0)
     }
 }
-impl From<Vec3> for [f32; 3] {
-    fn from(vec: Vec3) -> Self {
+impl From<Point3> for [f32; 3] {
+    fn from(vec: Point3) -> Self {
         [vec.x as f32, vec.y as f32, vec.z as f32]
     }
 }
-impl Sum for Vec3 {
+impl Sum for Point3 {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.fold(Vec3::zero(), |a, b| a + b)
+        iter.fold(Point3::zero(), |a, b| a + b)
     }
 }
-impl Default for Vec3 {
+impl Default for Point3 {
     fn default() -> Self {
         Self::zero()
     }
 }
-impl std::fmt::Display for Vec3 {
+impl std::fmt::Display for Point3 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("({}, {}, {})", self.x, self.y, self.z))
     }
@@ -89,56 +197,56 @@ impl std::fmt::Display for Vec3 {
 
 // Vec3/Vec3 operators
 // Add
-impl_op_ex!(+ |a: &Vec3, b: &Vec3| -> Vec3 {
-    Vec3 {
+impl_op_ex!(+ |a: &Point3, b: &Point3| -> Point3 {
+    Point3 {
         x: a.x + b.x,
         y: a.y + b.y,
         z: a.z + b.z
     }
 });
-impl_op_ex!(+= |a: &mut Vec3, b: &Vec3| {
+impl_op_ex!(+= |a: &mut Point3, b: &Point3| {
     a.x += b.x;
     a.y += b.y;
     a.z += b.z;
 });
 
 // Subtract
-impl_op_ex!(-|a: &Vec3, b: &Vec3| -> Vec3 {
-    Vec3 {
+impl_op_ex!(-|a: &Point3, b: &Point3| -> Point3 {
+    Point3 {
         x: a.x - b.x,
         y: a.y - b.y,
         z: a.z - b.z,
     }
 });
-impl_op_ex!(-= |a: &mut Vec3, b: &Vec3| {
+impl_op_ex!(-= |a: &mut Point3, b: &Point3| {
     a.x -= b.x;
     a.y -= b.y;
     a.z -= b.z;
 });
 
 // Multiply
-impl_op_ex!(*|a: &Vec3, b: &Vec3| -> Vec3 {
-    Vec3 {
+impl_op_ex!(*|a: &Point3, b: &Point3| -> Point3 {
+    Point3 {
         x: a.x * b.x,
         y: a.y * b.y,
         z: a.z * b.z,
     }
 });
-impl_op_ex!(*= |a: &mut Vec3, b: &Vec3| {
+impl_op_ex!(*= |a: &mut Point3, b: &Point3| {
     a.x *= b.x;
     a.y *= b.y;
     a.z *= b.z;
 });
 
 // Divide
-impl_op_ex!(/ |a: &Vec3, b: &Vec3| -> Vec3 {
-    Vec3 {
+impl_op_ex!(/ |a: &Point3, b: &Point3| -> Point3 {
+    Point3 {
         x: a.x / b.x,
         y: a.y / b.y,
         z: a.z / b.z,
     }
 });
-impl_op_ex!(/= |a: &mut Vec3, b: &Vec3| {
+impl_op_ex!(/= |a: &mut Point3, b: &Point3| {
     a.x /= b.x;
     a.y /= b.y;
     a.z /= b.z;
@@ -146,56 +254,56 @@ impl_op_ex!(/= |a: &mut Vec3, b: &Vec3| {
 
 // Vec3/Float operators
 // Add
-impl_op_ex_commutative!(+ |a: &Vec3, b: &Float| -> Vec3 {
-    Vec3 {
+impl_op_ex_commutative!(+ |a: &Point3, b: &Float| -> Point3 {
+    Point3 {
         x: a.x + b,
         y: a.y + b,
         z: a.z + b
     }
 });
-impl_op_ex!(+= |a: &mut Vec3, b: &Float| {
+impl_op_ex!(+= |a: &mut Point3, b: &Float| {
     a.x += b;
     a.y += b;
     a.z += b;
 });
 
 // Subtract
-impl_op_ex!(-|a: &Vec3, b: &Float| -> Vec3 {
-    Vec3 {
+impl_op_ex!(-|a: &Point3, b: &Float| -> Point3 {
+    Point3 {
         x: a.x - b,
         y: a.y - b,
         z: a.z - b,
     }
 });
-impl_op_ex!(-= |a: &mut Vec3, b: &Float| {
+impl_op_ex!(-= |a: &mut Point3, b: &Float| {
     a.x -= b;
     a.y -= b;
     a.z -= b;
 });
 
 // Multiply
-impl_op_ex_commutative!(*|a: &Vec3, b: &Float| -> Vec3 {
-    Vec3 {
+impl_op_ex_commutative!(*|a: &Point3, b: &Float| -> Point3 {
+    Point3 {
         x: a.x * b,
         y: a.y * b,
         z: a.z * b,
     }
 });
-impl_op_ex!(*= |a: &mut Vec3, b: &Float| {
+impl_op_ex!(*= |a: &mut Point3, b: &Float| {
     a.x *= b;
     a.y *= b;
     a.z *= b;
 });
 
 // Divide
-impl_op_ex!(/ |a: &Vec3, b: &Float| -> Vec3 {
-    Vec3 {
+impl_op_ex!(/ |a: &Point3, b: &Float| -> Point3 {
+    Point3 {
         x: a.x / b,
         y: a.y / b,
         z: a.z / b,
     }
 });
-impl_op_ex!(/= |a: &mut Vec3, b: &Float| {
+impl_op_ex!(/= |a: &mut Point3, b: &Float| {
     a.x /= b;
     a.y /= b;
     a.z /= b;

@@ -11,7 +11,7 @@ use render::{
     Rgb, Rgba,
 };
 use spline::{
-    math::{FloatRange, Homogeneous, Vec3},
+    math::{FloatRange, Homogeneous, Point3, Vec4},
     surfaces::nurbs::SurfaceDirection,
 };
 use widgets::{rgba, scene::SceneViewer};
@@ -35,52 +35,18 @@ pub struct App {
 impl App {
     pub fn new() -> Self {
         let start = Instant::now();
-        let surface = spline::surfaces::nurbs::NurbsSurface::example_1();
-        let points = surface.points(100, 100);
 
-        /*
         let curve = spline::curves::nurbs::NurbsCurve::example_simple();
 
+        let test_point = Point3::new(0.0, -2.0, 0.0);
+        //let projected_u = curve.project_point(test_point, 0.4);
+        //println!("Projected U: {}", projected_u);
 
-        let res_u = 100;
-        let res_v = 100;
+        //let curve = curve.derivative_curve();
 
-        let points = curve.points(res_u);
-        //let s1pts = points.clone();
-        let s1pts = curve.control_points.iter().map(|p| p.clone());
-        */
-
-        let s1pts = points.iter().map(|p| p.iter()).flatten().map(|p| p.clone());
-        /*
-        let s1pts = surface
+        let points = curve
             .control_points
             .iter()
-            .map(|p| p.iter())
-            .flatten()
-            .map(|p| p.clone());
-            */
-
-        //println!("{:#?}", surf1.control_points);
-
-        /*
-        let s2pts = surf2
-            .control_points
-            .iter()
-            .map(|p| p.iter())
-            .flatten()
-            .map(|p| p.clone().cartesian_components() + Vec3::new(-offset, 0.0, offset));
-
-        let s3pts = surf3
-            .control_points
-            .iter()
-            .map(|p| p.iter())
-            .flatten()
-            .map(|p| p.clone().cartesian_components() + Vec3::new(offset, 0.0, offset));
-        */
-
-        let points = s1pts
-            //.chain(s2pts)
-            //.chain(s3pts)
             .map(|p| {
                 ModelPoint::new(
                     0.into(),

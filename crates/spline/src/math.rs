@@ -30,6 +30,10 @@ pub fn binomial_coefficient(k: usize, i: usize) -> Float {
     BINOMIAL_COEFFICIENTS[k][i]
 }
 
+pub trait ZeroHomogeneous {
+    fn zero_h() -> Self;
+}
+
 pub trait Zero {
     fn zero() -> Self;
 }
@@ -51,6 +55,7 @@ pub trait Vector {
     fn magnitude(&self) -> Float;
     fn normalize(&self) -> Self;
     fn cross(&self, other: &Self) -> Self;
+    fn dot(&self, other: &Self) -> Float;
 }
 
 pub trait Homogeneous<C>
@@ -73,7 +78,7 @@ where
         self.cartesian_components() / self.homogeneous_component()
     }
 
-    /// "Weights" the cartesian components by multipling them by the
+    /// "Weights" the cartesian components by multiplying them by the
     /// homogeneous component.
     fn to_weighted(&self) -> Self
     where

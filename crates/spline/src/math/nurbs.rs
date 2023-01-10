@@ -4,74 +4,58 @@ use crate::{
     surfaces::nurbs::SurfaceDirection,
 };
 
-use super::{b_spline::eval_basis_function, binomial_coefficient, Float, Homogeneous, Zero};
+use super::{
+    b_spline::eval_basis_function, binomial_coefficient, Float, Homogeneous, Point3, WPoint3, Zero,
+    ZeroHomogeneous,
+};
 
-pub fn curve_point<H, C>(
-    control_points: &ControlPolygon<H>,
+pub fn curve_point(
+    control_points: &ControlPolygon,
     degree: usize,
     knot_vector: &KnotVector,
     u: Float,
-) -> C
-where
-    H: Copy
-        + Clone
-        + Zero
-        + std::ops::Mul<Float, Output = H>
-        + std::ops::Add<Float, Output = H>
-        + std::ops::Add<H, Output = H>
-        + Homogeneous<C>,
-    C: Copy + Clone + std::ops::Mul<Float, Output = C> + std::ops::Div<Float, Output = C>,
-{
+) -> Point3 {
     let knot_span = knot_vector.find_span(degree, control_points.len(), u);
     let basis_values = eval_basis_function(degree, knot_span, knot_vector, u);
 
-    let mut point = H::zero();
+    let mut point = H::zero_h();
     for i in 0..=degree {
-        let cp = control_points[knot_span - degree + i].to_weighted();
+        let cp = control_points[knot_span - degree + i].weight();
         point = point + cp * basis_values[i];
     }
+
+    println!("TC {:?} {:?}", point, point.to_cartesian());
 
     point.to_cartesian()
 }
 
-pub fn surface_point<H, C>(
-    control_points: &ControlMesh<H>,
+pub fn surface_point(
+    control_points: &ControlMesh,
     degree_u: usize,
     degree_v: usize,
     knot_vector_u: &KnotVector,
     knot_vector_v: &KnotVector,
     u: Float,
     v: Float,
-) -> C
-where
-    H: Copy
-        + Clone
-        + Zero
-        + std::ops::Mul<Float, Output = H>
-        + std::ops::Add<Float, Output = H>
-        + std::ops::Add<H, Output = H>
-        + Homogeneous<C>,
-    C: Copy + Clone + std::ops::Mul<Float, Output = C> + std::ops::Div<Float, Output = C>,
-{
+) -> Point3 {
     let knot_span_u = knot_vector_u.find_span(degree_u, control_points.len(), u);
     let knot_span_v = knot_vector_v.find_span(degree_v, control_points[0].len(), v);
 
     let basis_values_u = eval_basis_function(degree_u, knot_span_u, &knot_vector_u, u);
     let basis_values_v = eval_basis_function(degree_v, knot_span_v, &knot_vector_v, v);
 
-    let mut temp = vec![H::zero(); degree_v + 1];
+    let mut temp = vec![H::zero_h(); degree_v + 1];
 
     for l in 0..=degree_v {
-        temp[l] = H::zero();
+        temp[l] = H::zero_h();
         for k in 0..=degree_u {
             temp[l] = temp[l]
-                + control_points[knot_span_u - degree_u + k][knot_span_v - degree_v + l]
-                    .to_weighted()
+                + control_points[knot_span_u - degree_u + k][knot_span_v - degree_v + l].weight()
                     * basis_values_u[k];
         }
     }
 
-    let mut sw = H::zero();
+    let mut sw = H::zero_h();
 
     for l in 0..=degree_v {
         sw = sw + temp[l] * basis_values_v[l];
@@ -80,27 +64,11 @@ where
     sw.to_cartesian()
 }
 
-pub fn curve_derivatives<H, C>(
-    weighted_derivatives: &ControlPolygon<H>,
+pub fn curve_derivatives(
+    weighted_derivatives: &ControlPolygon,
     num_derivatives: usize,
-) -> Vec<C>
-where
-    H: Copy
-        + Clone
-        + Zero
-        + std::ops::Mul<Float, Output = H>
-        + std::ops::Add<Float, Output = H>
-        + std::ops::Add<H, Output = H>
-        + Homogeneous<C>,
-    C: Copy
-        + Clone
-        + Zero
-        + std::ops::Sub<Float, Output = C>
-        + std::ops::Sub<C, Output = C>
-        + std::ops::Mul<Float, Output = C>
-        + std::ops::Div<Float, Output = C>,
-{
-    let mut derivatives = vec![C::zero(); num_derivatives + 1];
+) -> Vec<Point3> {
+    let mut derivatives = vec![C::zero_h(); num_derivatives + 1];
 
     for k in 0..=num_derivatives {
         let mut v = weighted_derivatives[k].cartesian_components();
@@ -115,28 +83,11 @@ where
     derivatives
 }
 
-pub fn surface_derivatives<H, C>(
-    weighted_derivatives: &ControlMesh<H>,
+pub fn surface_derivatives(
+    weighted_derivatives: &ControlMesh,
     num_derivatives: usize,
-) -> Vec<Vec<C>>
-where
-    H: Copy
-        + Clone
-        + Zero
-        + std::ops::Mul<Float, Output = H>
-        + std::ops::Add<Float, Output = H>
-        + std::ops::Add<H, Output = H>
-        + Homogeneous<C>,
-    C: Copy
-        + Clone
-        + Zero
-        + std::ops::Sub<Float, Output = C>
-        + std::ops::Sub<C, Output = C>
-        + std::ops::Add<C, Output = C>
-        + std::ops::Mul<Float, Output = C>
-        + std::ops::Div<Float, Output = C>,
-{
-    let mut derivatives = vec![vec![C::zero(); num_derivatives + 1]; num_derivatives + 1];
+) -> Vec<Vec<Point3>> {
+    let mut derivatives = vec![vec![C::zero_h(); num_derivatives + 1]; num_derivatives + 1];
 
     for k in 0..=num_derivatives {
         for l in 0..=(num_derivatives - k) {
@@ -152,7 +103,7 @@ where
                     * binomial_coefficient(k, i)
                     * weighted_derivatives[i][0].homogeneous_component();
 
-                let mut v2 = C::zero();
+                let mut v2 = C::zero_h();
                 for j in 1..=l {
                     v2 = v2
                         + derivatives[k - i][l - j]
@@ -172,21 +123,13 @@ where
 
 /// Inserts the specified number of knots into the curve at `u`, returning
 /// a new curve in the form of `(<new knot vector>, <new control points>)`.
-pub fn insert_curve_knots<T>(
+pub fn insert_curve_knots(
     degree: usize,
     knot_vector: &KnotVector,
     num_insertions: usize,
     u: Float,
-    weighted_control_points: &ControlPolygon<T>,
-) -> (KnotVector, ControlPolygon<T>)
-where
-    T: Copy
-        + Clone
-        + Zero
-        + std::ops::Mul<Float, Output = T>
-        + std::ops::Add<Float, Output = T>
-        + std::ops::Add<T, Output = T>,
-{
+    weighted_control_points: &Vec<WPoint3>,
+) -> (KnotVector, ControlPolygon) {
     let knot_span_index = knot_vector.find_span(degree, weighted_control_points.len(), u);
     let knot_multiplicity = knot_vector.find_multiplicity(u);
 
@@ -198,9 +141,9 @@ where
 
     let mut new_knot_vector = KnotVector::zeros(knot_vector.len() + num_insertions);
     let mut new_control_points =
-        ControlPolygon::<T>::zeros(weighted_control_points.len() + num_insertions);
+        ControlPolygon::zeros(weighted_control_points.len() + num_insertions);
 
-    let mut temp = vec![T::zero(); degree + 1];
+    let mut temp = vec![T::zero_h(); degree + 1];
 
     // Load new knot vector
     for i in 0..=knot_span_index {
@@ -251,21 +194,12 @@ where
     (new_knot_vector, new_control_points)
 }
 
-pub fn refine_curve<T>(
+pub fn refine_curve(
     degree: usize,
     knot_vector: &KnotVector,
     knots_to_insert: KnotVector,
-    weighted_control_points: &ControlPolygon<T>,
-) -> (KnotVector, ControlPolygon<T>)
-where
-    T: Copy
-        + Clone
-        + Zero
-        + std::ops::Mul<Float, Output = T>
-        + std::ops::Add<Float, Output = T>
-        + std::ops::Add<T, Output = T>
-        + std::fmt::Debug,
-{
+    weighted_control_points: &Vec<WPoint3>,
+) -> (KnotVector, ControlPolygon) {
     let n = weighted_control_points.len() - 1;
     let r = knots_to_insert.len() - 1;
 
@@ -333,7 +267,7 @@ where
 /// in the `direction` UV dimension, returning a new surface in
 /// the form of
 /// `(<new U knot vector>, <new V knot vector>, <new control points>)`.
-pub fn insert_surface_knots<T>(
+pub fn insert_surface_knots(
     degree_u: usize,
     degree_v: usize,
     direction: SurfaceDirection,
@@ -341,16 +275,8 @@ pub fn insert_surface_knots<T>(
     knot_vector_v: &KnotVector,
     num_insertions: usize,
     position: Float,
-    weighted_control_points: &ControlMesh<T>,
-) -> (KnotVector, KnotVector, ControlMesh<T>)
-where
-    T: Copy
-        + Clone
-        + Zero
-        + std::ops::Mul<Float, Output = T>
-        + std::ops::Add<Float, Output = T>
-        + std::ops::Add<T, Output = T>,
-{
+    weighted_control_points: &Vec<Vec<WPoint3>>,
+) -> (KnotVector, KnotVector, ControlMesh) {
     match direction {
         SurfaceDirection::U => {
             let knot_span_index_u =
@@ -368,12 +294,12 @@ where
             let mut new_knot_vector_u = KnotVector::zeros(knot_vector_u.len() + num_insertions);
             let new_knot_vector_v = knot_vector_v.clone();
 
-            let mut new_control_points = ControlMesh::zeros(
+            let mut new_control_points = ControlMesh::zeros_h(
                 weighted_control_points.len() + num_insertions,
                 weighted_control_points[0].len(),
             );
 
-            let mut temp = vec![T::zero(); degree_u + 1];
+            let mut temp = vec![T::zero_h(); degree_u + 1];
 
             // Load new U knot vector
             for i in 0..=knot_span_index_u {
@@ -452,12 +378,12 @@ where
             let new_knot_vector_u = knot_vector_u.clone();
             let mut new_knot_vector_v = KnotVector::zeros(knot_vector_v.len() + num_insertions);
 
-            let mut new_control_points = ControlMesh::zeros(
+            let mut new_control_points = ControlMesh::zeros_h(
                 weighted_control_points.len(),
                 weighted_control_points[0].len() + num_insertions,
             );
 
-            let mut temp = vec![T::zero(); degree_v + 1];
+            let mut temp = vec![T::zero_h(); degree_v + 1];
 
             // Load new V knot vector
             for i in 0..=knot_span_index_v {

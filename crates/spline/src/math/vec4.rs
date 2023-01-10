@@ -1,7 +1,7 @@
 use auto_ops::{impl_op_ex, impl_op_ex_commutative};
 use std::iter::Sum;
 
-use super::{Float, Homogeneous, Vec3, Zero};
+use super::{Float, Homogeneous, Point3, Zero, ZeroHomogeneous};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vec4 {
@@ -15,20 +15,25 @@ impl Vec4 {
         Self { x, y, z, w }
     }
 
-    pub fn xyz(&self) -> Vec3 {
-        Vec3::new(self.x, self.y, self.z)
+    pub fn xyz(&self) -> Point3 {
+        Point3::new(self.x, self.y, self.z)
     }
 }
-impl Homogeneous<Vec3> for Vec4 {
+impl ZeroHomogeneous for Vec4 {
+    fn zero_h() -> Self {
+        Self::new(0.0, 0.0, 0.0, 1.0)
+    }
+}
+impl Homogeneous<Point3> for Vec4 {
     fn homogeneous_component(&self) -> Float {
         self.w
     }
 
-    fn cartesian_components(&self) -> Vec3 {
-        Vec3::new(self.x, self.y, self.z)
+    fn cartesian_components(&self) -> Point3 {
+        Point3::new(self.x, self.y, self.z)
     }
 
-    fn from_cartesian(cartesian: Vec3, homogeneous: Float) -> Self {
+    fn from_cartesian(cartesian: Point3, homogeneous: Float) -> Self {
         Vec4::new(cartesian.x, cartesian.y, cartesian.z, homogeneous)
     }
 }

@@ -1,5 +1,2 @@
-pub mod control_points;
-pub mod curves;
-pub mod knots;
+pub mod curve;
 pub mod math;
-pub mod surfaces;

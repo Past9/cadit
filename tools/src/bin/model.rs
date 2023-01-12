@@ -1,19 +1,14 @@
-use std::time::Instant;
-
 use cgmath::{point3, vec3, Deg, InnerSpace};
 use eframe::egui;
 use render::{
     camera::{Camera, CameraAngle},
     lights::DirectionalLight,
-    mesh::{Edge, EdgeVertex, Point, Surface, SurfaceVertex},
-    model::{Material, Model, ModelEdge, ModelPoint, ModelSurface},
+    mesh::Point,
+    model::{Material, Model, ModelPoint},
     scene::{Scene, SceneLights},
-    Rgb, Rgba,
+    Rgb,
 };
-use spline::{
-    math::{FloatRange, Homogeneous, Point3, Vec4},
-    surfaces::nurbs::SurfaceDirection,
-};
+use spline::math::FloatRange;
 use widgets::{rgba, scene::SceneViewer};
 use window::{run_window, Window, WindowDescriptor};
 
@@ -34,6 +29,111 @@ pub struct App {
 }
 impl App {
     pub fn new() -> Self {
+        let curve = spline::curve::Curve::example_quarter_circle();
+
+        let gs = 5;
+        let grid_points = (-gs..=gs)
+            .flat_map(|x| {
+                (-gs..=gs).map(move |y| {
+                    ModelPoint::new(
+                        0.into(),
+                        Point {
+                            position: [x as f32, y as f32, 0.0],
+                            expand: [0.0, 0.0, 0.0],
+                        },
+                    )
+                })
+            })
+            .collect::<Vec<_>>();
+
+        let num_segments = 100;
+        let curve_points = FloatRange::new(curve.min_u(), curve.max_u(), num_segments)
+            .flat_map(|u| [curve.point(u), curve.derivative(u, 1).normalize()])
+            .map(|p| {
+                ModelPoint::new(
+                    0.into(),
+                    Point {
+                        position: p.as_f32s(),
+                        expand: [0.0, 0.0, 0.0],
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
+
+        /*
+        let der_curve = curve.derivative_curve(1);
+        let der_curve_points = FloatRange::new(der_curve.min_u(), der_curve.max_u(), num_segments)
+            .map(|u| {
+                let pt = der_curve.point(u).normalize();
+                //
+                //println!("{} {:?}", u, pt.as_f32s());
+                pt
+            })
+            .map(|p| {
+                ModelPoint::new(
+                    0.into(),
+                    Point {
+                        position: p.as_f32s(),
+                        expand: [0.0, 0.0, 0.0],
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
+            */
+
+        for i in 0..num_segments {
+            println!(
+                "{:?} {:?}",
+                curve_points[i * 2].point().position,
+                curve_points[i * 2 + 1].point().position
+            );
+        }
+
+        Self {
+            viewer: SceneViewer::new(
+                CameraAngle::Front.get_rotation(),
+                vec3(0.0, 0.0, 0.0),
+                true,
+                true,
+                true,
+                Scene::new(
+                    rgba(0.05, 0.1, 0.15, 1.0),
+                    SceneLights::new(
+                        vec![],
+                        vec![
+                            DirectionalLight::new(vec3(1.0, 0.0, 1.0).normalize(), Rgb::BLUE, 1.0),
+                            DirectionalLight::new(
+                                vec3(-1.0, 0.0, 1.0).normalize(),
+                                Rgb::YELLOW,
+                                1.0,
+                            ),
+                        ],
+                        vec![],
+                    ),
+                    Camera::create_perspective(
+                        [0, 0],
+                        point3(0.0, 0.0, -5.0),
+                        vec3(0.0, 0.0, 1.0),
+                        vec3(0.0, -1.0, 0.0).normalize(),
+                        Deg(70.0).into(),
+                        0.01,
+                        5.0,
+                    ),
+                    vec![Model::new(
+                        vec![],
+                        vec![],
+                        grid_points
+                            .into_iter()
+                            .chain(curve_points.into_iter())
+                            //.chain(der_curve_points.into_iter())
+                            .collect(),
+                    )],
+                    vec![Material::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],
+                ),
+            ),
+        }
+
+        /*
         let start = Instant::now();
 
         let curve = spline::curves::nurbs::NurbsCurve::example_simple();
@@ -97,6 +197,7 @@ impl App {
                 ),
             ),
         }
+        */
     }
 }
 impl Window for App {

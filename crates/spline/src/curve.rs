@@ -1,5 +1,5 @@
 use crate::math::{
-    b_spline::{curve_derivative_control_points, curve_derivatives_1},
+    b_spline::{curve_derivative_control_points, curve_derivatives_1, curve_derivatives_2},
     knot_vector::KnotVector,
     nurbs::{curve_derivatives, curve_point},
     HPoint, Point,
@@ -69,7 +69,7 @@ impl Curve {
     }
 
     pub fn derivative(&self, u: f64, der: usize) -> Point {
-        let ders = curve_derivatives_1(
+        let ders = curve_derivatives_2(
             &self
                 .control_points
                 .iter()

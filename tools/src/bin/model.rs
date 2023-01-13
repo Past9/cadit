@@ -1,4 +1,4 @@
-use cgmath::{point3, vec3, Deg, InnerSpace, Point3};
+use cgmath::{point3, vec3, Deg, InnerSpace};
 use eframe::egui;
 use render::{
     camera::{Camera, CameraAngle},

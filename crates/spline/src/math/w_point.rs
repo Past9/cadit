@@ -3,7 +3,7 @@ use std::{
     ops::{Add, Div, Mul, Sub},
 };
 
-use super::{HPoint, Point};
+use super::HPoint;
 
 #[derive(Debug, Clone, Copy)]
 pub struct WPoint {

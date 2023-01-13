@@ -1,8 +1,6 @@
 use super::{
-    basis::{eval_all_basis_functions, eval_basis_function, eval_basis_function_derivatives},
-    binomial_coefficient,
-    knot_vector::KnotVector,
-    HPoint, Point, WPoint,
+    basis::eval_basis_function, binomial_coefficient, knot_vector::KnotVector, HPoint, Point,
+    WPoint,
 };
 
 pub fn curve_point(

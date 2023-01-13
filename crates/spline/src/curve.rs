@@ -80,6 +80,19 @@ impl Curve {
             .cartesian()
     }
 
+    pub fn tangent(&self, u: f64) -> Point {
+        self.derivative(u, 1).normalize()
+    }
+
+    pub fn normal(&self, u: f64) -> Point {
+        let tan = self.tangent(u);
+        Point {
+            x: -tan.y,
+            y: tan.x,
+            z: tan.z,
+        }
+    }
+
     pub fn min_u(&self) -> f64 {
         self.knot_vector[0]
     }

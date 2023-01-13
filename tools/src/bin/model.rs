@@ -1,12 +1,12 @@
-use cgmath::{point3, vec3, Deg, InnerSpace};
+use cgmath::{point3, vec3, Deg, InnerSpace, Point3};
 use eframe::egui;
 use render::{
     camera::{Camera, CameraAngle},
     lights::DirectionalLight,
-    mesh::Point,
-    model::{Material, Model, ModelPoint},
+    mesh::{Edge, EdgeVertex, Point},
+    model::{Material, Model, ModelEdge, ModelPoint},
     scene::{Scene, SceneLights},
-    Rgb,
+    Rgb, Rgba,
 };
 use spline::math::FloatRange;
 use widgets::{rgba, scene::SceneViewer};
@@ -46,19 +46,41 @@ impl App {
             })
             .collect::<Vec<_>>();
 
-        let num_segments = 100;
-        let curve_points = FloatRange::new(curve.min_u(), curve.max_u(), num_segments)
-            .flat_map(|u| [curve.point(u), curve.derivative(u, 1).normalize()])
-            .map(|p| {
-                ModelPoint::new(
-                    0.into(),
-                    Point {
-                        position: p.as_f32s(),
-                        expand: [0.0, 0.0, 0.0],
-                    },
-                )
-            })
-            .collect::<Vec<_>>();
+        let num_segments = 50;
+        let normal_len = 1.0;
+        let curve_points: Vec<(ModelPoint, ModelEdge)> =
+            FloatRange::new(curve.min_u(), curve.max_u(), num_segments)
+                .map(|u| (curve.point(u), curve.normal(u)))
+                .map(|(point, normal)| {
+                    (
+                        ModelPoint::new(
+                            0.into(),
+                            Point {
+                                position: point.as_f32s(),
+                                expand: [0.0, 0.0, 0.0],
+                            },
+                        ),
+                        ModelEdge::new(
+                            0.into(),
+                            Edge::new([
+                                EdgeVertex {
+                                    position: point.as_f32s(),
+                                    expand: [0.0, 0.0, 0.0],
+                                },
+                                EdgeVertex {
+                                    position: [
+                                        (point.x + normal.x * normal_len) as f32,
+                                        (point.y + normal.y * normal_len) as f32,
+                                        (point.z + normal.z * normal_len) as f32,
+                                    ],
+                                    expand: [0.0, 0.0, 0.0],
+                                },
+                            ]),
+                            Rgba::GREEN,
+                        ),
+                    )
+                })
+                .collect::<Vec<_>>();
 
         /*
         let der_curve = curve.derivative_curve(1);
@@ -81,13 +103,25 @@ impl App {
             .collect::<Vec<_>>();
             */
 
+        /*
         for i in 0..num_segments {
             println!(
                 "{:?} {:?}",
-                curve_points[i * 2].point().position,
-                curve_points[i * 2 + 1].point().position
+                curve_points[i * 2].0.point().position,
+                curve_points[i * 2 + 1].0.point().position
             );
         }
+        */
+
+        let cam = Camera::create_perspective(
+            [0, 0],
+            point3(-0.25, -0.5, -1.0),
+            vec3(0.0, 0.0, 1.0),
+            vec3(0.0, -1.0, 0.0).normalize(),
+            Deg(70.0).into(),
+            0.01,
+            5.0,
+        );
 
         Self {
             viewer: SceneViewer::new(
@@ -110,21 +144,13 @@ impl App {
                         ],
                         vec![],
                     ),
-                    Camera::create_perspective(
-                        [0, 0],
-                        point3(0.0, 0.0, -5.0),
-                        vec3(0.0, 0.0, 1.0),
-                        vec3(0.0, -1.0, 0.0).normalize(),
-                        Deg(70.0).into(),
-                        0.01,
-                        5.0,
-                    ),
+                    cam,
                     vec![Model::new(
                         vec![],
-                        vec![],
+                        curve_points.iter().map(|p| p.1.clone()).collect(),
                         grid_points
                             .into_iter()
-                            .chain(curve_points.into_iter())
+                            .chain(curve_points.iter().map(|p| p.0.clone()))
                             //.chain(der_curve_points.into_iter())
                             .collect(),
                     )],

@@ -175,7 +175,6 @@ impl Scene {
 
         for model in self.models.iter() {
             for edge in model.edges().iter() {
-                // TODO
                 let edge_vertices = edge.edge().vertices();
                 vertices.extend(
                     edge_vertices

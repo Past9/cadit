@@ -290,7 +290,7 @@ impl Renderer {
                     .unwrap(),
                 (),
             )
-            .input_assembly_state(InputAssemblyState::new().topology(PrimitiveTopology::LineList))
+            .input_assembly_state(InputAssemblyState::new().topology(PrimitiveTopology::LineStrip))
             .rasterization_state(RasterizationState {
                 front_face: StateMode::Fixed(FrontFace::CounterClockwise),
                 cull_mode: StateMode::Fixed(CullMode::None),

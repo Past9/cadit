@@ -14,12 +14,11 @@ void main() {
     f_color = vec4(0.0);
 
     if (dist <= 0.5) {
-        //float color = 1 - pow((dist / 0.35), 9);
         float alpha = 1 - pow((dist / 0.5), 9);
         f_color = vec4(
             color.rgb,
             color.a * alpha
-        ); // vec4(color, color, color, alpha);
+        ); 
     } else {
         discard;
     }

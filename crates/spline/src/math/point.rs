@@ -7,6 +7,10 @@ pub struct Point {
     pub z: f64,
 }
 impl Point {
+    pub fn new(x: f64, y: f64, z: f64) -> Self {
+        Self { x, y, z }
+    }
+
     //
     pub fn as_f32s(&self) -> [f32; 3] {
         [self.x as f32, self.y as f32, self.z as f32]

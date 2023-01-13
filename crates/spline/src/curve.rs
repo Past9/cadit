@@ -7,6 +7,12 @@ use crate::math::{
 
 type ControlPoints = Vec<HPoint>;
 
+pub struct ClosestResult {
+    pub u: f64,
+    pub closest_point: Point,
+    pub dist: f64,
+}
+
 pub struct Curve {
     control_points: ControlPoints,
     knot_vector: KnotVector,
@@ -84,6 +90,13 @@ impl Curve {
         let mut ders = curve_derivatives(&ders, der);
 
         ders.swap_remove(1)
+    }
+
+    pub fn closest(&self, point: Point, u: f64) -> f64 {
+        let der = self.derivative(u, 1);
+        let curve_point = self.point(u);
+
+        der.dot(&(curve_point - point))
     }
 
     pub fn tangent(&self, u: f64) -> Point {

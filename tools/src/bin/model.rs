@@ -29,9 +29,8 @@ pub struct App {
 }
 impl App {
     pub fn new() -> Self {
-        let curve = spline::curve::Curve::example_quarter_circle();
-
-        let gs = 5;
+        // Create grid
+        let gs = 50;
         let grid_points = (-gs..=gs)
             .flat_map(|x| {
                 (-gs..=gs).map(move |y| {
@@ -47,73 +46,26 @@ impl App {
             })
             .collect::<Vec<_>>();
 
+        // Create curve
+        let curve = spline::curve::Curve::example_quarter_circle();
+
+        let closest = curve.closest(spline::math::Point::new(0.0, -2.0, 0.0), 1.0);
+
+        println!("CLOSEST {}", closest);
+
         let num_segments = 50;
-        let normal_len = 1.0;
-        let curve_points: Vec<(ModelPoint, ModelEdge)> =
-            FloatRange::new(curve.min_u(), curve.max_u(), num_segments)
-                .map(|u| (curve.point(u), curve.normal(u)))
-                .map(|(point, normal)| {
-                    (
-                        ModelPoint::new(
-                            0.into(),
-                            Point {
-                                position: point.as_f32s(),
-                                expand: [0.0, 0.0, 0.0],
-                            },
-                            Rgba::WHITE,
-                        ),
-                        ModelEdge::new(
-                            0.into(),
-                            Edge::new([
-                                EdgeVertex {
-                                    position: point.as_f32s(),
-                                    expand: [0.0, 0.0, 0.0],
-                                },
-                                EdgeVertex {
-                                    position: [
-                                        (point.x + normal.x * normal_len) as f32,
-                                        (point.y + normal.y * normal_len) as f32,
-                                        (point.z + normal.z * normal_len) as f32,
-                                    ],
-                                    expand: [0.0, 0.0, 0.0],
-                                },
-                            ]),
-                            Rgba::GREEN,
-                        ),
-                    )
-                })
-                .collect::<Vec<_>>();
-
-        /*
-        let der_curve = curve.derivative_curve(1);
-        let der_curve_points = FloatRange::new(der_curve.min_u(), der_curve.max_u(), num_segments)
-            .map(|u| {
-                let pt = der_curve.point(u).normalize();
-                //
-                //println!("{} {:?}", u, pt.as_f32s());
-                pt
-            })
-            .map(|p| {
-                ModelPoint::new(
-                    0.into(),
-                    Point {
-                        position: p.as_f32s(),
+        let curve_edge = ModelEdge::new(
+            0.into(),
+            Edge {
+                vertices: FloatRange::new(curve.min_u(), curve.max_u(), num_segments)
+                    .map(|u| EdgeVertex {
+                        position: curve.point(u).as_f32s(),
                         expand: [0.0, 0.0, 0.0],
-                    },
-                )
-            })
-            .collect::<Vec<_>>();
-            */
-
-        /*
-        for i in 0..num_segments {
-            println!(
-                "{:?} {:?}",
-                curve_points[i * 2].0.point().position,
-                curve_points[i * 2 + 1].0.point().position
-            );
-        }
-        */
+                    })
+                    .collect::<Vec<_>>(),
+            },
+            Rgba::YELLOW,
+        );
 
         let cam = Camera::create_perspective(
             [0, 0],
@@ -149,11 +101,9 @@ impl App {
                     cam,
                     vec![Model::new(
                         vec![],
-                        curve_points.iter().map(|p| p.1.clone()).collect(),
-                        grid_points
-                            .into_iter()
-                            .chain(curve_points.iter().map(|p| p.0.clone()))
-                            .collect(),
+                        vec![curve_edge],
+                        //curve_points.iter().map(|p| p.1.clone()).collect(),
+                        grid_points.into_iter().collect(),
                     )],
                     vec![Material::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],
                 ),

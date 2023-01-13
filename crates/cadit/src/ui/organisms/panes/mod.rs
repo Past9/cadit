@@ -137,18 +137,22 @@ impl EditorPane {
                         ModelPoint::new(
                             0.into(),
                             Point::new(point3(-0.9, -0.9, 0.0), vec3(0.0, 0.0, -1.0)),
+                            Rgba::WHITE,
                         ),
                         ModelPoint::new(
                             0.into(),
                             Point::new(point3(-0.9, 0.9, 0.0), vec3(0.0, 0.0, -1.0)),
+                            Rgba::WHITE,
                         ),
                         ModelPoint::new(
                             0.into(),
                             Point::new(point3(0.9, -0.9, 0.0), vec3(0.0, 0.0, -1.0)),
+                            Rgba::WHITE,
                         ),
                         ModelPoint::new(
                             0.into(),
                             Point::new(point3(0.6, 0.6, 0.0), vec3(0.0, 0.0, -1.0)),
+                            Rgba::WHITE,
                         ),
                     ],
                 )],

@@ -57,16 +57,18 @@ vulkano::impl_vertex!(BufferedEdgeVertex, position, expand, color);
 pub struct BufferedPointVertex {
     position: [f32; 3],
     expand: [f32; 3],
+    color: [f32; 4],
 }
 impl BufferedPointVertex {
-    pub fn new(vertex: &Point) -> Self {
+    pub fn new(vertex: &Point, color: Rgba) -> Self {
         Self {
             position: vertex.position.clone(),
             expand: vertex.expand.clone(),
+            color: color.to_floats(),
         }
     }
 }
-vulkano::impl_vertex!(BufferedPointVertex, position, expand);
+vulkano::impl_vertex!(BufferedPointVertex, position, expand, color);
 
 #[derive(Clone)]
 pub struct ModelSurface {
@@ -116,14 +118,19 @@ impl ModelEdge {
 pub struct ModelPoint {
     id: ModelObjectId,
     point: Point,
+    color: Rgba,
 }
 impl ModelPoint {
-    pub fn new(id: ModelObjectId, point: Point) -> Self {
-        Self { id, point }
+    pub fn new(id: ModelObjectId, point: Point, color: Rgba) -> Self {
+        Self { id, point, color }
     }
 
     pub fn point(&self) -> &Point {
         &self.point
+    }
+
+    pub fn color(&self) -> &Rgba {
+        &self.color
     }
 }
 

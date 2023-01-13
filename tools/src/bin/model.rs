@@ -41,6 +41,7 @@ impl App {
                             position: [x as f32, y as f32, 0.0],
                             expand: [0.0, 0.0, 0.0],
                         },
+                        rgba(0.0, 0.05, 0.15, 1.0),
                     )
                 })
             })
@@ -59,6 +60,7 @@ impl App {
                                 position: point.as_f32s(),
                                 expand: [0.0, 0.0, 0.0],
                             },
+                            Rgba::WHITE,
                         ),
                         ModelEdge::new(
                             0.into(),
@@ -151,7 +153,6 @@ impl App {
                         grid_points
                             .into_iter()
                             .chain(curve_points.iter().map(|p| p.0.clone()))
-                            //.chain(der_curve_points.into_iter())
                             .collect(),
                     )],
                     vec![Material::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],

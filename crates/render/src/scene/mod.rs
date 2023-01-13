@@ -142,9 +142,10 @@ impl Scene {
 
         for model in self.models.iter() {
             for point in model.points().iter() {
-                // TODO
-                let point_vertex = point.point();
-                vertices.push(BufferedPointVertex::new(point_vertex));
+                vertices.push(BufferedPointVertex::new(
+                    point.point(),
+                    point.color().clone(),
+                ));
             }
         }
 

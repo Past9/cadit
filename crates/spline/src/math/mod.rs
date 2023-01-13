@@ -2,6 +2,7 @@ mod h_point;
 mod point;
 mod w_point;
 
+pub mod b_spline;
 pub mod basis;
 pub mod knot_vector;
 pub mod nurbs;

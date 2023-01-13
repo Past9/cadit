@@ -1,4 +1,4 @@
-use std::ops::{Add, Mul};
+use std::ops::{Add, Div, Mul, Sub};
 
 use super::{Point, WPoint};
 
@@ -70,6 +70,30 @@ impl Add for HPoint {
             y: self.y + rhs.y,
             z: self.z + rhs.z,
             h: self.h + rhs.h,
+        }
+    }
+}
+impl Sub for HPoint {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            z: self.z - rhs.z,
+            h: self.h - rhs.h,
+        }
+    }
+}
+impl Div<f64> for HPoint {
+    type Output = Self;
+
+    fn div(self, rhs: f64) -> Self::Output {
+        Self {
+            x: self.x / rhs,
+            y: self.y / rhs,
+            z: self.z / rhs,
+            h: self.h / rhs,
         }
     }
 }

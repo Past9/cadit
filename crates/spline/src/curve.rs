@@ -1,8 +1,7 @@
 use crate::math::{
+    b_spline::{curve_derivative_control_points, curve_derivatives_1},
     knot_vector::KnotVector,
-    nurbs::{
-        curve_derivative_control_points, curve_derivatives_1, curve_derivatives_2, curve_point,
-    },
+    nurbs::{curve_derivatives, curve_point},
     HPoint, Point,
 };
 
@@ -33,7 +32,7 @@ impl Curve {
             &self
                 .control_points
                 .iter()
-                .map(|cp| cp.to_wpoint())
+                .map(|cp| cp.clone())
                 .collect::<Vec<_>>(),
             degree,
             &self.knot_vector,
@@ -50,7 +49,7 @@ impl Curve {
                 .unwrap()
                 .into_iter()
                 .take(self.control_points.len() - der)
-                .map(|pt| pt.to_unweighted())
+                .map(|pt| pt.clone())
                 .collect(),
             self.knot_vector
                 .iter()
@@ -70,14 +69,21 @@ impl Curve {
     }
 
     pub fn derivative(&self, u: f64, der: usize) -> Point {
-        curve_derivatives_1(
-            &self.control_points,
+        let ders = curve_derivatives_1(
+            &self
+                .control_points
+                .iter()
+                .map(|p| p.to_weighted().to_hpoint())
+                .collect::<Vec<_>>(),
             self.degree(),
             &self.knot_vector,
             der,
             u,
-        )[der]
-            .cartesian()
+        );
+
+        let mut ders = curve_derivatives(&ders, der);
+
+        ders.swap_remove(1)
     }
 
     pub fn tangent(&self, u: f64) -> Point {

@@ -1,5 +1,6 @@
 mod point;
 mod vector;
+mod vector_macros;
 
 pub mod b_spline;
 pub mod basis;

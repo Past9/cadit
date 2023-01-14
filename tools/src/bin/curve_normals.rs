@@ -29,6 +29,14 @@ pub struct App {
 }
 impl App {
     pub fn new() -> Self {
+        println!(
+            r#"
+Edge is displayed in yellow, normals in green, and reverse normals in red. If normals are correct,
+the red lines should stop just short of the origin and should form a perfect circle around it. This
+demo indicates that curve normals, tangents, and first derivatives are working correctly.
+"#
+        );
+
         let curve = spline::curve::Curve::<Vec2H>::example_circle();
 
         let gs = 3;

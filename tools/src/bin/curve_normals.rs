@@ -17,7 +17,7 @@ pub fn main() {
         App::new(),
         &WindowDescriptor {
             position: Some([320.0, 50.0]),
-            width: 1920.0,
+            width: 1080.0,
             height: 1080.0,
             ..Default::default()
         },
@@ -33,7 +33,7 @@ impl App {
             r#"
 Edge is displayed in yellow, normals in green, and reverse normals in red. If normals are correct,
 the red lines should stop just short of the origin and should form a perfect circle around it. This
-demo indicates that curve normals, tangents, and first derivatives are working correctly.
+demo indicates that curve normals, tangents, and first derivatives are correctly calculated.
 "#
         );
 

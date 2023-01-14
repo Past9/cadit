@@ -1,5 +1,5 @@
 use crate::math::{
-    b_spline::{curve_derivative_control_points, curve_derivatives_1, curve_derivatives_2},
+    b_spline::{curve_derivative_control_points, curve_derivatives_2},
     knot_vector::KnotVector,
     nurbs::{curve_derivatives, curve_point},
     Homogeneous, Point, Vec2H, Vec3H, Vector,

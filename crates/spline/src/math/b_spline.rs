@@ -1,25 +1,17 @@
 use super::{
     basis::{eval_all_basis_functions, eval_basis_function, eval_basis_function_derivatives},
     knot_vector::KnotVector,
-    HPoint,
+    Vector,
 };
 
-pub fn curve_point<T>(
-    control_points: &[HPoint],
-    degree: usize,
-    knot_vector: &KnotVector,
-    u: f64,
-) -> HPoint {
+pub fn curve_point<C>(control_points: &[C], degree: usize, knot_vector: &KnotVector, u: f64) -> C
+where
+    C: Vector,
+{
     let knot_span = knot_vector.find_span(degree, control_points.len(), u);
     let basis_values = eval_basis_function(degree, knot_span, knot_vector, u);
 
-    let mut point = HPoint {
-        x: 0.0,
-        y: 0.0,
-        z: 0.0,
-        h: 0.0,
-    };
-
+    let mut point = C::zero();
     for i in 0..=degree {
         point = point + control_points[knot_span - degree + i] * basis_values[i];
     }
@@ -27,23 +19,18 @@ pub fn curve_point<T>(
     point
 }
 
-pub fn curve_derivatives_1(
-    control_points: &[HPoint],
+pub fn curve_derivatives_1<C>(
+    control_points: &[C],
     degree: usize,
     knot_vector: &KnotVector,
     num_derivatives: usize,
     u: f64,
-) -> Vec<HPoint> {
+) -> Vec<C>
+where
+    C: Vector,
+{
     let du = usize::min(num_derivatives, degree);
-    let mut derivatives = vec![
-        HPoint {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
-            h: 0.0,
-        };
-        du + 1
-    ];
+    let mut derivatives = vec![C::zero(); du + 1];
 
     let knot_span = knot_vector.find_span(degree, control_points.len(), u);
     let basis_derivatives = eval_basis_function_derivatives(degree, knot_span, knot_vector, du, u);
@@ -58,23 +45,15 @@ pub fn curve_derivatives_1(
     derivatives
 }
 
-pub fn curve_derivatives_2(
-    control_points: &[HPoint],
+pub fn curve_derivatives_2<C: Vector>(
+    control_points: &[C],
     degree: usize,
     knot_vector: &KnotVector,
     num_derivatives: usize,
     u: f64,
-) -> Vec<HPoint> {
+) -> Vec<C> {
     let du = usize::min(num_derivatives, degree);
-    let mut derivatives = vec![
-        HPoint {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
-            h: 0.0,
-        };
-        du + 1
-    ];
+    let mut derivatives = vec![C::zero(); du + 1];
 
     let knot_span = knot_vector.find_span(degree, control_points.len(), u);
     let basis_functions = eval_all_basis_functions(degree, knot_span, knot_vector, u);
@@ -97,28 +76,17 @@ pub fn curve_derivatives_2(
     derivatives
 }
 
-pub fn curve_derivative_control_points(
-    control_points: &[HPoint],
+pub fn curve_derivative_control_points<C: Vector>(
+    control_points: &[C],
     degree: usize,
     knot_vector: &KnotVector,
     min_control_point: usize,
     max_control_point: usize,
     num_derivatives: usize,
-) -> Vec<Vec<HPoint>> {
+) -> Vec<Vec<C>> {
     let r = max_control_point - min_control_point;
 
-    let mut points = vec![
-        vec![
-            HPoint {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-                h: 0.0
-            };
-            r + 1
-        ];
-        num_derivatives + 1
-    ];
+    let mut points = vec![vec![C::zero(); r + 1]; num_derivatives + 1];
 
     for i in 0..=r {
         points[0][i] = control_points[min_control_point + i];

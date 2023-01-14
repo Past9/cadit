@@ -8,7 +8,7 @@ use render::{
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
-use spline::math::FloatRange;
+use spline::math::{FloatRange, Vec3H};
 use widgets::{rgba, scene::SceneViewer};
 use window::{run_window, Window, WindowDescriptor};
 
@@ -47,9 +47,9 @@ impl App {
             .collect::<Vec<_>>();
 
         // Create curve
-        let curve = spline::curve::Curve::example_quarter_circle();
+        let curve = spline::curve::Curve::<Vec3H>::example_quarter_circle();
 
-        let closest = curve.closest(spline::math::Point::new(0.0, -2.0, 0.0), 1.0);
+        let closest = curve.closest(spline::math::Vec3::new(-1.0, 0.0, 0.0), 0.0);
 
         println!("CLOSEST {}", closest);
 
@@ -59,7 +59,7 @@ impl App {
             Edge {
                 vertices: FloatRange::new(curve.min_u(), curve.max_u(), num_segments)
                     .map(|u| EdgeVertex {
-                        position: curve.point(u).as_f32s(),
+                        position: curve.point(u).f32s(),
                         expand: [0.0, 0.0, 0.0],
                     })
                     .collect::<Vec<_>>(),

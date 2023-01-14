@@ -1,5 +1,6 @@
 mod h_point;
 mod point;
+mod vector;
 mod w_point;
 
 pub mod b_spline;
@@ -9,6 +10,7 @@ pub mod nurbs;
 
 pub use h_point::*;
 pub use point::*;
+pub use vector::*;
 pub use w_point::*;
 
 const BINOMIAL_COEFFICIENTS: [[f64; 10]; 10] = [

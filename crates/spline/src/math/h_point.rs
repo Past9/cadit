@@ -23,7 +23,7 @@ impl HPoint {
         }
     }
 
-    pub fn to_weighted(&self) -> WPoint {
+    pub fn weight(&self) -> WPoint {
         WPoint {
             x: self.x * self.h,
             y: self.y * self.h,

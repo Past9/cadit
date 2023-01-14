@@ -167,24 +167,31 @@ impl Scene {
         }
     }
 
-    pub fn edge_geometry_buffer(
+    pub fn edge_geometry_buffers(
         &self,
         allocator: &impl MemoryAllocator,
-    ) -> Option<Arc<CpuAccessibleBuffer<[BufferedEdgeVertex]>>> {
+    ) -> (
+        Option<Arc<CpuAccessibleBuffer<[BufferedEdgeVertex]>>>,
+        Option<Arc<CpuAccessibleBuffer<[u32]>>>,
+    ) {
         let mut vertices: Vec<BufferedEdgeVertex> = Vec::new();
+        let mut indices: Vec<u32> = Vec::new();
 
+        let mut index = 0;
         for model in self.models.iter() {
             for edge in model.edges().iter() {
-                let edge_vertices = edge.edge().vertices();
-                vertices.extend(
-                    edge_vertices
-                        .iter()
-                        .map(|vert| BufferedEdgeVertex::new(vert, edge.color())),
-                );
+                let color = edge.color();
+                for vertex in edge.edge().vertices().iter() {
+                    vertices.push(BufferedEdgeVertex::new(vertex, color));
+
+                    indices.push(index);
+                    index += 1;
+                }
+                indices.push(u32::MAX);
             }
         }
 
-        if vertices.len() > 0 {
+        if vertices.len() > 0 && indices.len() > 0 {
             let vertex_buffer = CpuAccessibleBuffer::from_iter(
                 allocator,
                 BufferUsage {
@@ -196,9 +203,20 @@ impl Scene {
             )
             .unwrap();
 
-            Some(vertex_buffer)
+            let index_buffer = CpuAccessibleBuffer::from_iter(
+                allocator,
+                BufferUsage {
+                    index_buffer: true,
+                    ..BufferUsage::empty()
+                },
+                false,
+                indices,
+            )
+            .unwrap();
+
+            (Some(vertex_buffer), Some(index_buffer))
         } else {
-            None
+            (None, None)
         }
     }
 

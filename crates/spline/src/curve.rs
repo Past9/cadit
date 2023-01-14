@@ -2,7 +2,7 @@ use crate::math::{
     b_spline::{curve_derivative_control_points, curve_derivatives_2},
     knot_vector::KnotVector,
     nurbs::{curve_derivatives, curve_point},
-    Homogeneous, Point, Vec2H, Vec3H, Vector,
+    Homogeneous, Point, Vec2, Vec2H, Vec3H, Vector,
 };
 
 pub struct ClosestResult {
@@ -104,17 +104,6 @@ impl<H: Homogeneous> Curve<H> {
         self.derivative(u, 1).normalize()
     }
 
-    /*
-    pub fn normal(&self, u: f64) -> H::Projected {
-        let tan = self.tangent(u);
-        Point {
-            x: -tan.y,
-            y: tan.x,
-            z: tan.z,
-        }
-    }
-    */
-
     pub fn min_u(&self) -> f64 {
         self.knot_vector[0]
     }
@@ -122,53 +111,13 @@ impl<H: Homogeneous> Curve<H> {
     pub fn max_u(&self) -> f64 {
         self.knot_vector[self.knot_vector.len() - 1]
     }
-
-    /*
-    pub fn example_quarter_circle() -> Self {
-        Self::new(
-            ControlPoints::from([
-                HPoint::new(-1.0, 0.0, 0.0, 1.0),
-                HPoint::new(-1.0, -1.0, 0.0, 2.0_f64.sqrt() / 2.0),
-                HPoint::new(0.0, -1.0, 0.0, 1.0),
-            ]),
-            KnotVector::new([0.0, 0.0, 0.0, 1.0, 1.0, 1.0]),
-        )
-    }
-
-    pub fn example_half_circle() -> Self {
-        Self::new(
-            ControlPoints::from([
-                HPoint::new(-1.0, 0.0, 0.0, 1.0),
-                HPoint::new(-1.0, -1.0, 0.0, 2.0_f64.sqrt() / 2.0),
-                HPoint::new(0.0, -1.0, 0.0, 1.0),
-                HPoint::new(1.0, -1.0, 0.0, 2.0_f64.sqrt() / 2.0),
-                HPoint::new(1.0, 0.0, 0.0, 1.0),
-            ]),
-            KnotVector::new([0.0, 0.0, 0.0, 0.5, 0.5, 1.0, 1.0, 1.0]),
-        )
-    }
-
-    pub fn example_circle() -> Self {
-        Self::new(
-            ControlPoints::from([
-                HPoint::new(-1.0, 0.0, 0.0, 1.0),
-                HPoint::new(-1.0, -1.0, 0.0, 2.0_f64.sqrt() / 2.0),
-                HPoint::new(0.0, -1.0, 0.0, 1.0),
-                HPoint::new(1.0, -1.0, 0.0, 2.0_f64.sqrt() / 2.0),
-                HPoint::new(1.0, 0.0, 0.0, 1.0),
-                HPoint::new(1.0, 1.0, 0.0, 2.0_f64.sqrt() / 2.0),
-                HPoint::new(0.0, 1.0, 0.0, 1.0),
-                HPoint::new(-1.0, 1.0, 0.0, 2.0_f64.sqrt() / 2.0),
-                HPoint::new(-1.0, 0.0, 0.0, 1.0),
-            ]),
-            KnotVector::new([
-                0.0, 0.0, 0.0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1.0, 1.0, 1.0,
-            ]),
-        )
-    }
-    */
 }
 impl Curve<Vec2H> {
+    pub fn normal(&self, u: f64) -> Vec2 {
+        let tan = self.tangent(u);
+        Vec2::new(tan.y, -tan.x)
+    }
+
     pub fn example_quarter_circle() -> Self {
         Self::new(
             Vec::from([

@@ -44,7 +44,7 @@ macro_rules! vector_ops {
 
             fn dot(&self, rhs: &Self) -> f64 {
                 0.0 $(
-                    + (self.$comp + rhs.$comp)
+                    + (self.$comp * rhs.$comp)
                 )*
             }
         }

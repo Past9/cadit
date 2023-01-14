@@ -60,6 +60,7 @@ pub struct Renderer {
 
     // Edge buffers
     edge_vertex_buffer: Option<Arc<CpuAccessibleBuffer<[BufferedEdgeVertex]>>>,
+    edge_index_buffer: Option<Arc<CpuAccessibleBuffer<[u32]>>>,
 
     // Point buffers
     point_vertex_buffer: Option<Arc<CpuAccessibleBuffer<[BufferedPointVertex]>>>,
@@ -83,7 +84,7 @@ impl Renderer {
         let (surface_vertex_buffer, surface_index_buffer) =
             scene.surface_geometry_buffers(memory_allocator);
 
-        let edge_vertex_buffer = scene.edge_geometry_buffer(memory_allocator);
+        let (edge_vertex_buffer, edge_index_buffer) = scene.edge_geometry_buffers(memory_allocator);
 
         let point_vertex_buffer = scene.point_geometry_buffer(memory_allocator);
 
@@ -127,6 +128,7 @@ impl Renderer {
 
             // Edge buffers
             edge_vertex_buffer,
+            edge_index_buffer,
 
             // Point buffers
             point_vertex_buffer,
@@ -290,7 +292,11 @@ impl Renderer {
                     .unwrap(),
                 (),
             )
-            .input_assembly_state(InputAssemblyState::new().topology(PrimitiveTopology::LineStrip))
+            .input_assembly_state(
+                InputAssemblyState::new()
+                    .topology(PrimitiveTopology::LineStrip)
+                    .primitive_restart_enable(),
+            )
             .rasterization_state(RasterizationState {
                 front_face: StateMode::Fixed(FrontFace::CounterClockwise),
                 cull_mode: StateMode::Fixed(CullMode::None),
@@ -509,10 +515,13 @@ impl Renderer {
             .bind_pipeline_graphics(self.edge_pipeline.clone());
 
         if let Some(ref edge_vertex_buffer) = self.edge_vertex_buffer {
-            builder
-                .bind_vertex_buffers(0, edge_vertex_buffer.clone())
-                .draw(edge_vertex_buffer.len() as u32, 1, 0, 0)
-                .unwrap();
+            if let Some(ref edge_index_buffer) = self.edge_index_buffer {
+                builder
+                    .bind_vertex_buffers(0, edge_vertex_buffer.clone())
+                    .bind_index_buffer(edge_index_buffer.clone())
+                    .draw_indexed(edge_index_buffer.len() as u32, 1, 0, 0, 0)
+                    .unwrap();
+            }
         }
     }
 

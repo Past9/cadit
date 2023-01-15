@@ -1,4 +1,6 @@
 use cgmath::{point3, vec3, Deg, InnerSpace};
+use components::{rgba, scene::SceneViewer, Gui};
+use components::{run_window, Window, WindowDescriptor};
 use eframe::egui;
 use render::{
     camera::{Camera, CameraAngle},
@@ -8,9 +10,8 @@ use render::{
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
+use spline::curve::Curve;
 use spline::math::{FloatRange, Vec2H, Vec3H};
-use components::{rgba, scene::SceneViewer, Gui};
-use components::{run_window, Window, WindowDescriptor};
 
 pub fn main() {
     run_window(
@@ -37,7 +38,7 @@ demo indicates that curve normals, tangents, and first derivatives are correctly
 "#
         );
 
-        let curve = spline::curve::Curve::<Vec2H>::example_circle();
+        let curve = Curve::<Vec2H>::example_circle();
 
         let gs = 3;
         let grid_points = (-gs..=gs)

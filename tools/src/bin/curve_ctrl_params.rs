@@ -11,6 +11,10 @@ use render::{
     Rgb, Rgba,
 };
 use spline::math::{FloatRange, Vec3H};
+use spline::{
+    curve::Curve,
+    math::{knot_vector::KnotVector, Homogeneous, Vec2H},
+};
 
 pub fn main() {
     run_window(
@@ -34,33 +38,55 @@ impl App {
         let grid_points = (-gs..=gs)
             .flat_map(|x| {
                 (-gs..=gs).map(move |y| {
+                    let mut color = rgba(0.0, 0.05, 0.15, 1.0);
+                    if x == 0 && y == 0 {
+                        color = Rgba::RED;
+                    }
                     ModelPoint::new(
                         0.into(),
                         Point {
                             position: [x as f32, y as f32, 0.0],
                             expand: [0.0, 0.0, 0.0],
                         },
-                        rgba(0.0, 0.05, 0.15, 1.0),
+                        color,
                     )
                 })
             })
             .collect::<Vec<_>>();
 
         // Create curve
-        let curve = spline::curve::Curve::<Vec3H>::example_quarter_circle();
+        let curve = Curve::new(
+            Vec::from([
+                Vec2H::new(-2.0, 0.0, 1.0),
+                Vec2H::new(0.0, -2.0, 1.0),
+                Vec2H::new(-2.0, 2.0, 1.0),
+                Vec2H::new(2.0, 2.0, 1.0),
+                Vec2H::new(2.0, 1.0, 1.0),
+                Vec2H::new(3.0, 1.0, 1.0),
+            ]),
+            KnotVector::new([0.0, 0.0, 0.0, 0.25, 0.5, 0.75, 1.0, 1.0, 1.0]),
+        );
 
-        let closest = curve.dist_func(spline::math::Vec3::new(-1.0, 0.0, 0.0), 0.0);
-
-        println!("CLOSEST {}", closest);
+        for (i, point) in curve.control_points().iter().enumerate() {
+            let u = curve.u_at_control_point(i);
+            println!(
+                "{:?} {:#?}",
+                point.project(),
+                curve.find_closest(point.project(), u, 1000)
+            );
+        }
 
         let num_segments = 50;
         let curve_edge = ModelEdge::new(
             0.into(),
             Edge {
                 vertices: FloatRange::new(curve.min_u(), curve.max_u(), num_segments)
-                    .map(|u| EdgeVertex {
-                        position: curve.point(u).f32s(),
-                        expand: [0.0, 0.0, 0.0],
+                    .map(|u| {
+                        let floats = curve.point(u).f32s();
+                        EdgeVertex {
+                            position: [floats[0], floats[1], 0.0],
+                            expand: [0.0, 0.0, 0.0],
+                        }
                     })
                     .collect::<Vec<_>>(),
             },
@@ -69,7 +95,7 @@ impl App {
 
         let cam = Camera::create_perspective(
             [0, 0],
-            point3(-0.25, -0.5, -1.0),
+            point3(0.0, 0.0, -3.0),
             vec3(0.0, 0.0, 1.0),
             vec3(0.0, -1.0, 0.0).normalize(),
             Deg(70.0).into(),

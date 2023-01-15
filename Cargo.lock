@@ -2051,6 +2051,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "tesselate"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "spline",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"

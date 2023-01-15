@@ -3,7 +3,8 @@
 members = [
     "tools",
     "crates/cadit",
+    "crates/components",
     "crates/render",
     "crates/spline",
-    "crates/components",
+    "crates/tesselate",
 ]

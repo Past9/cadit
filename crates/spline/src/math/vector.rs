@@ -24,7 +24,11 @@ pub trait Vector:
     fn dot(&self, rhs: &Self) -> f64;
 
     fn magnitude(&self) -> f64 {
-        self.dot(self).sqrt()
+        self.magnitude2().sqrt()
+    }
+
+    fn magnitude2(&self) -> f64 {
+        self.dot(self)
     }
 
     fn normalize(&self) -> Self {

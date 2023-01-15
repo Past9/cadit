@@ -1,13 +1,14 @@
 use crate::math::{
-    b_spline::{curve_derivative_control_points, curve_derivatives_2},
+    b_spline::{curve_derivative_control_points, curve_derivatives_1, curve_derivatives_2},
     knot_vector::KnotVector,
     nurbs::{curve_derivatives, curve_point},
     Homogeneous, Point, Vec2, Vec2H, Vec3H, Vector,
 };
 
-pub struct ClosestResult {
+#[derive(Debug)]
+pub struct ClosestResult<H: Homogeneous> {
     pub u: f64,
-    pub closest_point: Point,
+    pub closest_point: H::Projected,
     pub dist: f64,
 }
 
@@ -21,6 +22,54 @@ impl<H: Homogeneous> Curve<H> {
             control_points,
             knot_vector,
         }
+    }
+
+    pub fn control_points(&self) -> &[H] {
+        &self.control_points
+    }
+
+    pub fn find_closest(
+        &self,
+        point: H::Projected,
+        u_guess: f64,
+        max_iter: usize,
+    ) -> Option<ClosestResult<H>> {
+        const TOL: f64 = 0.000001;
+        let mut u = u_guess;
+        for _ in 0..max_iter {
+            let ders = self.derivatives(u, 2);
+
+            let vec_to_actual = ders[0] - point;
+            let dot_err = ders[1].dot(&vec_to_actual);
+
+            if dot_err.abs() <= TOL {
+                return Some(ClosestResult {
+                    u,
+                    closest_point: ders[0],
+                    dist: vec_to_actual.magnitude(),
+                });
+            } else {
+                let numerator = ders[1].dot(&vec_to_actual);
+                let denominator = ders[2].dot(&vec_to_actual) + ders[1].magnitude2();
+                u -= numerator / denominator;
+            }
+        }
+
+        None
+    }
+
+    pub fn u_at_control_point(&self, index: usize) -> f64 {
+        let num_ctrl_pts = self.control_points.len();
+        assert!(
+            index < num_ctrl_pts,
+            "Invalid control point index {index} ({num_ctrl_pts} control points)"
+        );
+
+        let end = self.degree() + index;
+        let knot_before = self.knot_vector[end - 1];
+        let knot_after = self.knot_vector[end];
+
+        (knot_before + knot_after) / 2.0
     }
 
     pub fn derivative_curve(&self, der: usize) -> Self {
@@ -72,6 +121,25 @@ impl<H: Homogeneous> Curve<H> {
         curve_point(&self.control_points, self.degree(), &self.knot_vector, u)
     }
 
+    pub fn derivatives(&self, u: f64, num_ders: usize) -> Vec<H::Projected> {
+        let ders = curve_derivatives_1(
+            &self
+                .control_points
+                .iter()
+                .map(|p| p.weight())
+                .collect::<Vec<_>>(),
+            self.degree(),
+            &self.knot_vector,
+            num_ders,
+            u,
+        )
+        .into_iter()
+        .map(H::cast_from_weighted)
+        .collect::<Vec<_>>();
+
+        curve_derivatives(&ders, num_ders)
+    }
+
     pub fn derivative(&self, u: f64, der: usize) -> H::Projected {
         let ders = curve_derivatives_2(
             &self
@@ -88,12 +156,10 @@ impl<H: Homogeneous> Curve<H> {
         .map(H::cast_from_weighted)
         .collect::<Vec<_>>();
 
-        let mut ders = curve_derivatives(&ders, der);
-
-        ders.swap_remove(1)
+        curve_derivatives(&ders, der)[der]
     }
 
-    pub fn closest(&self, point: H::Projected, u: f64) -> f64 {
+    pub fn dist_func(&self, point: H::Projected, u: f64) -> f64 {
         let der = self.derivative(u, 1);
         let curve_point = self.point(u);
 

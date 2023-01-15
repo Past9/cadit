@@ -5,5 +5,5 @@ members = [
     "crates/cadit",
     "crates/render",
     "crates/spline",
-    "crates/ui_components",
+    "crates/components",
 ]

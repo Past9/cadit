@@ -9,8 +9,8 @@ use render::{
     Rgb, Rgba,
 };
 use spline::math::{FloatRange, Vec2H, Vec3H};
-use ui_components::{rgba, scene::SceneViewer, Gui};
-use ui_components::{run_window, Window, WindowDescriptor};
+use components::{rgba, scene::SceneViewer, Gui};
+use components::{run_window, Window, WindowDescriptor};
 
 pub fn main() {
     run_window(

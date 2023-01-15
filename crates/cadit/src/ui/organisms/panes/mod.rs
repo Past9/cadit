@@ -10,7 +10,7 @@ use render::{
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
-use ui_components::editors::{assembly::AssemblyEditor, part::PartEditor, Editor};
+use components::editors::{assembly::AssemblyEditor, part::PartEditor, Editor};
 
 use crate::ui::MessageBus;
 

@@ -7,7 +7,7 @@ default-run = "cadit"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ui_components = { path = "../ui_components" }
+components = { path = "../components" }
 render = { path = "../render" }
 eframe = "0.20.1"
 egui_dock = { version = "0.3.1", features = ["serde"] }

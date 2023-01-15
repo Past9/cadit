@@ -3,7 +3,7 @@ use std::ops::Add;
 
 use cgmath::vec4;
 use ui::CaditUi;
-use ui_components::{run_window, WindowDescriptor};
+use components::{run_window, WindowDescriptor};
 
 mod error;
 mod ui;

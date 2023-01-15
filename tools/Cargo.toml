@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ui_components = { path = "../crates/ui_components" }
+components = { path = "../crates/components" }
 render = { path = "../crates/render" }
 spline = { path = "../crates/spline" }
 eframe = "0.20.1"

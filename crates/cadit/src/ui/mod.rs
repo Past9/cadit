@@ -4,7 +4,7 @@ use eframe::egui::{self};
 use egui_modal::Modal;
 use std::collections::VecDeque;
 use std::sync::Arc;
-use ui_components::{Gui, Window};
+use components::{Gui, Window};
 
 mod organisms;
 

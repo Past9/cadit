@@ -9,8 +9,8 @@ use render::{
     Rgb, Rgba,
 };
 use spline::math::{FloatRange, Vec2H, Vec3H};
-use widgets::{rgba, scene::SceneViewer};
-use window::{run_window, Window, WindowDescriptor};
+use ui_components::{rgba, scene::SceneViewer, Gui};
+use ui_components::{run_window, Window, WindowDescriptor};
 
 pub fn main() {
     run_window(
@@ -160,7 +160,7 @@ demo indicates that curve normals, tangents, and first derivatives are correctly
     }
 }
 impl Window for App {
-    fn draw(&mut self, gui: &mut window::Gui) {
+    fn draw(&mut self, gui: &mut Gui) {
         gui.immediate_ui(|gui| {
             let ctx = &gui.egui_ctx;
             egui::CentralPanel::default().show(ctx, |ui| {

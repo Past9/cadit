@@ -6,12 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-widgets = { path = "../crates/widgets" }
-window = { path = "../crates/window" }
+ui_components = { path = "../crates/ui_components" }
 render = { path = "../crates/render" }
 spline = { path = "../crates/spline" }
-eframe = "0.19.0"
-egui_dock = { path = "../../egui_dock", features = ["serde"] }
-egui-modal = "0.1.7"
-thiserror = "1.0.37"
+eframe = "0.20.1"
+egui_dock = { version = "0.3.1", features = ["serde"] }
+egui-modal = "0.1.8"
+thiserror = "1.0.38"
 cgmath = { version = "0.18.0" }

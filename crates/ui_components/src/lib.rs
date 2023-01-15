@@ -15,6 +15,15 @@ use winit::{
 pub use egui_winit_vulkano::Gui;
 pub use vulkano_util::window::{WindowDescriptor, WindowMode, WindowResizeConstraints};
 
+mod util;
+
+pub mod editors;
+pub mod gizmo;
+pub mod panes;
+pub mod scene;
+
+pub use render::{rgb, rgba, Rgb, Rgba};
+
 pub const IMAGE_FORMAT: Format = Format::B8G8R8A8_SRGB;
 
 pub trait Window {

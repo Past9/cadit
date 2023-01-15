@@ -9,7 +9,8 @@ use crate::math::{
 pub struct ClosestResult<H: Homogeneous> {
     pub u: f64,
     pub closest_point: H::Projected,
-    pub dist: f64,
+    pub distance: f64,
+    pub iterations: usize,
 }
 
 pub struct Curve<H: Homogeneous> {
@@ -34,19 +35,21 @@ impl<H: Homogeneous> Curve<H> {
         u_guess: f64,
         max_iter: usize,
     ) -> Option<ClosestResult<H>> {
-        const TOL: f64 = 0.000001;
+        const TOL: f64 = 0.0000001;
         let mut u = u_guess;
-        for _ in 0..max_iter {
+        for i in 0..max_iter {
             let ders = self.derivatives(u, 2);
 
             let vec_to_actual = ders[0] - point;
             let dot_err = ders[1].dot(&vec_to_actual);
 
             if dot_err.abs() <= TOL {
+                println!("DOT ERR {dot_err}");
                 return Some(ClosestResult {
                     u,
                     closest_point: ders[0],
-                    dist: vec_to_actual.magnitude(),
+                    distance: vec_to_actual.magnitude(),
+                    iterations: i,
                 });
             } else {
                 let numerator = ders[1].dot(&vec_to_actual);

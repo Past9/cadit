@@ -175,19 +175,19 @@ pub fn curve_refine<C: Vector>(
     (new_knot_vector, new_ctrl_pts)
 }
 
-pub fn curve_decompose<H: Vector>(
-    control_points: &[H],     // control_points
+pub fn curve_decompose<C: Vector>(
+    control_points: &[C],     // control_points
     degree: usize,            // degree
     knot_vector: &KnotVector, // knot_vector
-) -> Vec<Vec<H>> {
+) -> Vec<Vec<C>> {
     let n = control_points.len() - 1;
     let m = n + degree + 1;
     let mut a = degree;
     let mut b = degree + 1;
     let mut nb = 0;
 
-    let new_bezier_points = vec![H::zero(); degree + 1];
-    let mut bezier_ctrl_pts: Vec<Vec<H>> = Vec::new();
+    let new_bezier_points = vec![C::zero(); degree + 1];
+    let mut bezier_ctrl_pts: Vec<Vec<C>> = Vec::new();
 
     bezier_ctrl_pts.push(new_bezier_points.clone());
 

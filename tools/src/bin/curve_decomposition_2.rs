@@ -1,5 +1,3 @@
-use core::num;
-
 use cgmath::{point3, vec3, Deg, InnerSpace};
 use components::{rgba, scene::SceneViewer, Gui};
 use components::{run_window, Window, WindowDescriptor};
@@ -13,7 +11,7 @@ use render::{
     Rgb, Rgba,
 };
 use spline::math::knot_vector::KnotVector;
-use spline::math::{FloatRange, Vec2H, Vec3H};
+use spline::math::{FloatRange, Vec3H};
 use spline::nurbs_curve::NurbsCurve;
 
 pub fn main() {

@@ -4,10 +4,12 @@ use super::{
     Vector,
 };
 
-pub fn curve_point<C>(control_points: &[C], degree: usize, knot_vector: &KnotVector, u: f64) -> C
-where
-    C: Vector,
-{
+pub fn curve_point<C: Vector>(
+    control_points: &[C],
+    degree: usize,
+    knot_vector: &KnotVector,
+    u: f64,
+) -> C {
     let knot_span = knot_vector.find_span(degree, control_points.len(), u);
     let basis_values = eval_basis_function(degree, knot_span, knot_vector, u);
 
@@ -19,16 +21,13 @@ where
     point
 }
 
-pub fn curve_derivatives_1<C>(
+pub fn curve_derivatives_1<C: Vector>(
     control_points: &[C],
     degree: usize,
     knot_vector: &KnotVector,
     num_derivatives: usize,
     u: f64,
-) -> Vec<C>
-where
-    C: Vector,
-{
+) -> Vec<C> {
     let du = usize::min(num_derivatives, degree);
     let mut derivatives = vec![C::zero(); du + 1];
 

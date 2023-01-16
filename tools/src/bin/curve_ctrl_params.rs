@@ -12,8 +12,8 @@ use render::{
 };
 use spline::math::{FloatRange, Vec3H};
 use spline::{
-    curve::Curve,
     math::{knot_vector::KnotVector, Homogeneous, Vec2H},
+    nurbs_curve::NurbsCurve,
 };
 
 pub fn main() {
@@ -34,7 +34,7 @@ pub struct App {
 impl App {
     pub fn new() -> Self {
         // Create grid
-        let gs = 50;
+        let gs = 5;
         let grid_points = (-gs..=gs)
             .flat_map(|x| {
                 (-gs..=gs).map(move |y| {
@@ -55,6 +55,7 @@ impl App {
             .collect::<Vec<_>>();
 
         // Create curve
+        /*
         let curve = Curve::new(
             Vec::from([
                 Vec2H::new(-2.0, 0.0, 1.0),
@@ -66,17 +67,46 @@ impl App {
             ]),
             KnotVector::new([0.0, 0.0, 0.0, 0.25, 0.5, 0.75, 1.0, 1.0, 1.0]),
         );
+        */
+        let curve = NurbsCurve::new(
+            Vec::from([
+                Vec2H::new(-3.0, 0.0, 1.0),
+                Vec2H::new(-2.0, -4.0, 1.0),
+                Vec2H::new(0.0, 8.0, 1.0),
+                Vec2H::new(2.0, -4.0, 1.0),
+                Vec2H::new(3.0, 0.0, 1.0),
+            ]),
+            KnotVector::new([0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0]),
+        );
 
+        let mut closest_lines: Vec<ModelEdge> = Vec::new();
         for (i, point) in curve.control_points().iter().enumerate() {
             let u = curve.u_at_control_point(i);
-            println!(
-                "{:?} {:#?}",
-                point.project(),
-                curve.find_closest(point.project(), u, 1000)
-            );
+            let closest = curve.find_closest(point.project(), u, 20).unwrap();
+            println!("{:?} {:#?}", point.project(), closest);
+            closest_lines.push(ModelEdge::new(
+                0.into(),
+                Edge {
+                    vertices: vec![
+                        EdgeVertex {
+                            position: [point.x as f32, point.y as f32, 0.0],
+                            expand: [0.0, 0.0, 0.0],
+                        },
+                        EdgeVertex {
+                            position: [
+                                closest.closest_point.x as f32,
+                                closest.closest_point.y as f32,
+                                0.0,
+                            ],
+                            expand: [0.0, 0.0, 0.0],
+                        },
+                    ],
+                },
+                Rgba::CYAN,
+            ));
         }
 
-        let num_segments = 50;
+        let num_segments = 200;
         let curve_edge = ModelEdge::new(
             0.into(),
             Edge {
@@ -127,7 +157,10 @@ impl App {
                     cam,
                     vec![Model::new(
                         vec![],
-                        vec![curve_edge],
+                        [curve_edge]
+                            .into_iter()
+                            .chain(closest_lines.into_iter())
+                            .collect(),
                         //curve_points.iter().map(|p| p.1.clone()).collect(),
                         grid_points.into_iter().collect(),
                     )],

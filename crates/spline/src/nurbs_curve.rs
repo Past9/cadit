@@ -1,8 +1,11 @@
-use crate::math::{
-    b_spline::{curve_derivative_control_points, curve_derivatives_1, curve_derivatives_2},
-    knot_vector::KnotVector,
-    nurbs::{curve_derivatives, curve_point},
-    Homogeneous, Point, Vec2, Vec2H, Vec3H, Vector,
+use crate::{
+    bezier_curve::BezierCurve,
+    math::{
+        b_spline::{curve_derivative_control_points, curve_derivatives_1, curve_derivatives_2},
+        knot_vector::KnotVector,
+        nurbs::{curve_decompose, curve_derivatives, curve_point},
+        Homogeneous, Point, Vec2, Vec2H, Vec3H, Vector,
+    },
 };
 
 #[derive(Debug)]
@@ -13,11 +16,11 @@ pub struct ClosestResult<H: Homogeneous> {
     pub iterations: usize,
 }
 
-pub struct Curve<H: Homogeneous> {
+pub struct NurbsCurve<H: Homogeneous> {
     control_points: Vec<H>,
     knot_vector: KnotVector,
 }
-impl<H: Homogeneous> Curve<H> {
+impl<H: Homogeneous> NurbsCurve<H> {
     pub fn new(control_points: Vec<H>, knot_vector: KnotVector) -> Self {
         Self {
             control_points,
@@ -27,6 +30,21 @@ impl<H: Homogeneous> Curve<H> {
 
     pub fn control_points(&self) -> &[H] {
         &self.control_points
+    }
+
+    pub fn decompose(&self) -> Vec<BezierCurve<H>> {
+        curve_decompose(
+            &self
+                .control_points
+                .iter()
+                .map(|p| H::weight(*p))
+                .collect::<Vec<_>>(),
+            self.degree(),
+            &self.knot_vector,
+        )
+        .into_iter()
+        .map(|pts| BezierCurve::new(pts.iter().map(|p| H::unweight(*p)).collect()))
+        .collect()
     }
 
     pub fn find_closest(
@@ -44,7 +62,6 @@ impl<H: Homogeneous> Curve<H> {
             let dot_err = ders[1].dot(&vec_to_actual);
 
             if dot_err.abs() <= TOL {
-                println!("DOT ERR {dot_err}");
                 return Some(ClosestResult {
                     u,
                     closest_point: ders[0],
@@ -181,7 +198,7 @@ impl<H: Homogeneous> Curve<H> {
         self.knot_vector[self.knot_vector.len() - 1]
     }
 }
-impl Curve<Vec2H> {
+impl NurbsCurve<Vec2H> {
     pub fn normal(&self, u: f64) -> Vec2 {
         let tan = self.tangent(u);
         Vec2::new(tan.y, -tan.x)
@@ -230,7 +247,7 @@ impl Curve<Vec2H> {
         )
     }
 }
-impl Curve<Vec3H> {
+impl NurbsCurve<Vec3H> {
     pub fn example_quarter_circle() -> Self {
         Self::new(
             Vec::from([

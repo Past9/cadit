@@ -57,6 +57,7 @@ pub trait Homogeneous:
     fn zero() -> Self;
     fn project(self) -> Self::Projected;
     fn weight(self) -> Self::Weighted;
+    fn unweight(weighted: Self::Weighted) -> Self;
     fn cast_from_weighted(weighted: Self::Weighted) -> Self;
     fn cartesian_components(self) -> Self::Projected;
     fn homogeneous_component(self) -> f64;
@@ -119,6 +120,14 @@ impl Homogeneous for Vec2H {
             x: self.x * self.h,
             y: self.y * self.h,
             z: self.h,
+        }
+    }
+
+    fn unweight(weighted: Self::Weighted) -> Self {
+        Self {
+            x: weighted.x / weighted.z,
+            y: weighted.y / weighted.z,
+            h: weighted.z,
         }
     }
 
@@ -189,6 +198,15 @@ impl Homogeneous for Vec3H {
             y: self.y * self.h,
             z: self.z * self.h,
             w: self.h,
+        }
+    }
+
+    fn unweight(weighted: Self::Weighted) -> Self {
+        Self {
+            x: weighted.x / weighted.w,
+            y: weighted.y / weighted.w,
+            z: weighted.z / weighted.w,
+            h: weighted.w,
         }
     }
 

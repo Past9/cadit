@@ -1,3 +1,5 @@
+use core::num;
+
 use cgmath::{point3, vec3, Deg, InnerSpace};
 use components::{rgba, scene::SceneViewer, Gui};
 use components::{run_window, Window, WindowDescriptor};
@@ -10,7 +12,8 @@ use render::{
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
-use spline::math::{FloatRange, Vec2H};
+use spline::math::knot_vector::KnotVector;
+use spline::math::{FloatRange, Vec2H, Vec3H};
 use spline::nurbs_curve::NurbsCurve;
 
 pub fn main() {
@@ -18,7 +21,7 @@ pub fn main() {
         App::new(),
         &WindowDescriptor {
             position: Some([320.0, 50.0]),
-            width: 1080.0,
+            width: 1920.0,
             height: 1080.0,
             ..Default::default()
         },
@@ -30,17 +33,8 @@ pub struct App {
 }
 impl App {
     pub fn new() -> Self {
-        println!(
-            r#"
-Edge is displayed in yellow, normals in green, and reverse normals in red. If normals are correct,
-the red lines should stop just short of the origin and should form a perfect circle around it. This
-demo indicates that curve normals, tangents, and first derivatives are correctly calculated.
-"#
-        );
-
-        let curve = NurbsCurve::<Vec2H>::example_circle();
-
-        let gs = 3;
+        // Create grid
+        let gs = 5;
         let grid_points = (-gs..=gs)
             .flat_map(|x| {
                 (-gs..=gs).map(move |y| {
@@ -56,61 +50,48 @@ demo indicates that curve normals, tangents, and first derivatives are correctly
             })
             .collect::<Vec<_>>();
 
-        let num_segments = 360;
-        let mut curve_edge_vertices: Vec<EdgeVertex> = Vec::new();
-        let mut normal_edges: Vec<ModelEdge> = Vec::new();
-        let mut rev_normal_edges: Vec<ModelEdge> = Vec::new();
+        let curve = NurbsCurve::new(
+            Vec::from([
+                Vec3H::new(-5.0, -2.0, 0.0, 1.0),
+                Vec3H::new(-3.0, 5.0, 2.0, 2.0),
+                Vec3H::new(-1.0, 0.0, 0.0, 3.0),
+                Vec3H::new(0.0, -7.0, -5.0, 4.0),
+                Vec3H::new(1.0, 0.0, 0.0, 3.0),
+                Vec3H::new(3.0, 5.0, 2.0, 2.0),
+                Vec3H::new(5.0, -2.0, 0.0, 1.0),
+            ]),
+            KnotVector::new([0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.7, 1.0, 1.0, 1.0, 1.0, 1.0]),
+        );
+        let beziers = curve.decompose();
 
-        for u in FloatRange::new(curve.min_u(), curve.max_u(), num_segments) {
-            let point = curve.point(u);
-            curve_edge_vertices.push(EdgeVertex {
-                position: [point.x as f32, point.y as f32, 0.0],
-                expand: [0.0, 0.0, 0.0],
-            });
-
-            let normal = curve.normal(u);
-            let normal_end = point + normal;
-
-            normal_edges.push(ModelEdge::new(
+        let num_segments = 50;
+        let colors = [Rgba::BLUE, Rgba::RED, Rgba::GREEN, Rgba::CYAN];
+        let mut bezier_edges: Vec<ModelEdge> = Vec::new();
+        for (i, bezier) in beziers.iter().enumerate() {
+            bezier_edges.push(ModelEdge::new(
                 0.into(),
                 Edge {
-                    vertices: vec![
-                        EdgeVertex {
-                            position: [point.x as f32, point.y as f32, 0.0],
-                            expand: [0.0, 0.0, 0.0],
-                        },
-                        EdgeVertex {
-                            position: [normal_end.x as f32, normal_end.y as f32, 0.0],
-                            expand: [0.0, 0.0, 0.0],
-                        },
-                    ],
+                    vertices: FloatRange::new(0.0, 1.0, num_segments)
+                        .map(|u| EdgeVertex {
+                            position: bezier.point(u).f32s(),
+                            expand: [0.0, 0.0, -1.0],
+                        })
+                        .collect::<Vec<_>>(),
                 },
-                Rgba::GREEN,
-            ));
-
-            let rev_normal_end = point - normal * 0.99;
-            rev_normal_edges.push(ModelEdge::new(
-                0.into(),
-                Edge {
-                    vertices: vec![
-                        EdgeVertex {
-                            position: [point.x as f32, point.y as f32, 0.0],
-                            expand: [0.0, 0.0, 0.0],
-                        },
-                        EdgeVertex {
-                            position: [rev_normal_end.x as f32, rev_normal_end.y as f32, 0.0],
-                            expand: [0.0, 0.0, 0.0],
-                        },
-                    ],
-                },
-                Rgba::RED,
+                colors[i],
             ));
         }
 
+        let num_segments = 50 * beziers.len();
         let curve_edge = ModelEdge::new(
             0.into(),
             Edge {
-                vertices: curve_edge_vertices,
+                vertices: FloatRange::new(curve.min_u(), curve.max_u(), num_segments)
+                    .map(|u| EdgeVertex {
+                        position: curve.point(u).f32s(),
+                        expand: [0.0, 0.0, 0.0],
+                    })
+                    .collect::<Vec<_>>(),
             },
             Rgba::YELLOW,
         );
@@ -138,7 +119,7 @@ demo indicates that curve normals, tangents, and first derivatives are correctly
                     ),
                     Camera::create_perspective(
                         [0, 0],
-                        point3(0.0, 0.0, -3.0),
+                        point3(0.5, 0.5, -3.0),
                         vec3(0.0, 0.0, 1.0),
                         vec3(0.0, -1.0, 0.0).normalize(),
                         Deg(70.0).into(),
@@ -147,10 +128,9 @@ demo indicates that curve normals, tangents, and first derivatives are correctly
                     ),
                     vec![Model::new(
                         vec![],
-                        [curve_edge]
+                        bezier_edges
                             .into_iter()
-                            .chain(normal_edges.into_iter())
-                            .chain(rev_normal_edges.into_iter())
+                            .chain([curve_edge].into_iter())
                             .collect(),
                         grid_points.into_iter().collect(),
                     )],

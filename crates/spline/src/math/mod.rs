@@ -4,6 +4,7 @@ mod vector_macros;
 
 pub mod b_spline;
 pub mod basis;
+pub mod bezier;
 pub mod knot_vector;
 pub mod nurbs;
 

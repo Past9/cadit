@@ -1,6 +1,11 @@
+use std::ops::{Add, Mul, Sub};
+
 use super::Vector;
 
-pub fn decasteljau<C: Vector>(coefficients: &[C], u: f64) -> C {
+pub fn decasteljau<T>(coefficients: &[T], u: f64) -> T
+where
+    T: Clone + Copy + Sub<f64> + Mul<f64, Output = T> + Add<Output = T>,
+{
     let mut q = coefficients.to_vec();
     let degree = coefficients.len() - 1;
 

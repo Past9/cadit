@@ -48,7 +48,6 @@ impl<H: Homogeneous> BezierCurve<H> {
 
         for i in 0..weighted.len() - 1 {
             let point = H::cast_from_weighted((weighted[i + 1] - weighted[i]) * self_deg);
-            //let point = (weighted[i + 1] - weighted[i]) * self_deg;
             der_points.push(point);
         }
 
@@ -60,29 +59,15 @@ impl BezierCurve<Vec2H> {
         Self::new(Vec::from([
             Vec2H::new(-1.0, 0.0, 1.0),
             Vec2H::new(-1.0, -1.0, 2.0_f64.sqrt() / 2.0),
-            Vec2H::new(0.0, -1.0, 1.0),
+            Vec2H::new(-0.0, -1.0, 1.0),
         ]))
     }
 
     fn line_intersection_coefficients(&self, line: &Line2) -> Vec<f64> {
         self.control_points
             .iter()
-            .inspect(|pt| println!("PT H {}", pt.h))
-            //.map(|pt| pt.x * line.a + pt.y * line.b + line.c)
             .map(|pt| (pt.x * line.a + pt.y * line.b + line.c) * pt.h)
             .collect::<Vec<_>>()
-    }
-
-    fn derivative_intersection_coefficients(&self, line: &Line2) -> Vec<f64> {
-        let self_deg = self.degree() as f64;
-        let self_co = self.line_intersection_coefficients(line);
-
-        let mut der_co = Vec::new();
-        for i in 0..self_co.len() - 1 {
-            der_co.push(self_co[i + 1] - self_co[i] * self_deg);
-        }
-
-        der_co
     }
 
     pub fn intersection_curve_plot(&self, line: &Line2) -> Vec<Vec2> {
@@ -102,7 +87,8 @@ impl BezierCurve<Vec2H> {
         // along the X-axis. Do the same for this curve's derivative curve, which
         // we'll need for Newton iteration.
         let self_coefficients = self.line_intersection_coefficients(line);
-        let der_coefficients = self.derivative_curve().line_intersection_coefficients(line);
+        let der_coefficients = differentiate_coefficients(&self_coefficients);
+        //let der_coefficients = self.derivative_curve().line_intersection_coefficients(line);
 
         // Find the points where the implicit curve crosses the X-axis using Newton's method.
         let mut params = Vec::new();
@@ -138,10 +124,6 @@ impl BezierCurve<Vec2H> {
         let self_coefficients = self.line_intersection_coefficients(line);
         let der_coefficients_1 = differentiate_coefficients(&self_coefficients);
         let der_coefficients_2 = differentiate_coefficients(&der_coefficients_1);
-
-        println!("SELF {:?}", self_coefficients);
-        println!("DER 1 {:?}", der_coefficients_1);
-        println!("DER 2 {:?}", der_coefficients_2);
 
         // Find the points where the first derivative curve crosses the X-axis using Newton's method.
         let mut params = Vec::new();
@@ -185,8 +167,6 @@ impl BezierCurve<Vec2H> {
         for (u, point) in self.line_hausdorff_candidates(line) {
             let dist = (line.a * point.x + line.b * point.y + line.c).abs()
                 / (line.a.powi(2) + line.b.powi(2)).sqrt();
-
-            println!("PD {:?} {}", point, dist);
 
             if dist > max {
                 max = dist;

@@ -63,24 +63,24 @@ impl App {
                 Vec2H::new(2.0, -4.0, 1.0),
                 Vec2H::new(4.0, 4.0, 1.0),
             ]);
+            */
 
             let curve = BezierCurve::new(vec![
                 Vec2H::new(-4.1, -4.0, 1.0),
-                Vec2H::new(-7.0, 3.0, 1.0),
-                Vec2H::new(-3.0, 5.0, 1.0),
-                Vec2H::new(2.0, 5.0, 1.0),
+                Vec2H::new(-7.0, 3.0, 20.0),
+                Vec2H::new(-3.0, 5.0, 10.0),
+                Vec2H::new(2.0, 5.0, 20.0),
                 Vec2H::new(6.0, 1.0, 1.0),
-                Vec2H::new(5.0, -5.0, 1.0),
-                Vec2H::new(-1.0, -8.0, 1.0),
+                Vec2H::new(5.0, -5.0, 30.0),
+                Vec2H::new(-1.0, -8.0, 20.0),
                 Vec2H::new(-5.0, -7.0, 1.0),
-                Vec2H::new(-6.0, -2.0, 1.0),
-                Vec2H::new(-3.0, 3.0, 1.0),
+                Vec2H::new(-6.0, -2.0, 20.0),
+                Vec2H::new(-3.0, 3.0, 0.5),
                 Vec2H::new(1.0, 3.0, 1.0),
                 Vec2H::new(0.1, 0.0, 1.0),
             ]);
-            */
 
-            let curve = BezierCurve::example_quarter_circle();
+            //let curve = BezierCurve::example_quarter_circle();
 
             let num_segments = 200;
             let curve_edge = ModelEdge::new(
@@ -113,8 +113,8 @@ impl App {
             //let start = Vec2::new(-0.85, -5.0);
             //let end = Vec2::new(-0.15, 5.0);
 
-            let start = Vec2::new(-2.2, 1.0);
-            let end = Vec2::new(1.0, -2.2);
+            let start = Vec2::new(-6.2, 4.0);
+            let end = Vec2::new(5.0, -6.2);
 
             let line = Line2::from_pos_and_dir(start, start - end);
 

@@ -2,8 +2,6 @@ use std::ops::{Add, Mul, Sub};
 
 use crate::TOL;
 
-use super::Vector;
-
 pub fn decasteljau<T>(coefficients: &[T], u: f64) -> T
 where
     T: Clone + Copy + Sub<f64> + Mul<f64, Output = T> + Add<Output = T>,

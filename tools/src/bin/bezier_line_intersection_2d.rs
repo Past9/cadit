@@ -56,6 +56,7 @@ impl App {
         };
 
         let (curve, curve_edge) = {
+            /*
             let curve = BezierCurve::new(vec![
                 Vec2H::new(-4.0, -4.0, 1.0),
                 Vec2H::new(-2.0, 4.0, 1.0),
@@ -77,6 +78,9 @@ impl App {
                 Vec2H::new(1.0, 3.0, 1.0),
                 Vec2H::new(0.1, 0.0, 1.0),
             ]);
+            */
+
+            let curve = BezierCurve::example_quarter_circle();
 
             let num_segments = 200;
             let curve_edge = ModelEdge::new(
@@ -106,8 +110,11 @@ impl App {
             //let start = Vec2::new(10.0, -5.0);
             //let end = Vec2::new(10.0, 5.0);
 
-            let start = Vec2::new(10.0, -5.0);
-            let end = Vec2::new(10.0, 5.0);
+            //let start = Vec2::new(-0.85, -5.0);
+            //let end = Vec2::new(-0.15, 5.0);
+
+            let start = Vec2::new(-2.2, 1.0);
+            let end = Vec2::new(1.0, -2.2);
 
             let line = Line2::from_pos_and_dir(start, start - end);
 
@@ -192,6 +199,52 @@ impl App {
             deviation_points
         };
 
+        let intersection_plot = {
+            let points = curve.intersection_curve_plot(&line);
+            let intersection_plot = ModelEdge::new(
+                0.into(),
+                Edge {
+                    vertices: points
+                        .into_iter()
+                        .map(|pt| {
+                            //
+                            let floats = pt.f32s();
+                            EdgeVertex {
+                                position: [floats[0], floats[1], 0.0],
+                                expand: [0.0, 0.0, 0.0],
+                            }
+                        })
+                        .collect::<Vec<_>>(),
+                },
+                Rgba::BLUE,
+            );
+
+            intersection_plot
+        };
+
+        let der_intersection_plot = {
+            let points = curve.derivative_curve().intersection_curve_plot(&line);
+            let der_intersection_plot = ModelEdge::new(
+                0.into(),
+                Edge {
+                    vertices: points
+                        .into_iter()
+                        .map(|pt| {
+                            //
+                            let floats = pt.f32s();
+                            EdgeVertex {
+                                position: [floats[0], floats[1], 0.0],
+                                expand: [0.0, 0.0, 0.0],
+                            }
+                        })
+                        .collect::<Vec<_>>(),
+                },
+                Rgba::CYAN,
+            );
+
+            der_intersection_plot
+        };
+
         Self {
             viewer: SceneViewer::new(
                 CameraAngle::Front.get_rotation(),
@@ -226,11 +279,12 @@ impl App {
                         vec![],
                         vec![
                             curve_edge,
-                            //curve_plot_edge,
-                            //der_curve_plot_edge,
+                            intersection_plot,
+                            der_intersection_plot,
                             line_edge,
                         ],
                         grid_points
+                            //vec![]
                             .into_iter()
                             .chain(intersection_points.into_iter())
                             .chain(deviation_points.into_iter())

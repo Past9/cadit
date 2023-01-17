@@ -39,18 +39,37 @@ impl<H: Homogeneous> BezierCurve<H> {
         let mut der_points = Vec::new();
         let self_deg = self.degree() as f64;
 
-        for i in 0..self.control_points.len() - 1 {
-            der_points.push((self.control_points[i + 1] - self.control_points[i]) * self_deg);
+        let weighted = self
+            .control_points
+            .iter()
+            .cloned()
+            .map(|pt| pt.weight())
+            .collect::<Vec<_>>();
+
+        for i in 0..weighted.len() - 1 {
+            let point = H::cast_from_weighted((weighted[i + 1] - weighted[i]) * self_deg);
+            //let point = (weighted[i + 1] - weighted[i]) * self_deg;
+            der_points.push(point);
         }
 
         Self::new(der_points)
     }
 }
 impl BezierCurve<Vec2H> {
+    pub fn example_quarter_circle() -> Self {
+        Self::new(Vec::from([
+            Vec2H::new(-1.0, 0.0, 1.0),
+            Vec2H::new(-1.0, -1.0, 2.0_f64.sqrt() / 2.0),
+            Vec2H::new(0.0, -1.0, 1.0),
+        ]))
+    }
+
     fn line_intersection_coefficients(&self, line: &Line2) -> Vec<f64> {
         self.control_points
             .iter()
-            .map(|pt| pt.x * line.a + pt.y * line.b + line.c)
+            .inspect(|pt| println!("PT H {}", pt.h))
+            //.map(|pt| pt.x * line.a + pt.y * line.b + line.c)
+            .map(|pt| (pt.x * line.a + pt.y * line.b + line.c) * pt.h)
             .collect::<Vec<_>>()
     }
 

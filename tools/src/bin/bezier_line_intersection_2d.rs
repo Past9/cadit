@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use cgmath::{point3, vec3, Deg, InnerSpace};
 use components::{rgba, scene::SceneViewer, Gui};
 use components::{run_window, Window, WindowDescriptor};
@@ -10,8 +12,9 @@ use render::{
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
-use spline::bezier_curve::{BezierCurve, Line2D};
+use spline::bezier_curve::BezierCurve;
 use spline::math::knot_vector::KnotVector;
+use spline::math::line::{Line, Line2};
 use spline::math::{FloatRange, Vec2, Vec2H, Vec3H};
 use spline::nurbs_curve::NurbsCurve;
 
@@ -32,131 +35,162 @@ pub struct App {
 }
 impl App {
     pub fn new() -> Self {
-        // Create grid
-        let gs = 5;
-        let grid_points = (-gs..=gs)
-            .flat_map(|x| {
-                (-gs..=gs).map(move |y| {
+        let grid_points = {
+            let gs = 5;
+            let grid_points = (-gs..=gs)
+                .flat_map(|x| {
+                    (-gs..=gs).map(move |y| {
+                        ModelPoint::new(
+                            0.into(),
+                            Point {
+                                position: [x as f32, y as f32, 0.0],
+                                expand: [0.0, 0.0, 0.0],
+                            },
+                            rgba(0.0, 0.05, 0.15, 1.0),
+                        )
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            grid_points
+        };
+
+        let (curve, curve_edge) = {
+            let curve = BezierCurve::new(vec![
+                Vec2H::new(-4.0, -4.0, 1.0),
+                Vec2H::new(-2.0, 4.0, 1.0),
+                Vec2H::new(2.0, -4.0, 1.0),
+                Vec2H::new(4.0, 4.0, 1.0),
+            ]);
+
+            let curve = BezierCurve::new(vec![
+                Vec2H::new(-4.1, -4.0, 1.0),
+                Vec2H::new(-7.0, 3.0, 1.0),
+                Vec2H::new(-3.0, 5.0, 1.0),
+                Vec2H::new(2.0, 5.0, 1.0),
+                Vec2H::new(6.0, 1.0, 1.0),
+                Vec2H::new(5.0, -5.0, 1.0),
+                Vec2H::new(-1.0, -8.0, 1.0),
+                Vec2H::new(-5.0, -7.0, 1.0),
+                Vec2H::new(-6.0, -2.0, 1.0),
+                Vec2H::new(-3.0, 3.0, 1.0),
+                Vec2H::new(1.0, 3.0, 1.0),
+                Vec2H::new(0.1, 0.0, 1.0),
+            ]);
+
+            let num_segments = 200;
+            let curve_edge = ModelEdge::new(
+                0.into(),
+                Edge {
+                    vertices: FloatRange::new(0.0, 1.0, num_segments)
+                        .map(|u| {
+                            //
+                            let floats = curve.point(u).f32s();
+                            EdgeVertex {
+                                position: [floats[0], floats[1], 0.0],
+                                expand: [0.0, 0.0, 0.0],
+                            }
+                        })
+                        .collect::<Vec<_>>(),
+                },
+                Rgba::YELLOW,
+            );
+
+            (curve, curve_edge)
+        };
+
+        let (line, line_edge) = {
+            //let start = Vec2::new(-5.0, 0.0);
+            //let end = Vec2::new(5.0, 5.0);
+
+            //let start = Vec2::new(10.0, -5.0);
+            //let end = Vec2::new(10.0, 5.0);
+
+            let start = Vec2::new(10.0, -5.0);
+            let end = Vec2::new(10.0, 5.0);
+
+            let line = Line2::from_pos_and_dir(start, start - end);
+
+            let start_f32s = start.f32s();
+            let end_f32s = end.f32s();
+
+            let line_edge = ModelEdge::new(
+                0.into(),
+                Edge {
+                    vertices: vec![
+                        EdgeVertex {
+                            position: [start_f32s[0], start_f32s[1], 0.0],
+                            expand: [0.0, 0.0, 0.0],
+                        },
+                        EdgeVertex {
+                            position: [end_f32s[0], end_f32s[1], 0.0],
+                            expand: [0.0, 0.0, 0.0],
+                        },
+                    ],
+                },
+                Rgba::MAGENTA,
+            );
+
+            (line, line_edge)
+        };
+
+        let intersection_points = {
+            let points = curve.line_intersections(&line);
+
+            let intersection_points = points
+                .into_iter()
+                .map(|p| {
+                    //
+                    let floats = p.f32s();
                     ModelPoint::new(
                         0.into(),
                         Point {
-                            position: [x as f32, y as f32, 0.0],
+                            position: [floats[0], floats[1], 0.0],
                             expand: [0.0, 0.0, 0.0],
                         },
-                        rgba(0.0, 0.05, 0.15, 1.0),
+                        Rgba::GREEN,
                     )
                 })
-            })
-            .collect::<Vec<_>>();
+                .collect::<Vec<_>>();
 
-        let original_bezier = BezierCurve::new(vec![
-            Vec2H::new(-4.0, -4.0, 1.0),
-            Vec2H::new(-2.0, 4.0, 1.0),
-            Vec2H::new(2.0, -4.0, 1.0),
-            Vec2H::new(4.0, 4.0, 1.0),
-        ]);
+            intersection_points
+        };
 
-        /*
-        let original_bezier = BezierCurve::new(vec![
-            Vec2H::new(-4.0, -4.0, 1.0),
-            Vec2H::new(-7.0, 3.0, 1.0),
-            Vec2H::new(-3.0, 5.0, 1.0),
-            Vec2H::new(2.0, 5.0, 1.0),
-            Vec2H::new(6.0, 1.0, 1.0),
-            Vec2H::new(5.0, -5.0, 1.0),
-            Vec2H::new(-1.0, -8.0, 1.0),
-            Vec2H::new(-5.0, -7.0, 1.0),
-            Vec2H::new(-6.0, -2.0, 1.0),
-            Vec2H::new(-3.0, 3.0, 1.0),
-            Vec2H::new(1.0, 3.0, 1.0),
-            Vec2H::new(0.0, 0.0, 1.0),
-        ]);
-        */
+        let deviation_points = {
+            let start = Instant::now();
 
-        let num_segments = 200;
-        let original_bezier_edge = ModelEdge::new(
-            0.into(),
-            Edge {
-                vertices: FloatRange::new(0.0, 1.0, num_segments)
-                    .map(|u| {
-                        //
-                        let floats = original_bezier.point(u).f32s();
-                        EdgeVertex {
+            let hausdorff = curve.line_hausdorff(&line);
+
+            println!("Hausdorff took {}us", (Instant::now() - start).as_micros());
+            println!("Hausdorff distance: {}", hausdorff.distance);
+
+            if let Some(point) = hausdorff.point {
+                println!("Hausdorff point: {:?}", point);
+            }
+
+            if let Some(u) = hausdorff.u {
+                println!("Hausdorff U: {}", u);
+            }
+
+            let points = curve.line_hausdorff_candidates(&line);
+            let deviation_points = points
+                .into_iter()
+                .map(|p| {
+                    //
+                    let floats = p.1.f32s();
+                    ModelPoint::new(
+                        0.into(),
+                        Point {
                             position: [floats[0], floats[1], 0.0],
                             expand: [0.0, 0.0, 0.0],
-                        }
-                    })
-                    .collect::<Vec<_>>(),
-            },
-            Rgba::YELLOW,
-        );
+                        },
+                        Rgba::RED,
+                    )
+                })
+                .collect::<Vec<_>>();
 
-        let line = Line2D::from_pos_and_dir(Vec2::new(0.0, -2.0), Vec2::new(-1.0, -1.0));
-
-        println!("LINE {:?}", line);
-        //let line = Line2D::new(-1.0, 1.1, 0.0);
-
-        println!("INTERSECTIONS {:?}", original_bezier.line_deviations(&line));
-
-        let intersection_curve_plot = original_bezier.intersection_curve_plot(&line);
-        let curve_plot_edge = ModelEdge::new(
-            0.into(),
-            Edge {
-                vertices: intersection_curve_plot
-                    .into_iter()
-                    .map(|point| {
-                        //
-                        let floats = point.f32s();
-                        EdgeVertex {
-                            position: [floats[0], floats[1], 0.0],
-                            expand: [0.0, 0.0, 0.0],
-                        }
-                    })
-                    .collect::<Vec<_>>(),
-            },
-            Rgba::BLUE,
-        );
-
-        let der_intersection_curve_plot = original_bezier
-            .derivative_curve()
-            .intersection_curve_plot(&line);
-        let der_curve_plot_edge = ModelEdge::new(
-            0.into(),
-            Edge {
-                vertices: der_intersection_curve_plot
-                    .into_iter()
-                    .map(|point| {
-                        //
-                        let floats = point.f32s();
-                        EdgeVertex {
-                            position: [floats[0], floats[1], 0.0],
-                            expand: [0.0, 0.0, 0.0],
-                        }
-                    })
-                    .collect::<Vec<_>>(),
-            },
-            Rgba::GREEN,
-        );
-
-        /*
-        let num_segments = 50;
-        let bezier_edge = ModelEdge::new(
-            0.into(),
-            Edge {
-                vertices: FloatRange::new(0.0, 1.0, num_segments)
-                    .map(|u| {
-                        //
-                        let floats = bezier.point(u).f32s();
-                        EdgeVertex {
-                            position: [floats[0], floats[1], 0.0],
-                            expand: [0.0, 0.0, 0.0],
-                        }
-                    })
-                    .collect::<Vec<_>>(),
-            },
-            Rgba::BLUE,
-        );
-        */
+            deviation_points
+        };
 
         Self {
             viewer: SceneViewer::new(
@@ -190,8 +224,17 @@ impl App {
                     ),
                     vec![Model::new(
                         vec![],
-                        vec![original_bezier_edge, curve_plot_edge, der_curve_plot_edge],
-                        grid_points.into_iter().collect(),
+                        vec![
+                            curve_edge,
+                            //curve_plot_edge,
+                            //der_curve_plot_edge,
+                            line_edge,
+                        ],
+                        grid_points
+                            .into_iter()
+                            .chain(intersection_points.into_iter())
+                            .chain(deviation_points.into_iter())
+                            .collect(),
                     )],
                     vec![Material::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],
                 ),

@@ -56,7 +56,24 @@ impl App {
             Vec2H::new(4.0, 4.0, 1.0),
         ]);
 
-        let num_segments = 50;
+        /*
+        let original_bezier = BezierCurve::new(vec![
+            Vec2H::new(-4.0, -4.0, 1.0),
+            Vec2H::new(-7.0, 3.0, 1.0),
+            Vec2H::new(-3.0, 5.0, 1.0),
+            Vec2H::new(2.0, 5.0, 1.0),
+            Vec2H::new(6.0, 1.0, 1.0),
+            Vec2H::new(5.0, -5.0, 1.0),
+            Vec2H::new(-1.0, -8.0, 1.0),
+            Vec2H::new(-5.0, -7.0, 1.0),
+            Vec2H::new(-6.0, -2.0, 1.0),
+            Vec2H::new(-3.0, 3.0, 1.0),
+            Vec2H::new(1.0, 3.0, 1.0),
+            Vec2H::new(0.0, 0.0, 1.0),
+        ]);
+        */
+
+        let num_segments = 200;
         let original_bezier_edge = ModelEdge::new(
             0.into(),
             Edge {
@@ -74,13 +91,54 @@ impl App {
             Rgba::YELLOW,
         );
 
-        let line = Line2D::from_pos_and_dir(Vec2::new(0.0, 0.0), Vec2::new(-1.5, -1.0));
+        let line = Line2D::from_pos_and_dir(Vec2::new(0.0, -2.0), Vec2::new(-1.0, -1.0));
 
         println!("LINE {:?}", line);
         //let line = Line2D::new(-1.0, 1.1, 0.0);
 
-        let bezier = original_bezier.line_intersection_curve(line);
+        println!("INTERSECTIONS {:?}", original_bezier.line_deviations(&line));
 
+        let intersection_curve_plot = original_bezier.intersection_curve_plot(&line);
+        let curve_plot_edge = ModelEdge::new(
+            0.into(),
+            Edge {
+                vertices: intersection_curve_plot
+                    .into_iter()
+                    .map(|point| {
+                        //
+                        let floats = point.f32s();
+                        EdgeVertex {
+                            position: [floats[0], floats[1], 0.0],
+                            expand: [0.0, 0.0, 0.0],
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            },
+            Rgba::BLUE,
+        );
+
+        let der_intersection_curve_plot = original_bezier
+            .derivative_curve()
+            .intersection_curve_plot(&line);
+        let der_curve_plot_edge = ModelEdge::new(
+            0.into(),
+            Edge {
+                vertices: der_intersection_curve_plot
+                    .into_iter()
+                    .map(|point| {
+                        //
+                        let floats = point.f32s();
+                        EdgeVertex {
+                            position: [floats[0], floats[1], 0.0],
+                            expand: [0.0, 0.0, 0.0],
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            },
+            Rgba::GREEN,
+        );
+
+        /*
         let num_segments = 50;
         let bezier_edge = ModelEdge::new(
             0.into(),
@@ -98,6 +156,7 @@ impl App {
             },
             Rgba::BLUE,
         );
+        */
 
         Self {
             viewer: SceneViewer::new(
@@ -122,7 +181,7 @@ impl App {
                     ),
                     Camera::create_perspective(
                         [0, 0],
-                        point3(0.0, 0.0, -5.0),
+                        point3(0.0, 0.0, -6.0),
                         vec3(0.0, 0.0, 1.0),
                         vec3(0.0, -1.0, 0.0).normalize(),
                         Deg(70.0).into(),
@@ -131,7 +190,7 @@ impl App {
                     ),
                     vec![Model::new(
                         vec![],
-                        vec![original_bezier_edge, bezier_edge],
+                        vec![original_bezier_edge, curve_plot_edge, der_curve_plot_edge],
                         grid_points.into_iter().collect(),
                     )],
                     vec![Material::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],

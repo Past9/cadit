@@ -83,8 +83,6 @@ impl<H: Homogeneous> BezierCurve<H> {
         .take(self.degree())
         .collect::<Vec<_>>();
 
-        println!("CP {:?}", cp);
-
         Self::new(cp.into_iter().map(|pt| H::cast_from_weighted(pt)).collect())
 
         /*
@@ -145,11 +143,7 @@ impl BezierCurve<Vec2H> {
                 .collect::<Vec<_>>(),
         );
 
-        println!("C1 {:#?}", c1);
-
         let hodo = c1.hodograph();
-
-        println!("HODO {:#?}", hodo);
 
         let der = hodo
             .control_points
@@ -216,8 +210,6 @@ impl BezierCurve<Vec2H> {
 
     pub fn line_derivative_plot(&self, line: &Line2) -> Vec<Vec2> {
         let coefficients = self.line_derivative_coefficients(line);
-
-        println!("DER PLOT {:?}", coefficients);
 
         let mut points = Vec::new();
         for x in FloatRange::new(0.0, 1.0, 300) {

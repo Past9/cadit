@@ -89,6 +89,23 @@ impl App {
             ]);
 
             /*
+            let curve = BezierCurve::new(vec![
+                Vec2H::new(-4.1, -4.0, 1.0),
+                Vec2H::new(-7.0, 3.0, 20.0),
+                Vec2H::new(-3.0, 5.0, 10.0),
+                Vec2H::new(2.0, 5.0, 20.0),
+                Vec2H::new(6.0, 1.0, 1.0),
+                Vec2H::new(5.0, -5.0, 30.0),
+                Vec2H::new(-1.0, -8.0, 20.0),
+                Vec2H::new(-5.0, -7.0, 1.0),
+                Vec2H::new(-6.0, -2.0, 20.0),
+                Vec2H::new(-3.0, 3.0, 0.5),
+                Vec2H::new(1.0, 3.0, 1.0),
+                Vec2H::new(0.1, 0.0, 1.0),
+            ]);
+            */
+
+            /*
             let nurbs = NurbsCurve::new(
                 vec![
                     Vec2H::new(-4.0, -1.0, 1.0),
@@ -136,8 +153,8 @@ impl App {
             //let start = Vec2::new(-0.85, -5.0);
             //let end = Vec2::new(-0.15, 5.0);
 
-            let start = Vec2::new(-5.0, 2.0);
-            let end = Vec2::new(5.0, -4.0);
+            let start = Vec2::new(-5.0, 3.5);
+            let end = Vec2::new(5.0, -2.5);
 
             let line = Line2::from_pos_and_dir(start, start - end);
 
@@ -318,6 +335,7 @@ impl App {
                         [0, 0],
                         point3(0.0, 0.0, -6.0),
                         vec3(0.0, 0.0, 1.0),
+                        //vec3(6.0, 10.0, 0.0).normalize(),
                         vec3(0.0, -1.0, 0.0).normalize(),
                         Deg(70.0).into(),
                         0.01,

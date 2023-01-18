@@ -115,7 +115,7 @@ impl InternalGuiRenderer {
     fn new<'a>(scene: Scene, resources: &RenderResources<'a>) -> Self {
         let renderer = Renderer::new(
             scene,
-            SampleCount::Sample8,
+            SampleCount::Sample2,
             &resources.memory_allocator,
             &resources.descriptor_set_allocator,
             resources.queue.clone(),

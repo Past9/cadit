@@ -145,7 +145,7 @@ impl<H: Homogeneous> NurbsCurve<H> {
     }
 
     pub fn derivatives(&self, u: f64, num_ders: usize) -> Vec<H::Projected> {
-        let ders = curve_derivatives_2(
+        let ders = curve_derivatives_1(
             &self
                 .control_points
                 .iter()

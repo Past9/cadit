@@ -44,8 +44,6 @@ pub fn implicit_zero_nearest(
         }
     }
 
-    println!("NEWTON FAIL");
-
     None
 }
 

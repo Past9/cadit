@@ -2,6 +2,8 @@ use std::ops::{Add, Mul, Sub};
 
 use crate::TOL;
 
+use super::Vector;
+
 pub fn decasteljau<T>(coefficients: &[T], u: f64) -> T
 where
     T: Clone + Copy + Sub<f64> + Mul<f64, Output = T> + Add<Output = T>,
@@ -32,6 +34,7 @@ pub fn implicit_zero_nearest(
         if self_val.abs() <= TOL {
             return Some(u);
         } else {
+            //println!("U VAL {} {} {}", u, self_val, der_val);
             u -= self_val / der_val;
             if u < 0.0 {
                 u = 0.0;
@@ -40,6 +43,8 @@ pub fn implicit_zero_nearest(
             }
         }
     }
+
+    println!("NEWTON FAIL");
 
     None
 }

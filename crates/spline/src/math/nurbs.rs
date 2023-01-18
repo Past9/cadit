@@ -25,7 +25,7 @@ pub fn curve_derivatives<H: Homogeneous>(
     let mut derivatives = vec![H::Projected::zero(); num_derivatives + 1];
 
     for k in 0..=num_derivatives {
-        let mut v = weighted_derivatives[k].cartesian_components();
+        let mut v = weighted_derivatives[k].euclidean_components();
         for i in 1..=k {
             v = v - derivatives[k - i]
                 * binomial_coefficient(k, i)

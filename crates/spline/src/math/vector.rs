@@ -59,9 +59,16 @@ pub trait Homogeneous:
     fn weight(self) -> Self::Weighted;
     fn unweight(weighted: Self::Weighted) -> Self;
     fn cast_from_weighted(weighted: Self::Weighted) -> Self;
-    fn cartesian_components(self) -> Self::Projected;
+    fn euclidean_components(self) -> Self::Projected;
     fn homogeneous_component(self) -> f64;
 }
+
+/// 1-dimensional vector
+#[derive(Debug, Copy, Clone)]
+pub struct Vec1 {
+    pub x: f64,
+}
+impl_vector!(Vec1, x);
 
 /// 2-dimensional vector
 #[derive(Debug, Copy, Clone)]
@@ -89,6 +96,66 @@ pub struct Vec4 {
     pub w: f64,
 }
 impl_vector!(Vec4, x, y, z, w);
+
+/// Homogeneous 1-dimensional vector
+#[derive(Copy, Clone, Debug)]
+pub struct Vec1H {
+    pub x: f64,
+    pub h: f64,
+}
+vector_arithmetic!(Vec1H, x, h);
+
+impl Vec1H {
+    pub fn new(x: f64, h: f64) -> Self {
+        Self { x, h }
+    }
+}
+impl Homogeneous for Vec1H {
+    type Projected = Vec1;
+    type Weighted = Vec2;
+
+    fn project(self) -> Self::Projected {
+        Vec1 { x: self.x / self.h }
+    }
+
+    fn weight(self) -> Self::Weighted {
+        Vec2 {
+            x: self.x * self.h,
+            y: self.h,
+        }
+    }
+
+    fn unweight(weighted: Self::Weighted) -> Self {
+        Self {
+            x: weighted.x / weighted.y,
+            h: weighted.y,
+        }
+    }
+
+    fn cast_from_weighted(weighted: Self::Weighted) -> Self {
+        Self {
+            x: weighted.x,
+            h: weighted.y,
+        }
+    }
+
+    fn euclidean_components(self) -> Self::Projected {
+        Vec1 { x: self.x }
+    }
+
+    fn homogeneous_component(self) -> f64 {
+        self.h
+    }
+
+    fn zero() -> Self {
+        Self { x: 0.0, h: 0.0 }
+    }
+}
+impl Sum for Vec1H {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Self::zero(), |a, b| a + b)
+    }
+}
 
 /// Homogeneous 2-dimensional vector
 #[derive(Copy, Clone, Debug)]
@@ -139,7 +206,7 @@ impl Homogeneous for Vec2H {
         }
     }
 
-    fn cartesian_components(self) -> Self::Projected {
+    fn euclidean_components(self) -> Self::Projected {
         Vec2 {
             x: self.x,
             y: self.y,
@@ -219,7 +286,7 @@ impl Homogeneous for Vec3H {
         }
     }
 
-    fn cartesian_components(self) -> Self::Projected {
+    fn euclidean_components(self) -> Self::Projected {
         Vec3 {
             x: self.x,
             y: self.y,

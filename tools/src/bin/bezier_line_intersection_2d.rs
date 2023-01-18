@@ -35,54 +35,77 @@ pub struct App {
 }
 impl App {
     pub fn new() -> Self {
-        let grid_points = {
+        let grid_lines = {
             let gs = 5;
-            let grid_points = (-gs..=gs)
-                .flat_map(|x| {
-                    (-gs..=gs).map(move |y| {
-                        ModelPoint::new(
-                            0.into(),
-                            Point {
-                                position: [x as f32, y as f32, 0.0],
-                                expand: [0.0, 0.0, 0.0],
-                            },
-                            rgba(0.0, 0.05, 0.15, 1.0),
-                        )
-                    })
+            let color = rgba(0.0, 0.075, 0.15, 1.0);
+            let grid_lines = (-gs..=gs)
+                .map(|x| {
+                    ModelEdge::new(
+                        0.into(),
+                        Edge {
+                            vertices: vec![
+                                EdgeVertex {
+                                    position: [x as f32, gs as f32, 0.0],
+                                    expand: [0.0, 0.0, 0.0],
+                                },
+                                EdgeVertex {
+                                    position: [x as f32, -gs as f32, 0.0],
+                                    expand: [0.0, 0.0, 0.0],
+                                },
+                            ],
+                        },
+                        color,
+                    )
                 })
+                .chain((-gs..=gs).map(|y| {
+                    ModelEdge::new(
+                        0.into(),
+                        Edge {
+                            vertices: vec![
+                                EdgeVertex {
+                                    position: [gs as f32, y as f32, 0.0],
+                                    expand: [0.0, 0.0, 0.0],
+                                },
+                                EdgeVertex {
+                                    position: [-gs as f32, y as f32, 0.0],
+                                    expand: [0.0, 0.0, 0.0],
+                                },
+                            ],
+                        },
+                        color,
+                    )
+                }))
                 .collect::<Vec<_>>();
 
-            grid_points
+            grid_lines
         };
 
         let (curve, curve_edge) = {
-            /*
             let curve = BezierCurve::new(vec![
-                Vec2H::new(-4.0, -4.0, 1.0),
-                Vec2H::new(-2.0, 4.0, 1.0),
-                Vec2H::new(2.0, -4.0, 1.0),
-                Vec2H::new(4.0, 4.0, 1.0),
+                Vec2H::new(-4.0, -1.0, 1.0),
+                Vec2H::new(-2.0, 4.0, 10.0),
+                Vec2H::new(2.0, -4.0, 10.0),
+                Vec2H::new(4.0, 1.0, 1.0),
             ]);
-            */
 
-            let curve = BezierCurve::new(vec![
-                Vec2H::new(-4.1, -4.0, 1.0),
-                Vec2H::new(-7.0, 3.0, 20.0),
-                Vec2H::new(-3.0, 5.0, 10.0),
-                Vec2H::new(2.0, 5.0, 20.0),
-                Vec2H::new(6.0, 1.0, 1.0),
-                Vec2H::new(5.0, -5.0, 30.0),
-                Vec2H::new(-1.0, -8.0, 20.0),
-                Vec2H::new(-5.0, -7.0, 1.0),
-                Vec2H::new(-6.0, -2.0, 20.0),
-                Vec2H::new(-3.0, 3.0, 0.5),
-                Vec2H::new(1.0, 3.0, 1.0),
-                Vec2H::new(0.1, 0.0, 1.0),
-            ]);
+            /*
+            let nurbs = NurbsCurve::new(
+                vec![
+                    Vec2H::new(-4.0, -1.0, 1.0),
+                    Vec2H::new(-2.0, 4.0, 10.0),
+                    Vec2H::new(2.0, -4.0, 10.0),
+                    Vec2H::new(4.0, 1.0, 1.0),
+                ],
+                KnotVector::new([0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0]),
+            )
+            .derivative_curve(1);
+
+            println!("NURBS DER {:#?}", nurbs.derivative_curve(1));
+            */
 
             //let curve = BezierCurve::example_quarter_circle();
 
-            let num_segments = 200;
+            let num_segments = 500;
             let curve_edge = ModelEdge::new(
                 0.into(),
                 Edge {
@@ -113,8 +136,8 @@ impl App {
             //let start = Vec2::new(-0.85, -5.0);
             //let end = Vec2::new(-0.15, 5.0);
 
-            let start = Vec2::new(-6.2, 4.0);
-            let end = Vec2::new(5.0, -6.2);
+            let start = Vec2::new(-5.0, 2.0);
+            let end = Vec2::new(5.0, -4.0);
 
             let line = Line2::from_pos_and_dir(start, start - end);
 
@@ -200,7 +223,7 @@ impl App {
         };
 
         let intersection_plot = {
-            let points = curve.intersection_curve_plot(&line);
+            let points = curve.line_intersection_plot(&line);
             let intersection_plot = ModelEdge::new(
                 0.into(),
                 Edge {
@@ -222,8 +245,32 @@ impl App {
             intersection_plot
         };
 
+        let der_plot = {
+            let points = curve.line_derivative_plot(&line);
+            let der_plot = ModelEdge::new(
+                0.into(),
+                Edge {
+                    vertices: points
+                        .into_iter()
+                        .map(|pt| {
+                            //
+                            let floats = pt.f32s();
+                            EdgeVertex {
+                                position: [floats[0], floats[1], 0.0],
+                                expand: [0.0, 0.0, 0.0],
+                            }
+                        })
+                        .collect::<Vec<_>>(),
+                },
+                Rgba::CYAN,
+            );
+
+            der_plot
+        };
+
+        /*
         let der_intersection_plot = {
-            let points = curve.derivative_curve().intersection_curve_plot(&line);
+            let points = curve.der1_curve_plot(&line);
             let der_intersection_plot = ModelEdge::new(
                 0.into(),
                 Edge {
@@ -244,6 +291,7 @@ impl App {
 
             der_intersection_plot
         };
+        */
 
         Self {
             viewer: SceneViewer::new(
@@ -280,11 +328,14 @@ impl App {
                         vec![
                             curve_edge,
                             intersection_plot,
-                            der_intersection_plot,
+                            der_plot,
+                            //der_intersection_plot,
                             line_edge,
-                        ],
-                        grid_points
-                            //vec![]
+                        ]
+                        .into_iter()
+                        .chain(grid_lines.into_iter())
+                        .collect(),
+                        vec![]
                             .into_iter()
                             .chain(intersection_points.into_iter())
                             .chain(deviation_points.into_iter())

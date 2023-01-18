@@ -16,6 +16,7 @@ pub struct ClosestResult<H: Homogeneous> {
     pub iterations: usize,
 }
 
+#[derive(Debug)]
 pub struct NurbsCurve<H: Homogeneous> {
     control_points: Vec<H>,
     knot_vector: KnotVector,
@@ -30,6 +31,10 @@ impl<H: Homogeneous> NurbsCurve<H> {
 
     pub fn control_points(&self) -> &[H] {
         &self.control_points
+    }
+
+    pub fn knot_vector(&self) -> &KnotVector {
+        &self.knot_vector
     }
 
     pub fn decompose(&self) -> Vec<BezierCurve<H>> {
@@ -114,8 +119,6 @@ impl<H: Homogeneous> NurbsCurve<H> {
             der,
         );
 
-        println!("CPTS {:#?}", cpts);
-
         Self::new(
             cpts.into_iter()
                 .last()
@@ -142,7 +145,7 @@ impl<H: Homogeneous> NurbsCurve<H> {
     }
 
     pub fn derivatives(&self, u: f64, num_ders: usize) -> Vec<H::Projected> {
-        let ders = curve_derivatives_1(
+        let ders = curve_derivatives_2(
             &self
                 .control_points
                 .iter()

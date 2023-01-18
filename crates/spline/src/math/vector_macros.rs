@@ -68,7 +68,9 @@ macro_rules! vector_arithmetic {
         });
 
         auto_ops::impl_op_ex!(+= |a: &mut $typ, b: &$typ| {
-            a.x += b.x;
+            $(
+                a.$comp += b.$comp;
+            )*
         });
 
         auto_ops::impl_op_ex!(-|a: &$typ, b: &$typ| -> $typ {

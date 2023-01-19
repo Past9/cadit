@@ -83,7 +83,7 @@ fn curve_derivatives_1<C: Vector>(control_points: &[C], num_derivatives: usize, 
     let num_ders = usize::min(num_derivatives, degree);
     let mut derivatives = vec![C::zero(); num_ders + 1];
 
-    let basis_derivatives = eval_basis_function_derivatives(degree, num_ders + 1, u);
+    let basis_derivatives = eval_basis_function_derivatives(degree, num_ders, u);
 
     for k in 0..=num_ders {
         for j in 0..=degree {

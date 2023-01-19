@@ -265,7 +265,20 @@ impl BezierCurve<Vec2H> {
             .control_points
             .iter()
             .map(|pt| Vec1H::new(pt.x * line.a + pt.y * line.b + line.c, pt.h))
+            //.map(|pt| pt.weight())
             .collect::<Vec<_>>();
+
+        /*
+        let mut hodo1 = Vec::new();
+        for i in 0..ctrl_pts.len() - 1 {
+            hodo1.push(ctrl_pts[i + 1] - ctrl_pts[i]);
+        }
+
+        let mut hodo2 = Vec::new();
+        for i in 0..hodo1.len() - 1 {
+            hodo2.push(hodo1[i + 1] - hodo1[i]);
+        }
+        */
 
         // Find the points where the first derivative crosses the X-axis using Newton's method.
         let mut params = Vec::new();
@@ -279,6 +292,9 @@ impl BezierCurve<Vec2H> {
 
                 for _ in 0..50 {
                     let ders = derivatives(&ctrl_pts, u, 2);
+                    //let der1 = decasteljau(&hodo1, u);
+                    //let der2 = decasteljau(&hodo2, u);
+
                     let self_val = ders[1];
                     let der_val = ders[2];
 

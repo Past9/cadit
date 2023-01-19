@@ -2,10 +2,7 @@ use std::ops::{Add, Mul, Sub};
 
 use crate::TOL;
 
-use super::{
-    basis::eval_basis_function_derivatives, binomial_coefficient, knot_vector::KnotVector,
-    Homogeneous, Vector,
-};
+use super::{binomial_coefficient, knot_vector::KnotVector, Homogeneous, Vector};
 
 pub fn decasteljau<T>(coefficients: &[T], u: f64) -> T
 where
@@ -66,23 +63,11 @@ pub fn derivatives<H: Homogeneous>(
     u: f64,
     num_ders: usize,
 ) -> Vec<H::Projected> {
-    let degree = control_points.len() - 1;
-
-    let kv = KnotVector::from_iter(
-        control_points
-            .iter()
-            .map(|_| 0.0)
-            .chain(control_points.iter().map(|_| 1.0))
-            .collect::<Vec<_>>(),
-    );
-
     let ders = curve_derivatives_1(
         &control_points
             .iter()
             .map(|p| p.weight())
             .collect::<Vec<_>>(),
-        degree,
-        &kv,
         num_ders,
         u,
     )
@@ -93,23 +78,16 @@ pub fn derivatives<H: Homogeneous>(
     curve_derivatives(&ders, num_ders)
 }
 
-fn curve_derivatives_1<C: Vector>(
-    control_points: &[C],
-    degree: usize,
-    knot_vector: &KnotVector,
-    num_derivatives: usize,
-    u: f64,
-) -> Vec<C> {
-    let du = usize::min(num_derivatives, degree);
-    let mut derivatives = vec![C::zero(); du + 1];
+fn curve_derivatives_1<C: Vector>(control_points: &[C], num_derivatives: usize, u: f64) -> Vec<C> {
+    let degree = control_points.len() - 1;
+    let num_ders = usize::min(num_derivatives, degree);
+    let mut derivatives = vec![C::zero(); num_ders + 1];
 
-    let knot_span = knot_vector.find_span(degree, control_points.len(), u);
-    let basis_derivatives = eval_basis_function_derivatives(degree, knot_span, knot_vector, du, u);
+    let basis_derivatives = eval_basis_function_derivatives(degree, num_ders, u);
 
-    for k in 0..=du {
+    for k in 0..=num_ders {
         for j in 0..=degree {
-            derivatives[k] =
-                derivatives[k] + control_points[knot_span - degree + j] * basis_derivatives[k][j];
+            derivatives[k] = derivatives[k] + control_points[j] * basis_derivatives[k][j];
         }
     }
 
@@ -130,6 +108,100 @@ pub fn curve_derivatives<H: Homogeneous>(
                 * weighted_derivatives[i].homogeneous_component();
         }
         derivatives[k] = v / weighted_derivatives[0].homogeneous_component();
+    }
+
+    derivatives
+}
+
+pub fn eval_basis_function_derivatives(degree: usize, num_ders: usize, u: f64) -> Vec<Vec<f64>> {
+    let mut left = vec![1.0; degree + 1];
+    let mut right = vec![1.0; degree + 1];
+    let mut ndu = vec![vec![1.0; degree + 1]; degree + 1];
+
+    for j in 1..=degree {
+        left[j] = u;
+        right[j] = 1.0 - u;
+        let mut saved = 0.0;
+
+        for r in 0..j {
+            // Lower triangle
+            ndu[j][r] = right[r + 1] + left[j - r];
+            let temp = ndu[r][j - 1] / ndu[j][r];
+
+            // Upper triangle
+            ndu[r][j] = saved + right[r + 1] * temp;
+            saved = left[j - r] * temp;
+        }
+        ndu[j][j] = saved;
+    }
+
+    let mut derivatives: Vec<Vec<f64>> =
+        vec![vec![0.0; degree + 1]; usize::min(degree, num_ders) + 1];
+
+    // Load the basis functions
+    for j in 0..=degree {
+        derivatives[0][j] = ndu[j][degree];
+    }
+
+    // Begin calculating derivatives
+    let mut a: Vec<Vec<f64>> = vec![vec![1.0; degree + 1]; 2];
+
+    // This section computes the derivatives.
+    // Loop over the function index
+    for r in 0..=degree {
+        // Alternate rows in array a
+        let mut s1 = 0;
+        let mut s2 = 1;
+
+        a[0][0] = 1.0;
+
+        // Loop to compute kth derivative
+        for k in 1..=num_ders {
+            let mut d = 0.0;
+
+            let rk = r as i32 - k as i32;
+            let pk = degree as i32 - k as i32;
+
+            if r >= k {
+                a[s2][0] = a[s1][0] / ndu[(pk + 1) as usize][rk as usize];
+                d = a[s2][0] * ndu[rk as usize][pk as usize];
+            }
+
+            let j1 = if rk >= -1 { 1 } else { -rk } as usize;
+
+            let j2 = if r as i32 - 1 <= pk {
+                k - 1
+            } else {
+                degree - r
+            };
+
+            for j in j1..=j2 {
+                a[s2][j] =
+                    (a[s1][j] - a[s1][j - 1]) / ndu[(pk + 1) as usize][(rk + j as i32) as usize];
+                d += a[s2][j] * ndu[(rk + j as i32) as usize][pk as usize];
+            }
+
+            if r <= pk as usize {
+                a[s2][k] = -a[s1][k - 1] / ndu[((pk + 1) as usize)][r];
+                d += a[s2][k] * ndu[r][pk as usize];
+            }
+
+            derivatives[k][r] = d;
+
+            // Switch rows
+            let temp = s1;
+            s1 = s2;
+            s2 = temp;
+        }
+    }
+
+    // Multiply through by the correct factors
+    let mut r = degree as f64;
+    for k in 1..=num_ders {
+        for j in 0..=degree {
+            derivatives[k][j] *= r;
+        }
+        r *= degree as f64 - k as f64;
     }
 
     derivatives

@@ -83,7 +83,7 @@ fn curve_derivatives_1<C: Vector>(control_points: &[C], num_derivatives: usize, 
     let num_ders = usize::min(num_derivatives, degree);
     let mut derivatives = vec![C::zero(); num_ders + 1];
 
-    let basis_derivatives = eval_basis_function_derivatives(degree, num_ders, u);
+    let basis_derivatives = eval_basis_function_derivatives(degree, num_ders + 1, u);
 
     for k in 0..=num_ders {
         for j in 0..=degree {
@@ -111,6 +111,10 @@ pub fn curve_derivatives<H: Homogeneous>(
     }
 
     derivatives
+}
+
+fn ndu(r: usize, j: usize) -> f64 {
+    0.0
 }
 
 pub fn eval_basis_function_derivatives(degree: usize, num_ders: usize, u: f64) -> Vec<Vec<f64>> {
@@ -158,7 +162,7 @@ pub fn eval_basis_function_derivatives(degree: usize, num_ders: usize, u: f64) -
             let pk = degree as i32 - k as i32;
 
             if r >= k {
-                a[s2][0] = a[s1][0] / ndu[(pk + 1) as usize][rk as usize];
+                a[s2][0] = a[s1][0];
                 d = a[s2][0] * ndu[rk as usize][pk as usize];
             }
 
@@ -171,13 +175,12 @@ pub fn eval_basis_function_derivatives(degree: usize, num_ders: usize, u: f64) -
             };
 
             for j in j1..=j2 {
-                a[s2][j] =
-                    (a[s1][j] - a[s1][j - 1]) / ndu[(pk + 1) as usize][(rk + j as i32) as usize];
+                a[s2][j] = a[s1][j] - a[s1][j - 1];
                 d += a[s2][j] * ndu[(rk + j as i32) as usize][pk as usize];
             }
 
             if r <= pk as usize {
-                a[s2][k] = -a[s1][k - 1] / ndu[((pk + 1) as usize)][r];
+                a[s2][k] = -a[s1][k - 1];
                 d += a[s2][k] * ndu[r][pk as usize];
             }
 
@@ -196,7 +199,7 @@ pub fn eval_basis_function_derivatives(degree: usize, num_ders: usize, u: f64) -
         for j in 0..=degree {
             derivatives[k][j] *= r;
         }
-        r *= degree as f64 - k as f64;
+        r *= (degree - k) as f64;
     }
 
     derivatives

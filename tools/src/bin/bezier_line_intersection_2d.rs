@@ -206,9 +206,20 @@ impl App {
         let deviation_points = {
             let start = Instant::now();
 
-            let hausdorff = curve.line_hausdorff(&line);
+            let num_times = 1000;
+            let mut times = vec![0u128; num_times];
+            for i in 0..num_times {
+                let start = Instant::now();
+                let hausdorff = curve.line_hausdorff(&line);
+                let dur = (Instant::now() - start).as_micros();
+                times[i] = dur;
+            }
+            println!(
+                "Mean Hausdorff time: {}μs",
+                times.into_iter().sum::<u128>() as f64 / num_times as f64
+            );
 
-            println!("Hausdorff took {}μs", (Instant::now() - start).as_micros());
+            let hausdorff = curve.line_hausdorff(&line);
             println!("Hausdorff distance: {}", hausdorff.distance);
 
             if let Some(point) = hausdorff.point {

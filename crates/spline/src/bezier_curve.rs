@@ -287,11 +287,17 @@ impl BezierCurve<Vec2H> {
                         result = Some(u);
                         break;
                     } else {
-                        u -= self_val.x / der_val.x;
-                        if u < 0.0 {
-                            u = 0.0;
-                        } else if u > 1.0 {
-                            u = 1.0;
+                        let correction = self_val.x / der_val.x;
+
+                        if correction.abs() < 0.3 * TOL {
+                            result = None;
+                            break;
+                        }
+
+                        u -= correction;
+                        if u < 0.0 || u > 1.0 {
+                            result = None;
+                            break;
                         }
                     }
                 }

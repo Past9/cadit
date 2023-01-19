@@ -208,7 +208,7 @@ impl App {
 
             let hausdorff = curve.line_hausdorff(&line);
 
-            println!("Hausdorff took {}us", (Instant::now() - start).as_micros());
+            println!("Hausdorff took {}μs", (Instant::now() - start).as_micros());
             println!("Hausdorff distance: {}", hausdorff.distance);
 
             if let Some(point) = hausdorff.point {

@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use crate::{
     math::{
         b_spline::curve_derivative_control_points,
-        bezier::{decasteljau, differentiate_coefficients, implicit_zero_nearest},
+        bezier::{decasteljau, derivatives, differentiate_coefficients, implicit_zero_nearest},
         knot_vector::KnotVector,
         line::{Line, Line2},
         FloatRange, Homogeneous, Vec1H, Vec2, Vec2H, Vector,
@@ -261,37 +261,11 @@ impl BezierCurve<Vec2H> {
         // of this Bezier), and then also get the derivative of that for use in Newton
         // iteration.
 
-        //let self_coefficients = self.line_intersection_coefficients(line);
-        //let der_coefficients_1 = differentiate_coefficients(&self_coefficients);
-        //let der_coefficients_2 = differentiate_coefficients(&der_coefficients_1);
-
-        //let der_coefficients_1 = self.line_derivative_coefficients(line);
-        //let der_coefficients_2 = differentiate_coefficients(&der_coefficients_1);
-
-        //println!("SC {:?}", self.line_intersection_coefficients(line));
-        //println!("DC1 {:?}", der_coefficients_1);
-        //println!("DC2 {:?}", der_coefficients_2);
-
-        let nurbs_ctrl = self
+        let ctrl_pts = self
             .control_points
             .iter()
-            .enumerate()
-            .map(|(i, pt)| {
-                Vec1H::new(
-                    //i as f64 / (self.control_points.len() as f64 - 1.0),
-                    (pt.x * line.a + pt.y * line.b + line.c),
-                    pt.h,
-                )
-            })
+            .map(|pt| Vec1H::new(pt.x * line.a + pt.y * line.b + line.c, pt.h))
             .collect::<Vec<_>>();
-
-        let nurbs_kv = nurbs_ctrl
-            .iter()
-            .map(|_| 0.0)
-            .chain(self.control_points.iter().map(|_| 1.0))
-            .collect::<Vec<_>>();
-
-        let nurbs = NurbsCurve::new(nurbs_ctrl, KnotVector::from_iter(nurbs_kv.into_iter()));
 
         // Find the points where the first derivative crosses the X-axis using Newton's method.
         let mut params = Vec::new();
@@ -304,7 +278,7 @@ impl BezierCurve<Vec2H> {
                 let mut u = u_initial;
 
                 for _ in 0..50 {
-                    let ders = nurbs.derivatives(u, 2);
+                    let ders = derivatives(&ctrl_pts, u, 2);
                     let self_val = ders[1];
                     let der_val = ders[2];
 

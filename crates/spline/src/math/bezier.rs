@@ -34,7 +34,6 @@ pub fn implicit_zero_nearest(
         if self_val.abs() <= TOL {
             return Some(u);
         } else {
-            //println!("U VAL {} {} {}", u, self_val, der_val);
             u -= self_val / der_val;
             if u < 0.0 {
                 u = 0.0;
@@ -111,10 +110,6 @@ pub fn curve_derivatives<H: Homogeneous>(
     }
 
     derivatives
-}
-
-fn ndu(r: usize, j: usize) -> f64 {
-    0.0
 }
 
 pub fn eval_basis_function_derivatives(degree: usize, num_ders: usize, u: f64) -> Vec<Vec<f64>> {

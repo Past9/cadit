@@ -81,16 +81,17 @@ impl App {
         };
 
         let (curve, curve_edge) = {
+            /*
             let curve = BezierCurve::new(vec![
                 Vec2H::new(-4.0, -1.0, 1.0),
                 Vec2H::new(-2.0, 4.0, 10.0),
                 Vec2H::new(2.0, -4.0, 10.0),
                 Vec2H::new(4.0, 1.0, 1.0),
             ]);
+            */
 
-            /*
             let curve = BezierCurve::new(vec![
-                Vec2H::new(-4.1, -4.0, 1.0),
+                Vec2H::new(-3.1, -3.0, 1.0),
                 Vec2H::new(-7.0, 3.0, 20.0),
                 Vec2H::new(-3.0, 5.0, 10.0),
                 Vec2H::new(2.0, 5.0, 20.0),
@@ -103,7 +104,6 @@ impl App {
                 Vec2H::new(1.0, 3.0, 1.0),
                 Vec2H::new(0.1, 0.0, 1.0),
             ]);
-            */
 
             /*
             let nurbs = NurbsCurve::new(

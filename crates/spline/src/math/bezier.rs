@@ -116,23 +116,16 @@ pub fn curve_derivatives<H: Homogeneous>(
 pub fn eval_basis_function_derivatives(degree: usize, num_ders: usize, u: f64) -> Vec<Vec<f64>> {
     let mut ndu = vec![vec![1.0; degree + 1]; degree + 1];
 
-    println!("EVAL BASIS AT U {}", u);
-
-    let left = u;
-    let right = 1.0 - u;
-
     for j in 1..=degree {
         let mut saved = 0.0;
 
         for r in 0..j {
             // Lower triangle
-            println!("{} {}", right, left);
-            ndu[j][r] = right + left;
-            let temp = ndu[r][j - 1] / ndu[j][r];
+            let temp = ndu[r][j - 1];
 
             // Upper triangle
-            ndu[r][j] = saved + right * temp;
-            saved = left * temp;
+            ndu[r][j] = saved + (1.0 - u) * temp;
+            saved = u * temp;
         }
         ndu[j][j] = saved;
     }

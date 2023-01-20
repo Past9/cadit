@@ -7,7 +7,7 @@ use std::{
 use crate::{ESpace, ESpace1, ESpace2, ESpace3, ESpace4};
 
 /// Trait for vectors in Euclidean space
-pub trait EVector<S: ESpace>:
+pub trait EVector:
     Debug
     + Copy
     + Clone
@@ -22,6 +22,8 @@ pub trait EVector<S: ESpace>:
     + Div<f64, Output = Self>
     + Sum<Self>
 {
+    type Space: ESpace;
+
     fn zero() -> Self;
     fn dot(&self, rhs: &Self) -> f64;
 
@@ -61,7 +63,9 @@ macro_rules! evector_ops {
                 ]
             }
         }
-        impl EVector<$space> for $typ {
+        impl EVector for $typ {
+            type Space = $space;
+
             fn zero() -> Self {
                 Self {
                     $(

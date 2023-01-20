@@ -1,12 +1,37 @@
-use crate::{ESpace, ESpace2, ESpace3, HVec1, HVec2, HVec3, HVector};
+use crate::{ESpace, ESpace2, ESpace3, EVec2, EVec3, EVector, HVec1, HVec2, HVec3, HVector, TOL};
 
-pub trait ELine<S: ESpace> {}
+pub trait ELine {
+    type Space: ESpace;
+    type Point: EVector<Space = Self::Space>;
+
+    fn contains_point(&self, point: &Self::Point) -> bool;
+}
 
 /// An infinite line in 2D Euclidean space
 pub struct ELine2 {
     pub a: f64,
     pub b: f64,
     pub c: f64,
+}
+impl ELine2 {
+    pub fn from_pos_and_dir(pos: EVec2, dir: EVec2) -> Self {
+        let dir = dir.normalize();
+
+        let a = dir.y;
+        let b = -dir.x;
+        let c = dir.x * pos.y - dir.y * pos.x;
+
+        Self { a, b, c }
+    }
+}
+impl ELine for ELine2 {
+    type Space = ESpace2;
+    type Point = EVec2;
+
+    fn contains_point(&self, point: &Self::Point) -> bool {
+        let eval = self.a * point.x + self.b * point.y + self.c;
+        eval.abs() <= TOL
+    }
 }
 impl ImplicitifyControlPoint<ESpace2, HVec2, HVec1> for ELine2 {
     fn implicitify_control_point(&self, control_point: HVec2) -> HVec1 {
@@ -30,6 +55,24 @@ pub struct ELine3 {
     pub b2: f64,
     pub c2: f64,
     pub d2: f64,
+}
+impl ELine for ELine3 {
+    type Space = ESpace3;
+    type Point = EVec3;
+
+    fn contains_point(&self, point: &Self::Point) -> bool {
+        let eval = self.a1 * point.x + self.b1 * point.y + self.c1 * point.z + self.d1;
+        if eval.abs() <= TOL {
+            return true;
+        }
+
+        let eval = self.a2 * point.x + self.b2 * point.y + self.c2 * point.z + self.d2;
+        if eval.abs() <= TOL {
+            return true;
+        }
+
+        false
+    }
 }
 impl ImplicitifyControlPoint<ESpace3, HVec3, HVec2> for ELine3 {
     fn implicitify_control_point(&self, control_point: HVec3) -> HVec2 {
@@ -57,8 +100,8 @@ impl ImplicitifyControlPoint<ESpace3, HVec3, HVec2> for ELine3 {
 /// between rendering primitives and true splines during tesselation.
 pub trait ImplicitifyControlPoint<
     S: ESpace,
-    TControlPoint: HVector<S::Homogeneous>,
-    TOutput: HVector<<S::Lower as ESpace>::Homogeneous>,
+    TControlPoint: HVector<Space = S::Homogeneous>,
+    TOutput: HVector<Space = <S::Lower as ESpace>::Homogeneous>,
 >
 {
     fn implicitify_control_point(&self, control_point: TControlPoint) -> TOutput;

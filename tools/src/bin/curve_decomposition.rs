@@ -10,7 +10,8 @@ use render::{
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
-use spline::math::{FloatRange, Vec2H};
+use space::HVec2;
+use spline::math::FloatRange;
 use spline::nurbs_curve::NurbsCurve;
 
 pub fn main() {
@@ -47,7 +48,7 @@ impl App {
             })
             .collect::<Vec<_>>();
 
-        let curve = NurbsCurve::<Vec2H>::example_circle();
+        let curve = NurbsCurve::<HVec2>::example_circle();
         let beziers = curve.decompose();
 
         let num_segments = 50;

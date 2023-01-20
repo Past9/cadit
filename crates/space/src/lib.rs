@@ -10,6 +10,8 @@ pub use evector::*;
 pub use hspace::*;
 pub use hvector::*;
 
+pub const TOL: f64 = 0.0000001;
+
 macro_rules! count_args {
     () => (0usize);
     ( $x:tt $($xs:tt)* ) => (1usize + crate::count_args!($($xs)*));

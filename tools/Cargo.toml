@@ -9,6 +9,7 @@ edition = "2021"
 components = { path = "../crates/components" }
 render = { path = "../crates/render" }
 spline = { path = "../crates/spline" }
+space = { path = "../crates/space" }
 eframe = "0.20.1"
 egui_dock = { version = "0.3.1", features = ["serde"] }
 egui-modal = "0.1.8"

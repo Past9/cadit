@@ -10,7 +10,8 @@ use render::{
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
-use spline::math::{FloatRange, Vec3H};
+use space::HVec3;
+use spline::math::FloatRange;
 
 pub fn main() {
     run_window(
@@ -47,7 +48,7 @@ impl App {
             .collect::<Vec<_>>();
 
         // Create curve
-        let curve = spline::nurbs_curve::NurbsCurve::<Vec3H>::example_quarter_circle();
+        let curve = spline::nurbs_curve::NurbsCurve::<HVec3>::example_quarter_circle();
 
         let num_segments = 50;
         let curve_edge = ModelEdge::new(

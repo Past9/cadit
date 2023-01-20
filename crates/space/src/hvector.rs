@@ -1,4 +1,4 @@
-use crate::{HSpace1, HSpace2, HSpace3, HomogeneousSpace};
+use crate::{ESpace1, EVec1, EVec2, EVec3, EVec4, EVector, HSpace, HSpace1, HSpace2, HSpace3};
 use std::{
     fmt::Debug,
     iter::Sum,
@@ -6,7 +6,7 @@ use std::{
 };
 
 /// Trait for vectors in homogeneous space
-pub trait HVector<S: HomogeneousSpace>:
+pub trait HVector:
     Debug
     + Copy
     + Clone
@@ -21,11 +21,21 @@ pub trait HVector<S: HomogeneousSpace>:
     + Div<f64, Output = Self>
     + Sum<Self>
 {
+    type Space: HSpace;
+    type Projected: EVector<Space = <<Self as HVector>::Space as HSpace>::Projected>;
+    type Weighted: EVector<Space = <<Self as HVector>::Space as HSpace>::Weighted>;
+
     fn zero() -> Self;
+    fn weight(&self) -> Self::Weighted;
+    fn project(&self) -> Self::Projected;
+    fn cast_from_weighted(weighted: Self::Weighted) -> Self;
+    fn euclidean_components(&self) -> Self::Projected;
+    fn homogeneous_component(&self) -> f64;
+    fn unweight(weighted: Self::Weighted) -> Self;
 }
 
 macro_rules! hvector_ops {
-    ( $typ:ident, $space:ident, $( $comp:ident ),* ) => {
+    ( $typ:ident, $( $comp:ident ),* ) => {
         impl $typ {
             pub fn new(
                 $(
@@ -47,15 +57,6 @@ macro_rules! hvector_ops {
                 ]
             }
         }
-        impl HVector<$space> for $typ {
-            fn zero() -> Self {
-                Self {
-                    $(
-                        $comp: 0.0,
-                    )*
-                }
-            }
-        }
         impl std::iter::Sum for $typ {
             fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
                 iter.fold(HVector::zero(), |a, b| a + b)
@@ -65,8 +66,8 @@ macro_rules! hvector_ops {
 }
 
 macro_rules! impl_hvector {
-    ( $typ:ident, $space:ident, $( $comp:ident ),* ) => {
-        hvector_ops!($typ, $space, $($comp),*);
+    ( $typ:ident, $( $comp:ident ),* ) => {
+        hvector_ops!($typ, $($comp),*);
         crate::vector_arithmetic!($typ, $($comp),*);
     };
 }
@@ -77,7 +78,49 @@ pub struct HVec1 {
     pub x: f64,
     pub h: f64,
 }
-impl_hvector!(HVec1, HSpace1, x, h);
+impl HVector for HVec1 {
+    type Space = HSpace1;
+    type Projected = EVec1;
+    type Weighted = EVec2;
+
+    fn zero() -> Self {
+        Self { x: 0.0, h: 0.0 }
+    }
+
+    fn weight(&self) -> Self::Weighted {
+        Self::Weighted {
+            x: self.x * self.h,
+            y: self.h,
+        }
+    }
+
+    fn project(&self) -> Self::Projected {
+        Self::Projected { x: self.x / self.h }
+    }
+
+    fn cast_from_weighted(weighted: Self::Weighted) -> Self {
+        Self {
+            x: weighted.x,
+            h: weighted.y,
+        }
+    }
+
+    fn euclidean_components(&self) -> Self::Projected {
+        Self::Projected { x: self.x }
+    }
+
+    fn homogeneous_component(&self) -> f64 {
+        self.h
+    }
+
+    fn unweight(weighted: Self::Weighted) -> Self {
+        Self {
+            x: weighted.x / weighted.y,
+            h: weighted.y,
+        }
+    }
+}
+impl_hvector!(HVec1, x, h);
 
 /// A vector in 2-dimensional homogeneous space
 #[derive(Debug, Copy, Clone)]
@@ -86,7 +129,62 @@ pub struct HVec2 {
     pub y: f64,
     pub h: f64,
 }
-impl_hvector!(HVec2, HSpace2, x, y, h);
+impl HVector for HVec2 {
+    type Space = HSpace2;
+    type Projected = EVec2;
+    type Weighted = EVec3;
+
+    fn zero() -> Self {
+        Self {
+            x: 0.0,
+            y: 0.0,
+            h: 0.0,
+        }
+    }
+
+    fn weight(&self) -> Self::Weighted {
+        Self::Weighted {
+            x: self.x * self.h,
+            y: self.y * self.h,
+            z: self.h,
+        }
+    }
+
+    fn project(&self) -> Self::Projected {
+        Self::Projected {
+            x: self.x / self.h,
+            y: self.y / self.h,
+        }
+    }
+
+    fn cast_from_weighted(weighted: Self::Weighted) -> Self {
+        Self {
+            x: weighted.x,
+            y: weighted.y,
+            h: weighted.z,
+        }
+    }
+
+    fn euclidean_components(&self) -> Self::Projected {
+        Self::Projected {
+            x: self.x,
+            y: self.y,
+        }
+    }
+
+    fn homogeneous_component(&self) -> f64 {
+        self.h
+    }
+
+    fn unweight(weighted: Self::Weighted) -> Self {
+        Self {
+            x: weighted.x / weighted.z,
+            y: weighted.y / weighted.z,
+            h: weighted.z,
+        }
+    }
+}
+impl_hvector!(HVec2, x, y, h);
 
 /// A vector in 3-dimensional homogeneous space
 #[derive(Debug, Copy, Clone)]
@@ -96,4 +194,65 @@ pub struct HVec3 {
     pub z: f64,
     pub h: f64,
 }
-impl_hvector!(HVec3, HSpace3, x, y, z, h);
+impl HVector for HVec3 {
+    type Space = HSpace3;
+    type Projected = EVec3;
+    type Weighted = EVec4;
+
+    fn zero() -> Self {
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            h: 0.0,
+        }
+    }
+
+    fn weight(&self) -> Self::Weighted {
+        Self::Weighted {
+            x: self.x * self.h,
+            y: self.y * self.h,
+            z: self.z * self.h,
+            w: self.h,
+        }
+    }
+
+    fn project(&self) -> Self::Projected {
+        Self::Projected {
+            x: self.x / self.h,
+            y: self.y / self.h,
+            z: self.z / self.h,
+        }
+    }
+
+    fn cast_from_weighted(weighted: Self::Weighted) -> Self {
+        Self {
+            x: weighted.x,
+            y: weighted.y,
+            z: weighted.z,
+            h: weighted.w,
+        }
+    }
+
+    fn euclidean_components(&self) -> Self::Projected {
+        Self::Projected {
+            x: self.x,
+            y: self.y,
+            z: self.z,
+        }
+    }
+
+    fn homogeneous_component(&self) -> f64 {
+        self.h
+    }
+
+    fn unweight(weighted: Self::Weighted) -> Self {
+        Self {
+            x: weighted.x / weighted.w,
+            y: weighted.y / weighted.w,
+            z: weighted.z / weighted.w,
+            h: weighted.w,
+        }
+    }
+}
+impl_hvector!(HVec3, x, y, z, h);

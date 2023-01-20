@@ -1,27 +1,28 @@
+use space::{ESpace, EVec2, EVector, HSpace, HSpace2, HSpace3, HVec2, HVec3, HVector};
+
 use crate::{
     bezier_curve::BezierCurve,
     math::{
         b_spline::{curve_derivative_control_points, curve_derivatives_1, curve_derivatives_2},
         knot_vector::KnotVector,
         nurbs::{curve_decompose, curve_derivatives, curve_point},
-        Homogeneous, Vec2, Vec2H, Vec3H, Vector,
     },
 };
 
 #[derive(Debug)]
-pub struct ClosestResult<H: Homogeneous> {
+pub struct ClosestResult<E: EVector> {
     pub u: f64,
-    pub closest_point: H::Projected,
+    pub closest_point: E,
     pub distance: f64,
     pub iterations: usize,
 }
 
 #[derive(Debug)]
-pub struct NurbsCurve<H: Homogeneous> {
+pub struct NurbsCurve<H: HVector> {
     control_points: Vec<H>,
     knot_vector: KnotVector,
 }
-impl<H: Homogeneous> NurbsCurve<H> {
+impl<H: HVector> NurbsCurve<H> {
     pub fn new(control_points: Vec<H>, knot_vector: KnotVector) -> Self {
         Self {
             control_points,
@@ -42,7 +43,7 @@ impl<H: Homogeneous> NurbsCurve<H> {
             &self
                 .control_points
                 .iter()
-                .map(|p| H::weight(*p))
+                .map(|p| H::weight(p))
                 .collect::<Vec<_>>(),
             self.degree(),
             &self.knot_vector,
@@ -57,7 +58,7 @@ impl<H: Homogeneous> NurbsCurve<H> {
         point: H::Projected,
         u_guess: f64,
         max_iter: usize,
-    ) -> Option<ClosestResult<H>> {
+    ) -> Option<ClosestResult<H::Projected>> {
         const TOL: f64 = 0.0000001;
         let mut u = u_guess;
         for i in 0..max_iter {
@@ -201,18 +202,18 @@ impl<H: Homogeneous> NurbsCurve<H> {
         self.knot_vector[self.knot_vector.len() - 1]
     }
 }
-impl NurbsCurve<Vec2H> {
-    pub fn normal(&self, u: f64) -> Vec2 {
+impl NurbsCurve<HVec2> {
+    pub fn normal(&self, u: f64) -> EVec2 {
         let tan = self.tangent(u);
-        Vec2::new(tan.y, -tan.x)
+        EVec2::new(tan.y, -tan.x)
     }
 
     pub fn example_quarter_circle() -> Self {
         Self::new(
             Vec::from([
-                Vec2H::new(-1.0, 0.0, 1.0),
-                Vec2H::new(-1.0, -1.0, 2.0_f64.sqrt() / 2.0),
-                Vec2H::new(0.0, -1.0, 1.0),
+                HVec2::new(-1.0, 0.0, 1.0),
+                HVec2::new(-1.0, -1.0, 2.0_f64.sqrt() / 2.0),
+                HVec2::new(0.0, -1.0, 1.0),
             ]),
             KnotVector::new([0.0, 0.0, 0.0, 1.0, 1.0, 1.0]),
         )
@@ -221,11 +222,11 @@ impl NurbsCurve<Vec2H> {
     pub fn example_half_circle() -> Self {
         Self::new(
             Vec::from([
-                Vec2H::new(-1.0, 0.0, 1.0),
-                Vec2H::new(-1.0, -1.0, 2.0_f64.sqrt() / 2.0),
-                Vec2H::new(0.0, -1.0, 1.0),
-                Vec2H::new(1.0, -1.0, 2.0_f64.sqrt() / 2.0),
-                Vec2H::new(1.0, 0.0, 1.0),
+                HVec2::new(-1.0, 0.0, 1.0),
+                HVec2::new(-1.0, -1.0, 2.0_f64.sqrt() / 2.0),
+                HVec2::new(0.0, -1.0, 1.0),
+                HVec2::new(1.0, -1.0, 2.0_f64.sqrt() / 2.0),
+                HVec2::new(1.0, 0.0, 1.0),
             ]),
             KnotVector::new([0.0, 0.0, 0.0, 0.5, 0.5, 1.0, 1.0, 1.0]),
         )
@@ -234,15 +235,15 @@ impl NurbsCurve<Vec2H> {
     pub fn example_circle() -> Self {
         Self::new(
             Vec::from([
-                Vec2H::new(-1.0, 0.0, 1.0),
-                Vec2H::new(-1.0, -1.0, 2.0_f64.sqrt() / 2.0),
-                Vec2H::new(0.0, -1.0, 1.0),
-                Vec2H::new(1.0, -1.0, 2.0_f64.sqrt() / 2.0),
-                Vec2H::new(1.0, 0.0, 1.0),
-                Vec2H::new(1.0, 1.0, 2.0_f64.sqrt() / 2.0),
-                Vec2H::new(0.0, 1.0, 1.0),
-                Vec2H::new(-1.0, 1.0, 2.0_f64.sqrt() / 2.0),
-                Vec2H::new(-1.0, 0.0, 1.0),
+                HVec2::new(-1.0, 0.0, 1.0),
+                HVec2::new(-1.0, -1.0, 2.0_f64.sqrt() / 2.0),
+                HVec2::new(0.0, -1.0, 1.0),
+                HVec2::new(1.0, -1.0, 2.0_f64.sqrt() / 2.0),
+                HVec2::new(1.0, 0.0, 1.0),
+                HVec2::new(1.0, 1.0, 2.0_f64.sqrt() / 2.0),
+                HVec2::new(0.0, 1.0, 1.0),
+                HVec2::new(-1.0, 1.0, 2.0_f64.sqrt() / 2.0),
+                HVec2::new(-1.0, 0.0, 1.0),
             ]),
             KnotVector::new([
                 0.0, 0.0, 0.0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1.0, 1.0, 1.0,
@@ -250,13 +251,13 @@ impl NurbsCurve<Vec2H> {
         )
     }
 }
-impl NurbsCurve<Vec3H> {
+impl NurbsCurve<HVec3> {
     pub fn example_quarter_circle() -> Self {
         Self::new(
             Vec::from([
-                Vec3H::new(-1.0, 0.0, 0.0, 1.0),
-                Vec3H::new(-1.0, -1.0, 0.0, 2.0_f64.sqrt() / 2.0),
-                Vec3H::new(0.0, -1.0, 0.0, 1.0),
+                HVec3::new(-1.0, 0.0, 0.0, 1.0),
+                HVec3::new(-1.0, -1.0, 0.0, 2.0_f64.sqrt() / 2.0),
+                HVec3::new(0.0, -1.0, 0.0, 1.0),
             ]),
             KnotVector::new([0.0, 0.0, 0.0, 1.0, 1.0, 1.0]),
         )
@@ -265,11 +266,11 @@ impl NurbsCurve<Vec3H> {
     pub fn example_half_circle() -> Self {
         Self::new(
             Vec::from([
-                Vec3H::new(-1.0, 0.0, 0.0, 1.0),
-                Vec3H::new(-1.0, -1.0, 0.0, 2.0_f64.sqrt() / 2.0),
-                Vec3H::new(0.0, -1.0, 0.0, 1.0),
-                Vec3H::new(1.0, -1.0, 0.0, 2.0_f64.sqrt() / 2.0),
-                Vec3H::new(1.0, 0.0, 0.0, 1.0),
+                HVec3::new(-1.0, 0.0, 0.0, 1.0),
+                HVec3::new(-1.0, -1.0, 0.0, 2.0_f64.sqrt() / 2.0),
+                HVec3::new(0.0, -1.0, 0.0, 1.0),
+                HVec3::new(1.0, -1.0, 0.0, 2.0_f64.sqrt() / 2.0),
+                HVec3::new(1.0, 0.0, 0.0, 1.0),
             ]),
             KnotVector::new([0.0, 0.0, 0.0, 0.5, 0.5, 1.0, 1.0, 1.0]),
         )
@@ -278,15 +279,15 @@ impl NurbsCurve<Vec3H> {
     pub fn example_circle() -> Self {
         Self::new(
             Vec::from([
-                Vec3H::new(-1.0, 0.0, 0.0, 1.0),
-                Vec3H::new(-1.0, -1.0, 0.0, 2.0_f64.sqrt() / 2.0),
-                Vec3H::new(0.0, -1.0, 0.0, 1.0),
-                Vec3H::new(1.0, -1.0, 0.0, 2.0_f64.sqrt() / 2.0),
-                Vec3H::new(1.0, 0.0, 0.0, 1.0),
-                Vec3H::new(1.0, 1.0, 0.0, 2.0_f64.sqrt() / 2.0),
-                Vec3H::new(0.0, 1.0, 0.0, 1.0),
-                Vec3H::new(-1.0, 1.0, 0.0, 2.0_f64.sqrt() / 2.0),
-                Vec3H::new(-1.0, 0.0, 0.0, 1.0),
+                HVec3::new(-1.0, 0.0, 0.0, 1.0),
+                HVec3::new(-1.0, -1.0, 0.0, 2.0_f64.sqrt() / 2.0),
+                HVec3::new(0.0, -1.0, 0.0, 1.0),
+                HVec3::new(1.0, -1.0, 0.0, 2.0_f64.sqrt() / 2.0),
+                HVec3::new(1.0, 0.0, 0.0, 1.0),
+                HVec3::new(1.0, 1.0, 0.0, 2.0_f64.sqrt() / 2.0),
+                HVec3::new(0.0, 1.0, 0.0, 1.0),
+                HVec3::new(-1.0, 1.0, 0.0, 2.0_f64.sqrt() / 2.0),
+                HVec3::new(-1.0, 0.0, 0.0, 1.0),
             ]),
             KnotVector::new([
                 0.0, 0.0, 0.0, 0.25, 0.25, 0.5, 0.5, 0.75, 0.75, 1.0, 1.0, 1.0,

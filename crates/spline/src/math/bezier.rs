@@ -1,8 +1,8 @@
 use std::ops::{Add, Mul, Sub};
 
-use crate::TOL;
+use space::{ESpace, EVector, HSpace, HVector, TOL};
 
-use super::{binomial_coefficient, knot_vector::KnotVector, Homogeneous, Vector};
+use super::{binomial_coefficient, knot_vector::KnotVector};
 
 pub fn decasteljau<T>(coefficients: &[T], u: f64) -> T
 where
@@ -57,11 +57,7 @@ pub fn differentiate_coefficients(coefficients: &[f64]) -> Vec<f64> {
     derivative
 }
 
-pub fn derivatives<H: Homogeneous>(
-    control_points: &[H],
-    u: f64,
-    num_ders: usize,
-) -> Vec<H::Projected> {
+pub fn derivatives<H: HVector>(control_points: &[H], u: f64, num_ders: usize) -> Vec<H::Projected> {
     let ders = curve_derivatives_1(
         &control_points
             .iter()
@@ -77,10 +73,10 @@ pub fn derivatives<H: Homogeneous>(
     curve_derivatives(&ders, num_ders)
 }
 
-fn curve_derivatives_1<C: Vector>(control_points: &[C], num_derivatives: usize, u: f64) -> Vec<C> {
+fn curve_derivatives_1<E: EVector>(control_points: &[E], num_derivatives: usize, u: f64) -> Vec<E> {
     let degree = control_points.len() - 1;
     let num_ders = usize::min(num_derivatives, degree);
-    let mut derivatives = vec![C::zero(); num_ders + 1];
+    let mut derivatives = vec![E::zero(); num_ders + 1];
 
     let basis_derivatives = eval_basis_function_derivatives(degree, num_ders, u);
 
@@ -93,7 +89,7 @@ fn curve_derivatives_1<C: Vector>(control_points: &[C], num_derivatives: usize, 
     derivatives
 }
 
-pub fn curve_derivatives<H: Homogeneous>(
+pub fn curve_derivatives<H: HVector>(
     weighted_derivatives: &[H],
     num_derivatives: usize,
 ) -> Vec<H::Projected> {

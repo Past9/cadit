@@ -1,19 +1,17 @@
-use crate::{
-    math::{
-        b_spline::curve_derivative_control_points,
-        bezier::{decasteljau, derivatives, differentiate_coefficients, implicit_zero_nearest},
-        knot_vector::KnotVector,
-        line::{Line, Line2},
-        FloatRange, Homogeneous, Vec1H, Vec2, Vec2H, Vector,
-    },
-    TOL,
+use space::{ELine, ELine2, EVec2, EVector, HSpace, HSpace2, HVec1, HVec2, HVector, TOL};
+
+use crate::math::{
+    b_spline::curve_derivative_control_points,
+    bezier::{decasteljau, derivatives, differentiate_coefficients, implicit_zero_nearest},
+    knot_vector::KnotVector,
+    FloatRange,
 };
 
 #[derive(Debug)]
-pub struct BezierCurve<H: Homogeneous> {
+pub struct BezierCurve<H: HVector> {
     control_points: Vec<H>,
 }
-impl<H: Homogeneous> BezierCurve<H> {
+impl<H: HVector> BezierCurve<H> {
     pub fn new(control_points: Vec<H>) -> Self {
         Self { control_points }
     }
@@ -83,28 +81,28 @@ impl<H: Homogeneous> BezierCurve<H> {
         Self::new(cp.into_iter().map(|pt| H::cast_from_weighted(pt)).collect())
     }
 }
-impl BezierCurve<Vec2H> {
+impl BezierCurve<HVec2> {
     pub fn example_quarter_circle() -> Self {
         Self::new(Vec::from([
-            Vec2H::new(-1.0, 0.0, 1.0),
-            Vec2H::new(-1.0, -1.0, 2.0_f64.sqrt() / 2.0),
-            Vec2H::new(-0.0, -1.0, 1.0),
+            HVec2::new(-1.0, 0.0, 1.0),
+            HVec2::new(-1.0, -1.0, 2.0_f64.sqrt() / 2.0),
+            HVec2::new(-0.0, -1.0, 1.0),
         ]))
     }
 
-    fn line_intersection_coefficients(&self, line: &Line2) -> Vec<f64> {
+    fn line_intersection_coefficients(&self, line: &ELine2) -> Vec<f64> {
         self.control_points
             .iter()
             .map(|pt| (pt.x * line.a + pt.y * line.b + line.c) * pt.h)
             .collect::<Vec<_>>()
     }
 
-    fn line_derivative_coefficients(&self, line: &Line2) -> Vec<f64> {
+    fn line_derivative_coefficients(&self, line: &ELine2) -> Vec<f64> {
         let c1 = BezierCurve::new(
             self.control_points
                 .iter()
                 .enumerate()
-                .map(|(i, pt)| Vec1H::new((pt.x * line.a + pt.y * line.b + line.c) * pt.h, pt.h))
+                .map(|(i, pt)| HVec1::new((pt.x * line.a + pt.y * line.b + line.c) * pt.h, pt.h))
                 .collect::<Vec<_>>(),
         );
 
@@ -119,31 +117,31 @@ impl BezierCurve<Vec2H> {
         der
     }
 
-    pub fn line_intersection_plot(&self, line: &Line2) -> Vec<Vec2> {
+    pub fn line_intersection_plot(&self, line: &ELine2) -> Vec<EVec2> {
         let coefficients = self.line_intersection_coefficients(line);
 
         let mut points = Vec::new();
         for x in FloatRange::new(0.0, 1.0, 300) {
-            let point = Vec2::new(x, decasteljau(&coefficients, x));
-            points.push(Vec2::new(point.x, point.y / 10.0));
+            let point = EVec2::new(x, decasteljau(&coefficients, x));
+            points.push(EVec2::new(point.x, point.y / 10.0));
         }
 
         points
     }
 
-    pub fn line_derivative_plot(&self, line: &Line2) -> Vec<Vec2> {
+    pub fn line_derivative_plot(&self, line: &ELine2) -> Vec<EVec2> {
         let coefficients = self.line_derivative_coefficients(line);
 
         let mut points = Vec::new();
         for x in FloatRange::new(0.0, 1.0, 300) {
-            let point = Vec2::new(x, decasteljau(&coefficients, x));
-            points.push(Vec2::new(point.x, point.y / 50.0));
+            let point = EVec2::new(x, decasteljau(&coefficients, x));
+            points.push(EVec2::new(point.x, point.y / 50.0));
         }
 
         points
     }
 
-    pub fn line_intersections(&self, line: &Line2) -> Vec<Vec2> {
+    pub fn line_intersections(&self, line: &ELine2) -> Vec<EVec2> {
         // Get coefficients for an implicit Bezier curve oriented so the line is
         // along the X-axis. Do the same for this curve's derivative curve, which
         // we'll need for Newton iteration.
@@ -175,7 +173,7 @@ impl BezierCurve<Vec2H> {
         points
     }
 
-    pub fn line_hausdorff_candidates(&self, line: &Line2) -> Vec<(f64, Vec2)> {
+    pub fn line_hausdorff_candidates(&self, line: &ELine2) -> Vec<(f64, EVec2)> {
         // Get coefficients for an implicit bezier curve oriented so the line is
         // along the X-axis. Finding the Hausdorff distance requires finding all the
         // "peaks and valleys" of this curve, which are the same as where its derivative
@@ -187,7 +185,7 @@ impl BezierCurve<Vec2H> {
         let ctrl_pts = self
             .control_points
             .iter()
-            .map(|pt| Vec1H::new(pt.x * line.a + pt.y * line.b + line.c, pt.h))
+            .map(|pt| HVec1::new(pt.x * line.a + pt.y * line.b + line.c, pt.h))
             .collect::<Vec<_>>();
 
         // Find the points where the first derivative crosses the X-axis using Newton's method.
@@ -256,7 +254,7 @@ impl BezierCurve<Vec2H> {
         points
     }
 
-    pub fn line_hausdorff(&self, line: &Line2) -> Hausdorff {
+    pub fn line_hausdorff(&self, line: &ELine2) -> Hausdorff<<HVec2 as HVector>::Projected> {
         let mut max = 0.0;
         let mut max_u = None;
         let mut max_point = None;
@@ -282,8 +280,8 @@ impl BezierCurve<Vec2H> {
     }
 }
 
-pub struct Hausdorff {
+pub struct Hausdorff<E: EVector> {
     pub distance: f64,
     pub u: Option<f64>,
-    pub point: Option<Vec2>,
+    pub point: Option<E>,
 }

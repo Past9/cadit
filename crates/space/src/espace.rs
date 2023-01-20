@@ -1,4 +1,4 @@
-use crate::{HSpace1, HSpace2, HSpace3, HUnimplementedSpace, HomogeneousSpace};
+use crate::{HSpace, HSpace1, HSpace2, HSpace3, HUnimplementedSpace};
 
 /// Trait for Euclidean spaces
 pub trait ESpace {
@@ -8,7 +8,7 @@ pub trait ESpace {
     /// The Homogeneous space that is projected into this Euclidean space.
     /// Has the same number of Euclidean dimensions as this space, plus a
     /// projective dimension.
-    type Homogeneous: HomogeneousSpace;
+    type Homogeneous: HSpace;
 }
 
 /// 1-dimensional Euclidean space

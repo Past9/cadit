@@ -1,8 +1,8 @@
-use super::{
-    basis::eval_basis_function, binomial_coefficient, knot_vector::KnotVector, Homogeneous, Vector,
-};
+use space::{ESpace, EVector, HSpace, HVector};
 
-pub fn curve_point<H: Homogeneous>(
+use super::{basis::eval_basis_function, binomial_coefficient, knot_vector::KnotVector};
+
+pub fn curve_point<H: HVector>(
     control_points: &[H],
     degree: usize,
     knot_vector: &KnotVector,
@@ -18,7 +18,7 @@ pub fn curve_point<H: Homogeneous>(
     H::cast_from_weighted(weighted).project()
 }
 
-pub fn curve_derivatives<H: Homogeneous>(
+pub fn curve_derivatives<H: HVector>(
     weighted_derivatives: &[H],
     num_derivatives: usize,
 ) -> Vec<H::Projected> {
@@ -37,13 +37,13 @@ pub fn curve_derivatives<H: Homogeneous>(
     derivatives
 }
 
-pub fn curve_insert_knots<C: Vector>(
-    control_points: &[C],
+pub fn curve_insert_knots<E: EVector>(
+    control_points: &[E],
     degree: usize,
     knot_vector: &KnotVector,
     u: f64,
     num_insertions: usize,
-) -> (KnotVector, Vec<C>) {
+) -> (KnotVector, Vec<E>) {
     let knot_span_index = knot_vector.find_span(degree, control_points.len(), u);
     let knot_multiplicity = knot_vector.find_multiplicity(u);
 
@@ -54,9 +54,9 @@ pub fn curve_insert_knots<C: Vector>(
     );
 
     let mut new_knot_vector = KnotVector::zeros(knot_vector.len() + num_insertions);
-    let mut new_control_points = vec![C::zero(); control_points.len() + num_insertions];
+    let mut new_control_points = vec![E::zero(); control_points.len() + num_insertions];
 
-    let mut temp = vec![C::zero(); degree + 1];
+    let mut temp = vec![E::zero(); degree + 1];
 
     // Load new knot vector
     for i in 0..=knot_span_index {
@@ -107,12 +107,12 @@ pub fn curve_insert_knots<C: Vector>(
     (new_knot_vector, new_control_points)
 }
 
-pub fn curve_refine<C: Vector>(
-    control_points: &[C],
+pub fn curve_refine<E: EVector>(
+    control_points: &[E],
     degree: usize,
     knot_vector: &KnotVector,
     knots_to_insert: &[f64],
-) -> (KnotVector, Vec<C>) {
+) -> (KnotVector, Vec<E>) {
     let n = control_points.len() - 1;
     let r = knots_to_insert.len() - 1;
 
@@ -121,7 +121,7 @@ pub fn curve_refine<C: Vector>(
     let b = knot_vector.find_span(degree, n, knots_to_insert[knots_to_insert.len() - 1]) + 1;
 
     // Initialize and fill new control points
-    let mut new_ctrl_pts = vec![C::zero(); n + r + 2];
+    let mut new_ctrl_pts = vec![E::zero(); n + r + 2];
 
     for j in 0..=(a - degree) {
         new_ctrl_pts[j] = control_points[j];
@@ -175,19 +175,19 @@ pub fn curve_refine<C: Vector>(
     (new_knot_vector, new_ctrl_pts)
 }
 
-pub fn curve_decompose<C: Vector>(
-    control_points: &[C],     // control_points
+pub fn curve_decompose<E: EVector>(
+    control_points: &[E],     // control_points
     degree: usize,            // degree
     knot_vector: &KnotVector, // knot_vector
-) -> Vec<Vec<C>> {
+) -> Vec<Vec<E>> {
     let n = control_points.len() - 1;
     let m = n + degree + 1;
     let mut a = degree;
     let mut b = degree + 1;
     let mut nb = 0;
 
-    let new_bezier_points = vec![C::zero(); degree + 1];
-    let mut bezier_ctrl_pts: Vec<Vec<C>> = Vec::new();
+    let new_bezier_points = vec![E::zero(); degree + 1];
+    let mut bezier_ctrl_pts: Vec<Vec<E>> = Vec::new();
 
     bezier_ctrl_pts.push(new_bezier_points.clone());
 

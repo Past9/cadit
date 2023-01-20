@@ -10,11 +10,9 @@ use render::{
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
+use space::{HVec2, HVector};
 use spline::math::FloatRange;
-use spline::{
-    math::{knot_vector::KnotVector, Homogeneous, Vec2H},
-    nurbs_curve::NurbsCurve,
-};
+use spline::{math::knot_vector::KnotVector, nurbs_curve::NurbsCurve};
 
 pub fn main() {
     run_window(
@@ -70,11 +68,11 @@ impl App {
         */
         let curve = NurbsCurve::new(
             Vec::from([
-                Vec2H::new(-3.0, 0.0, 1.0),
-                Vec2H::new(-2.0, -4.0, 1.0),
-                Vec2H::new(0.0, 8.0, 1.0),
-                Vec2H::new(2.0, -4.0, 1.0),
-                Vec2H::new(3.0, 0.0, 1.0),
+                HVec2::new(-3.0, 0.0, 1.0),
+                HVec2::new(-2.0, -4.0, 1.0),
+                HVec2::new(0.0, 8.0, 1.0),
+                HVec2::new(2.0, -4.0, 1.0),
+                HVec2::new(3.0, 0.0, 1.0),
             ]),
             KnotVector::new([0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0]),
         );

@@ -1,8 +1,8 @@
+use space::EVector;
+
 use crate::TOL;
 
-use super::{Vec2, Vector};
-
-pub trait Line<V: Vector> {
+pub trait Line<V: EVector> {
     fn from_pos_and_dir(pos: V, dir: V) -> Self;
     fn normalize(&self) -> Self;
     fn contains_point(&self, point: &Vec2) -> bool;

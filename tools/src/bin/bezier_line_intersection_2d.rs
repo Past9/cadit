@@ -12,9 +12,9 @@ use render::{
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
+use space::{ELine2, EVec2, HVec2};
 use spline::bezier_curve::BezierCurve;
-use spline::math::line::{Line, Line2};
-use spline::math::{FloatRange, Vec2, Vec2H};
+use spline::math::FloatRange;
 
 pub fn main() {
     run_window(
@@ -89,18 +89,18 @@ impl App {
             */
 
             let curve = BezierCurve::new(vec![
-                Vec2H::new(-4.1, -4.0, 1.0),
-                Vec2H::new(-7.0, 3.0, 20.0),
-                Vec2H::new(-3.0, 5.0, 10.0),
-                Vec2H::new(2.0, 5.0, 20.0),
-                Vec2H::new(6.0, 1.0, 1.0),
-                Vec2H::new(5.0, -5.0, 30.0),
-                Vec2H::new(-1.0, -8.0, 20.0),
-                Vec2H::new(-5.0, -7.0, 1.0),
-                Vec2H::new(-6.0, -2.0, 20.0),
-                Vec2H::new(-3.0, 3.0, 0.5),
-                Vec2H::new(1.0, 3.0, 1.0),
-                Vec2H::new(0.1, 0.0, 1.0),
+                HVec2::new(-4.1, -4.0, 1.0),
+                HVec2::new(-7.0, 3.0, 20.0),
+                HVec2::new(-3.0, 5.0, 10.0),
+                HVec2::new(2.0, 5.0, 20.0),
+                HVec2::new(6.0, 1.0, 1.0),
+                HVec2::new(5.0, -5.0, 30.0),
+                HVec2::new(-1.0, -8.0, 20.0),
+                HVec2::new(-5.0, -7.0, 1.0),
+                HVec2::new(-6.0, -2.0, 20.0),
+                HVec2::new(-3.0, 3.0, 0.5),
+                HVec2::new(1.0, 3.0, 1.0),
+                HVec2::new(0.1, 0.0, 1.0),
             ]);
 
             /*
@@ -151,10 +151,10 @@ impl App {
             //let start = Vec2::new(-0.85, -5.0);
             //let end = Vec2::new(-0.15, 5.0);
 
-            let start = Vec2::new(-5.0, 3.5);
-            let end = Vec2::new(5.0, -2.5);
+            let start = EVec2::new(-5.0, 3.5);
+            let end = EVec2::new(5.0, -2.5);
 
-            let line = Line2::from_pos_and_dir(start, start - end);
+            let line = ELine2::from_pos_and_dir(start, start - end);
 
             let start_f32s = start.f32s();
             let end_f32s = end.f32s();

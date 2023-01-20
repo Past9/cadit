@@ -1,14 +1,8 @@
-//mod vector;
-//mod vector_macros;
-
 pub mod b_spline;
 pub mod basis;
 pub mod bezier;
 pub mod knot_vector;
-//pub mod line;
 pub mod nurbs;
-
-//pub use vector::*;
 
 const BINOMIAL_COEFFICIENTS: [[f64; 10]; 10] = [
     [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],

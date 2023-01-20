@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use crate::{
     math::{
         b_spline::curve_derivative_control_points,
@@ -8,7 +6,6 @@ use crate::{
         line::{Line, Line2},
         FloatRange, Homogeneous, Vec1H, Vec2, Vec2H, Vector,
     },
-    nurbs_curve::NurbsCurve,
     TOL,
 };
 
@@ -84,32 +81,6 @@ impl<H: Homogeneous> BezierCurve<H> {
         .collect::<Vec<_>>();
 
         Self::new(cp.into_iter().map(|pt| H::cast_from_weighted(pt)).collect())
-
-        /*
-        let nurbs = NurbsCurve::new(
-            self.control_points.clone(),
-            self.control_points
-                .iter()
-                .map(|_| 0.0)
-                .chain(self.control_points.iter().map(|_| 1.0))
-                .collect(),
-        );
-
-        let nurbs_hodograph = nurbs.derivative_curve(1);
-
-        assert!(nurbs_hodograph.control_points().len() == self.control_points.len() - 1);
-        assert!(nurbs_hodograph.knot_vector().len() == nurbs_hodograph.control_points().len() * 2);
-
-        for (i, knot) in nurbs_hodograph.knot_vector().iter().enumerate() {
-            if i < nurbs_hodograph.control_points().len() {
-                assert!(*knot == 0.0);
-            } else {
-                assert!(*knot == 1.0);
-            }
-        }
-
-        Self::new(nurbs_hodograph.control_points().to_vec())
-        */
     }
 }
 impl BezierCurve<Vec2H> {
@@ -133,13 +104,7 @@ impl BezierCurve<Vec2H> {
             self.control_points
                 .iter()
                 .enumerate()
-                .map(|(i, pt)| {
-                    Vec1H::new(
-                        //i as f64 / (self.control_points.len() as f64 - 1.0),
-                        (pt.x * line.a + pt.y * line.b + line.c) * pt.h,
-                        pt.h,
-                    )
-                })
+                .map(|(i, pt)| Vec1H::new((pt.x * line.a + pt.y * line.b + line.c) * pt.h, pt.h))
                 .collect::<Vec<_>>(),
         );
 
@@ -152,48 +117,6 @@ impl BezierCurve<Vec2H> {
             .collect::<Vec<_>>();
 
         der
-
-        /*
-        self.hodograph()
-            .control_points
-            .iter()
-            .map(|pt| (pt.x * line.a + pt.y * line.b + line.c))
-            .collect::<Vec<_>>()
-            */
-
-        /*
-        let self_bezier = BezierCurve::new(
-            self.control_points
-                .iter()
-                .map(|pt| Vec1H::new((pt.x * line.a + pt.y * line.b + line.c) * pt.h, pt.h))
-                .collect::<Vec<_>>(),
-        );
-
-        println!("SELF BEZIER {:#?}", self_bezier);
-
-        let hodograph = self_bezier.hodograph();
-
-        println!("HODO {:#?}", hodograph);
-
-        let der_coefficients = hodograph
-            .control_points
-            .into_iter()
-            .map(|pt| pt.weight().x)
-            .collect::<Vec<_>>();
-
-        der_coefficients
-        */
-        /*
-        let line_coefficients = self
-            .control_points
-            .iter()
-            .map(|pt| (pt.x * line.a + pt.y * line.b + line.c) * pt.h)
-            .collect::<Vec<_>>();
-
-        let der_coefficients = differentiate_coefficients(&line_coefficients);
-
-        der_coefficients
-        */
     }
 
     pub fn line_intersection_plot(&self, line: &Line2) -> Vec<Vec2> {
@@ -305,9 +228,7 @@ impl BezierCurve<Vec2H> {
                 result
             };
 
-            if let Some(zero) = zero
-            //implicit_zero_nearest(&der_coefficients_1, &der_coefficients_2, u_initial, 50)
-            {
+            if let Some(zero) = zero {
                 params.push(zero);
             }
         }
@@ -336,7 +257,6 @@ impl BezierCurve<Vec2H> {
     }
 
     pub fn line_hausdorff(&self, line: &Line2) -> Hausdorff {
-        //println!("LINE HAUS");
         let mut max = 0.0;
         let mut max_u = None;
         let mut max_point = None;
@@ -344,7 +264,6 @@ impl BezierCurve<Vec2H> {
         let candidates = self.line_hausdorff_candidates(line);
 
         for (u, point) in candidates {
-            //println!("CANDIDATE {} {:?}", u, point);
             let dist = (line.a * point.x + line.b * point.y + line.c).abs()
                 / (line.a.powi(2) + line.b.powi(2)).sqrt();
 

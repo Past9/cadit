@@ -7,5 +7,5 @@ members = [
     "crates/render",
     "crates/spline",
     "crates/tesselate",
-    "crates/vector_exp",
+    "crates/space",
 ]

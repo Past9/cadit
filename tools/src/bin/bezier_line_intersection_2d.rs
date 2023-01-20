@@ -13,10 +13,8 @@ use render::{
     Rgb, Rgba,
 };
 use spline::bezier_curve::BezierCurve;
-use spline::math::knot_vector::KnotVector;
 use spline::math::line::{Line, Line2};
-use spline::math::{FloatRange, Vec2, Vec2H, Vec3H};
-use spline::nurbs_curve::NurbsCurve;
+use spline::math::{FloatRange, Vec2, Vec2H};
 
 pub fn main() {
     run_window(

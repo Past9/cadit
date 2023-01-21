@@ -1,10 +1,9 @@
-use space::{ELine, ELine2, ESpace, EVec2, EVector, HVec1, HVec2, HVector, MakeImplicit, TOL};
+use space::{ELine, ESpace, EVector, HVec2, HVector, MakeImplicit, TOL};
 
 use crate::math::{
     b_spline::curve_derivative_control_points,
     bezier::{decasteljau, derivatives, differentiate_coefficients, implicit_zero_nearest, newton},
     knot_vector::KnotVector,
-    FloatRange,
 };
 
 #[derive(Debug)]

@@ -4,6 +4,7 @@ pub trait ELine {
     type Space: ESpace;
     type Point: EVector<Space = Self::Space>;
 
+    fn dist_to_point(&self, point: &Self::Point) -> f64;
     fn contains_point(&self, point: &Self::Point) -> bool;
 }
 
@@ -27,6 +28,11 @@ impl ELine2 {
 impl ELine for ELine2 {
     type Space = ESpace2;
     type Point = EVec2;
+
+    fn dist_to_point(&self, point: &Self::Point) -> f64 {
+        (self.a * point.x + self.b * point.y + self.c).abs()
+            / (self.a.powi(2) + self.b.powi(2)).sqrt()
+    }
 
     fn contains_point(&self, point: &Self::Point) -> bool {
         let eval = self.a * point.x + self.b * point.y + self.c;
@@ -72,6 +78,10 @@ pub struct ELine3 {
 impl ELine for ELine3 {
     type Space = ESpace3;
     type Point = EVec3;
+
+    fn dist_to_point(&self, point: &Self::Point) -> f64 {
+        todo!()
+    }
 
     fn contains_point(&self, point: &Self::Point) -> bool {
         let eval = self.a1 * point.x + self.b1 * point.y + self.c1 * point.z + self.d1;

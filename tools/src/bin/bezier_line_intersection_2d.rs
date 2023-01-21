@@ -208,7 +208,7 @@ impl App {
             let mut times = vec![0u128; num_times];
             for i in 0..num_times {
                 let start = Instant::now();
-                let hausdorff = curve.line_hausdorff(&line);
+                let hausdorff = curve.hausdorff_to_line(&line);
                 let dur = (Instant::now() - start).as_micros();
                 times[i] = dur;
             }
@@ -217,18 +217,13 @@ impl App {
                 times.into_iter().sum::<u128>() as f64 / num_times as f64
             );
 
-            let hausdorff = curve.line_hausdorff(&line);
-            println!("Hausdorff distance: {}", hausdorff.distance);
-
-            if let Some(point) = hausdorff.point {
-                println!("Hausdorff point: {:?}", point);
+            if let Some(hausdorff) = curve.hausdorff_to_line(&line) {
+                println!("Hausdorff distance: {}", hausdorff.distance);
+                println!("Hausdorff point: {:?}", hausdorff.point);
+                println!("Hausdorff U: {}", hausdorff.u);
             }
 
-            if let Some(u) = hausdorff.u {
-                println!("Hausdorff U: {}", u);
-            }
-
-            let points = curve.line_hausdorff_candidates(&line);
+            let points = curve.hausdorff_to_line_candidates(&line);
             let deviation_points = points
                 .into_iter()
                 .map(|p| {
@@ -248,6 +243,7 @@ impl App {
             deviation_points
         };
 
+        /*
         let intersection_plot = {
             let points = curve.line_intersection_plot(&line);
             let intersection_plot = ModelEdge::new(
@@ -293,6 +289,7 @@ impl App {
 
             der_plot
         };
+        */
 
         /*
         let der_intersection_plot = {
@@ -354,8 +351,8 @@ impl App {
                         vec![],
                         vec![
                             curve_edge,
-                            intersection_plot,
-                            der_plot,
+                            //intersection_plot,
+                            //der_plot,
                             //der_intersection_plot,
                             line_edge,
                         ]

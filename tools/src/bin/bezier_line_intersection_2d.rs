@@ -103,30 +103,12 @@ impl App {
                 HVec2::new(0.1, 0.0, 1.0),
             ]);
 
-            /*
-            let nurbs = NurbsCurve::new(
-                vec![
-                    Vec2H::new(-4.0, -1.0, 1.0),
-                    Vec2H::new(-2.0, 4.0, 10.0),
-                    Vec2H::new(2.0, -4.0, 10.0),
-                    Vec2H::new(4.0, 1.0, 1.0),
-                ],
-                KnotVector::new([0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0]),
-            )
-            .derivative_curve(1);
-
-            println!("NURBS DER {:#?}", nurbs.derivative_curve(1));
-            */
-
-            //let curve = BezierCurve::example_quarter_circle();
-
             let num_segments = 500;
             let curve_edge = ModelEdge::new(
                 0.into(),
                 Edge {
                     vertices: FloatRange::new(0.0, 1.0, num_segments)
                         .map(|u| {
-                            //
                             let floats = curve.point(u).f32s();
                             EdgeVertex {
                                 position: [floats[0], floats[1], 0.0],
@@ -142,15 +124,6 @@ impl App {
         };
 
         let (line, line_edge) = {
-            //let start = Vec2::new(-5.0, 0.0);
-            //let end = Vec2::new(5.0, 5.0);
-
-            //let start = Vec2::new(10.0, -5.0);
-            //let end = Vec2::new(10.0, 5.0);
-
-            //let start = Vec2::new(-0.85, -5.0);
-            //let end = Vec2::new(-0.15, 5.0);
-
             let start = EVec2::new(-5.0, 3.5);
             let end = EVec2::new(5.0, -2.5);
 
@@ -202,13 +175,11 @@ impl App {
         };
 
         let deviation_points = {
-            let start = Instant::now();
-
             let num_times = 1000;
             let mut times = vec![0u128; num_times];
             for i in 0..num_times {
                 let start = Instant::now();
-                let hausdorff = curve.hausdorff_to_line(&line);
+                curve.hausdorff_to_line(&line);
                 let dur = (Instant::now() - start).as_micros();
                 times[i] = dur;
             }
@@ -243,79 +214,6 @@ impl App {
             deviation_points
         };
 
-        /*
-        let intersection_plot = {
-            let points = curve.line_intersection_plot(&line);
-            let intersection_plot = ModelEdge::new(
-                0.into(),
-                Edge {
-                    vertices: points
-                        .into_iter()
-                        .map(|pt| {
-                            //
-                            let floats = pt.f32s();
-                            EdgeVertex {
-                                position: [floats[0], floats[1], 0.0],
-                                expand: [0.0, 0.0, 0.0],
-                            }
-                        })
-                        .collect::<Vec<_>>(),
-                },
-                Rgba::BLUE,
-            );
-
-            intersection_plot
-        };
-
-        let der_plot = {
-            let points = curve.line_derivative_plot(&line);
-            let der_plot = ModelEdge::new(
-                0.into(),
-                Edge {
-                    vertices: points
-                        .into_iter()
-                        .map(|pt| {
-                            //
-                            let floats = pt.f32s();
-                            EdgeVertex {
-                                position: [floats[0], floats[1], 0.0],
-                                expand: [0.0, 0.0, 0.0],
-                            }
-                        })
-                        .collect::<Vec<_>>(),
-                },
-                Rgba::CYAN,
-            );
-
-            der_plot
-        };
-        */
-
-        /*
-        let der_intersection_plot = {
-            let points = curve.der1_curve_plot(&line);
-            let der_intersection_plot = ModelEdge::new(
-                0.into(),
-                Edge {
-                    vertices: points
-                        .into_iter()
-                        .map(|pt| {
-                            //
-                            let floats = pt.f32s();
-                            EdgeVertex {
-                                position: [floats[0], floats[1], 0.0],
-                                expand: [0.0, 0.0, 0.0],
-                            }
-                        })
-                        .collect::<Vec<_>>(),
-                },
-                Rgba::CYAN,
-            );
-
-            der_intersection_plot
-        };
-        */
-
         Self {
             viewer: SceneViewer::new(
                 CameraAngle::Front.get_rotation(),
@@ -341,7 +239,6 @@ impl App {
                         [0, 0],
                         point3(0.0, 0.0, -6.0),
                         vec3(0.0, 0.0, 1.0),
-                        //vec3(6.0, 10.0, 0.0).normalize(),
                         vec3(0.0, -1.0, 0.0).normalize(),
                         Deg(70.0).into(),
                         0.01,
@@ -349,16 +246,10 @@ impl App {
                     ),
                     vec![Model::new(
                         vec![],
-                        vec![
-                            curve_edge,
-                            //intersection_plot,
-                            //der_plot,
-                            //der_intersection_plot,
-                            line_edge,
-                        ]
-                        .into_iter()
-                        .chain(grid_lines.into_iter())
-                        .collect(),
+                        vec![curve_edge, line_edge]
+                            .into_iter()
+                            .chain(grid_lines.into_iter())
+                            .collect(),
                         vec![]
                             .into_iter()
                             .chain(intersection_points.into_iter())

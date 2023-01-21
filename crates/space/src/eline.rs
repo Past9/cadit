@@ -33,6 +33,18 @@ impl ELine for ELine2 {
         eval.abs() <= TOL
     }
 }
+impl MakeImplicit for ELine2 {
+    type Input = HVec2;
+    type Output = HVec1;
+
+    fn make_implicit(&self, control_point: &Self::Input) -> Self::Output {
+        HVec1 {
+            x: control_point.x * self.a + control_point.y * self.b + self.c,
+            h: control_point.h,
+        }
+    }
+}
+/*
 impl ImplicitifyControlPoint<ESpace2, HVec2, HVec1> for ELine2 {
     fn implicitify_control_point(&self, control_point: HVec2) -> HVec1 {
         HVec1 {
@@ -41,6 +53,7 @@ impl ImplicitifyControlPoint<ESpace2, HVec2, HVec1> for ELine2 {
         }
     }
 }
+*/
 
 /// An infinite line in 3D Euclidean space
 pub struct ELine3 {
@@ -105,4 +118,20 @@ pub trait ImplicitifyControlPoint<
 >
 {
     fn implicitify_control_point(&self, control_point: TControlPoint) -> TOutput;
+}
+
+pub trait MakeImplicit<L: ELine = Self> {
+    type Input: HVector<Space = <<L as ELine>::Space as ESpace>::Homogeneous>;
+    type Output: HVector<Space = <<<L as ELine>::Space as ESpace>::Lower as ESpace>::Homogeneous>;
+
+    fn make_implicit(&self, control_point: &Self::Input) -> Self::Output;
+
+    /*
+    fn make_all_implicit<T>(
+        &self,
+        control_points: &[Self::Input],
+    ) -> Iterator<Item = Self::Output> {
+        control_points.iter().map(|cp| self.make_implicit(cp))
+    }
+    */
 }

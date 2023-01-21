@@ -1,4 +1,7 @@
-use space::{ELine, ELine2, EVec2, EVector, HSpace, HSpace2, HVec1, HVec2, HVector, TOL};
+use space::{
+    ELine, ELine2, ESpace, EVec2, EVector, HSpace, HSpace1, HSpace2, HVec1, HVec2, HVector,
+    ImplicitifyControlPoint, MakeImplicit, TOL,
+};
 
 use crate::math::{
     b_spline::curve_derivative_control_points,
@@ -80,6 +83,19 @@ impl<H: HVector> BezierCurve<H> {
 
         Self::new(cp.into_iter().map(|pt| H::cast_from_weighted(pt)).collect())
     }
+
+    fn make_implicit<L, O>(&self, line: &L) -> Vec<<L as MakeImplicit>::Output>
+    where
+        L: ELine + MakeImplicit<Input = H, Output = O>,
+        O: HVector<
+            Space = <<<H::Projected as EVector>::Space as ESpace>::Lower as ESpace>::Homogeneous,
+        >,
+    {
+        self.control_points
+            .iter()
+            .map(|cp| line.make_implicit(cp))
+            .collect::<Vec<_>>()
+    }
 }
 impl BezierCurve<HVec2> {
     pub fn example_quarter_circle() -> Self {
@@ -119,6 +135,7 @@ impl BezierCurve<HVec2> {
 
     pub fn line_intersection_plot(&self, line: &ELine2) -> Vec<EVec2> {
         let coefficients = self.line_intersection_coefficients(line);
+        //let coefficients = self.make_implicit(line);
 
         let mut points = Vec::new();
         for x in FloatRange::new(0.0, 1.0, 300) {

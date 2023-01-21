@@ -1,4 +1,6 @@
-use crate::{ESpace1, EVec1, EVec2, EVec3, EVec4, EVector, HSpace, HSpace1, HSpace2, HSpace3};
+use crate::{
+    ESpace, ESpace1, EVec1, EVec2, EVec3, EVec4, EVector, HSpace, HSpace1, HSpace2, HSpace3,
+};
 use std::{
     fmt::Debug,
     iter::Sum,

@@ -1,6 +1,7 @@
 use crate::{ESpace, ESpace2, ESpace3, EVec2, EVec3, EVector, HVec1, HVec2, HVec3, HVector, TOL};
+use std::fmt::Debug;
 
-pub trait ELine {
+pub trait ELine: Debug + Clone {
     type Space: ESpace;
     type Point: EVector<Space = Self::Space>;
 
@@ -9,6 +10,7 @@ pub trait ELine {
 }
 
 /// An infinite line in 2D Euclidean space
+#[derive(Debug, Clone)]
 pub struct ELine2 {
     pub a: f64,
     pub b: f64,
@@ -50,18 +52,9 @@ impl MakeImplicit for ELine2 {
         }
     }
 }
-/*
-impl ImplicitifyControlPoint<ESpace2, HVec2, HVec1> for ELine2 {
-    fn implicitify_control_point(&self, control_point: HVec2) -> HVec1 {
-        HVec1 {
-            x: control_point.x * self.a + control_point.y * self.b + self.c,
-            h: control_point.h,
-        }
-    }
-}
-*/
 
 /// An infinite line in 3D Euclidean space
+#[derive(Debug, Clone)]
 pub struct ELine3 {
     // Plane 1
     pub a1: f64,
@@ -77,8 +70,47 @@ pub struct ELine3 {
 }
 impl ELine3 {
     pub fn from_pos_and_dir(pos: EVec3, dir: EVec3) -> Self {
-        let dir = dir.normalize();
+        //let dir = dir.normalize();
 
+        let x0 = pos.x;
+        let y0 = pos.y;
+        let z0 = pos.z;
+
+        let a = dir.x;
+        let b = dir.y;
+        let c = dir.z;
+
+        println!("x0 = {}", x0);
+        println!("y0 = {}", y0);
+        println!("z0 = {}", z0);
+
+        println!("a = {}", a);
+        println!("b = {}", b);
+        println!("c = {}", c);
+
+        /*
+        let a1 = -b * c;
+        let b1 = a * c;
+        let c1 = 0.0;
+        let d1 = (b * c * x0) - (a * c * y0);
+
+        let a2 = -b * c;
+        let b2 = 0.0;
+        let c2 = a * b;
+        let d2 = (b * c * x0) - (a * b * z0);
+        */
+
+        let a1 = -b;
+        let b1 = a;
+        let c1 = 0.0;
+        let d1 = (b * x0) - (a * y0);
+
+        let a2 = c;
+        let b2 = 0.0;
+        let c2 = a;
+        let d2 = (c * x0) - (a * z0);
+
+        /*
         let a1 = -1.0 / dir.x;
         let b1 = 1.0 / dir.y;
         let c1 = 0.0;
@@ -88,6 +120,7 @@ impl ELine3 {
         let b2 = 0.0;
         let c2 = 1.0 / dir.z;
         let d2 = (pos.x / dir.x) - (pos.z - dir.z);
+        */
 
         Self {
             a1,
@@ -147,23 +180,6 @@ impl MakeImplicit for ELine3 {
         }
     }
 }
-/*
-impl ImplicitifyControlPoint<ESpace3, HVec3, HVec2> for ELine3 {
-    fn implicitify_control_point(&self, control_point: HVec3) -> HVec2 {
-        HVec2 {
-            x: control_point.x * self.a1
-                + control_point.y * self.b1
-                + control_point.z * self.c1
-                + self.d1,
-            y: control_point.x * self.a2
-                + control_point.y * self.b2
-                + control_point.z * self.c2
-                + self.d2,
-            h: control_point.h,
-        }
-    }
-}
-*/
 
 /// Trait that enables taking a control point from a rational (the control point
 /// is in homogeneous space) parametric spline and converting it into a coefficient
@@ -173,27 +189,9 @@ impl ImplicitifyControlPoint<ESpace3, HVec3, HVec2> for ELine3 {
 /// spline will have the same distance (in homogeneous space) from the X-axis as the
 /// original control points have from the line. Useful for evaluating error tolerance
 /// between rendering primitives and true splines during tesselation.
-pub trait ImplicitifyControlPoint<
-    S: ESpace,
-    TControlPoint: HVector<Space = S::Homogeneous>,
-    TOutput: HVector<Space = <S::Lower as ESpace>::Homogeneous>,
->
-{
-    fn implicitify_control_point(&self, control_point: TControlPoint) -> TOutput;
-}
-
 pub trait MakeImplicit<L: ELine = Self> {
     type Input: HVector<Space = <<L as ELine>::Space as ESpace>::Homogeneous>;
     type Output: HVector<Space = <<<L as ELine>::Space as ESpace>::Lower as ESpace>::Homogeneous>;
 
     fn make_implicit(&self, control_point: &Self::Input) -> Self::Output;
-
-    /*
-    fn make_all_implicit<T>(
-        &self,
-        control_points: &[Self::Input],
-    ) -> Iterator<Item = Self::Output> {
-        control_points.iter().map(|cp| self.make_implicit(cp))
-    }
-    */
 }

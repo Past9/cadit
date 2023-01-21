@@ -124,10 +124,12 @@ impl App {
         };
 
         let (line, line_edge) = {
-            let start = EVec3::new(-5.0, 3.5, 0.0);
-            let end = EVec3::new(5.0, -2.5, 0.0);
+            let start = EVec3::new(-5.0, 3.5, 1.0);
+            let end = EVec3::new(5.0, -2.5, 1.0);
 
             let line = ELine3::from_pos_and_dir(start, start - end);
+
+            println!("LINE {:#?}", line);
 
             let start_f32s = start.f32s();
             let end_f32s = end.f32s();

@@ -1,8 +1,8 @@
 use std::ops::{Add, Mul, Sub};
 
-use space::{ESpace, EVector, HSpace, HVector, TOL};
+use space::{EVector, HVector, TOL};
 
-use super::{binomial_coefficient, knot_vector::KnotVector};
+use super::binomial_coefficient;
 
 pub fn decasteljau<T>(coefficients: &[T], u: f64) -> T
 where

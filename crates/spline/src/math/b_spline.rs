@@ -1,4 +1,4 @@
-use space::{ESpace, EVector};
+use space::EVector;
 
 use super::{
     basis::{eval_all_basis_functions, eval_basis_function, eval_basis_function_derivatives},

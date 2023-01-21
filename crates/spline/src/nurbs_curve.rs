@@ -1,4 +1,4 @@
-use space::{ESpace, EVec2, EVector, HSpace, HSpace2, HSpace3, HVec2, HVec3, HVector};
+use space::{EVec2, EVector, HVec2, HVec3, HVector};
 
 use crate::{
     bezier_curve::BezierCurve,

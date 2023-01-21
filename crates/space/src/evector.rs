@@ -223,7 +223,7 @@ impl EVector for EUnimplementedVector {
         unimplemented!()
     }
 
-    fn dot(&self, rhs: &Self) -> f64 {
+    fn dot(&self, _rhs: &Self) -> f64 {
         unimplemented!()
     }
 
@@ -250,61 +250,61 @@ impl EVector for EUnimplementedVector {
 impl Add for EUnimplementedVector {
     type Output = Self;
 
-    fn add(self, rhs: Self) -> Self::Output {
+    fn add(self, _rhs: Self) -> Self::Output {
         unimplemented!()
     }
 }
 impl Sub for EUnimplementedVector {
     type Output = Self;
 
-    fn sub(self, rhs: Self) -> Self::Output {
+    fn sub(self, _rhs: Self) -> Self::Output {
         unimplemented!()
     }
 }
 impl Mul for EUnimplementedVector {
     type Output = Self;
 
-    fn mul(self, rhs: Self) -> Self::Output {
+    fn mul(self, _rhs: Self) -> Self::Output {
         unimplemented!()
     }
 }
 impl Div for EUnimplementedVector {
     type Output = Self;
 
-    fn div(self, rhs: Self) -> Self::Output {
+    fn div(self, _rhs: Self) -> Self::Output {
         unimplemented!()
     }
 }
 impl Add<f64> for EUnimplementedVector {
     type Output = Self;
 
-    fn add(self, rhs: f64) -> Self::Output {
+    fn add(self, _rhs: f64) -> Self::Output {
         unimplemented!()
     }
 }
 impl Sub<f64> for EUnimplementedVector {
     type Output = Self;
 
-    fn sub(self, rhs: f64) -> Self::Output {
+    fn sub(self, _rhs: f64) -> Self::Output {
         unimplemented!()
     }
 }
 impl Mul<f64> for EUnimplementedVector {
     type Output = Self;
 
-    fn mul(self, rhs: f64) -> Self::Output {
+    fn mul(self, _rhs: f64) -> Self::Output {
         unimplemented!()
     }
 }
 impl Div<f64> for EUnimplementedVector {
     type Output = Self;
 
-    fn div(self, rhs: f64) -> Self::Output {
+    fn div(self, _rhs: f64) -> Self::Output {
         unimplemented!()
     }
 }
 impl Sum for EUnimplementedVector {
-    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+    fn sum<I: Iterator<Item = Self>>(_iter: I) -> Self {
         unimplemented!()
     }
 }

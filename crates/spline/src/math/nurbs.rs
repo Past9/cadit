@@ -1,4 +1,4 @@
-use space::{ESpace, EVector, HSpace, HVector};
+use space::{EVector, HVector};
 
 use super::{basis::eval_basis_function, binomial_coefficient, knot_vector::KnotVector};
 

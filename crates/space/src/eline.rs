@@ -75,12 +75,44 @@ pub struct ELine3 {
     pub c2: f64,
     pub d2: f64,
 }
+impl ELine3 {
+    pub fn from_pos_and_dir(pos: EVec3, dir: EVec3) -> Self {
+        let dir = dir.normalize();
+
+        let a1 = -1.0 / dir.x;
+        let b1 = 1.0 / dir.y;
+        let c1 = 0.0;
+        let d1 = (pos.x / dir.x) - (pos.y / dir.y);
+
+        let a2 = -1.0 / dir.x;
+        let b2 = 0.0;
+        let c2 = 1.0 / dir.z;
+        let d2 = (pos.x / dir.x) - (pos.z - dir.z);
+
+        Self {
+            a1,
+            b1,
+            c1,
+            d1,
+            a2,
+            b2,
+            c2,
+            d2,
+        }
+    }
+}
 impl ELine for ELine3 {
     type Space = ESpace3;
     type Point = EVec3;
 
     fn dist_to_point(&self, point: &Self::Point) -> f64 {
-        todo!()
+        let dist1 = (self.a1 * point.x + self.b1 * point.y + self.c1 * point.z + self.d1).abs()
+            / (self.a1.powi(2) + self.b1.powi(2) + self.c1.powi(2)).sqrt();
+
+        let dist2 = (self.a2 * point.x + self.b2 * point.y + self.c2 * point.z + self.d2).abs()
+            / (self.a2.powi(2) + self.b2.powi(2) + self.c2.powi(2)).sqrt();
+
+        EVec2::new(dist1, dist2).magnitude()
     }
 
     fn contains_point(&self, point: &Self::Point) -> bool {
@@ -97,6 +129,25 @@ impl ELine for ELine3 {
         false
     }
 }
+impl MakeImplicit for ELine3 {
+    type Input = HVec3;
+    type Output = HVec2;
+
+    fn make_implicit(&self, control_point: &Self::Input) -> Self::Output {
+        HVec2 {
+            x: control_point.x * self.a1
+                + control_point.y * self.b1
+                + control_point.z * self.c1
+                + self.d1,
+            y: control_point.x * self.a2
+                + control_point.y * self.b2
+                + control_point.z * self.c2
+                + self.d2,
+            h: control_point.h,
+        }
+    }
+}
+/*
 impl ImplicitifyControlPoint<ESpace3, HVec3, HVec2> for ELine3 {
     fn implicitify_control_point(&self, control_point: HVec3) -> HVec2 {
         HVec2 {
@@ -112,6 +163,7 @@ impl ImplicitifyControlPoint<ESpace3, HVec3, HVec2> for ELine3 {
         }
     }
 }
+*/
 
 /// Trait that enables taking a control point from a rational (the control point
 /// is in homogeneous space) parametric spline and converting it into a coefficient

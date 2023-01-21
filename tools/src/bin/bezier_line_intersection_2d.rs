@@ -180,7 +180,7 @@ impl App {
         };
 
         let intersection_points = {
-            let points = curve.line_intersections_2(&line);
+            let points = curve.line_intersections(&line);
 
             let intersection_points = points
                 .into_iter()

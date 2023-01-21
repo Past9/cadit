@@ -5,7 +5,9 @@ use space::{
 
 use crate::math::{
     b_spline::curve_derivative_control_points,
-    bezier::{decas, decasteljau, derivatives, differentiate_coefficients, implicit_zero_nearest},
+    bezier::{
+        decas, decasteljau, derivatives, differentiate_coefficients, implicit_zero_nearest, newton,
+    },
     knot_vector::KnotVector,
     FloatRange,
 };
@@ -110,7 +112,7 @@ impl<H: HVector> BezierCurve<H> {
             .collect::<Vec<_>>()
     }
 
-    pub fn line_intersections_2<L, O>(&self, line: &L) -> Vec<H::Projected>
+    pub fn line_intersections<L, O>(&self, line: &L) -> Vec<H::Projected>
     where
         L: ELine + MakeImplicit<Input = H, Output = O>,
         O: HVector<
@@ -120,22 +122,20 @@ impl<H: HVector> BezierCurve<H> {
         // Get coefficients for an implicit Bezier curve oriented so the line is
         // along the X-axis. Do the same for this curve's derivative curve, which
         // we'll need for Newton iteration.
-        let self_co = self
+        let self_coefficients = self
             .make_implicit(line)
             .map(|pt| pt.weight().truncate())
             .collect::<Vec<_>>();
 
-        let der_co = differentiate_coefficients(&self_co);
-
-        //let der_coefficients = differentiate_coefficients(&cox);
-        //let der_coefficients = self.derivative_curve().line_intersection_coefficients(line);
+        let der_coefficients = differentiate_coefficients(&self_coefficients);
 
         // Find the points where the implicit curve crosses the X-axis using Newton's method.
         let mut params = Vec::new();
         let num_tests = self.degree() + 2;
         for i in 0..num_tests {
             let u = i as f64 / (num_tests - 1) as f64;
-            if let Some(zero) = implicit_zero_nearest(&self_co, &der_co, u, 50) {
+            if let Some(zero) = implicit_zero_nearest(&self_coefficients, &der_coefficients, u, 50)
+            {
                 params.push(zero);
             }
         }
@@ -153,32 +153,60 @@ impl<H: HVector> BezierCurve<H> {
         points
     }
 
-    /*
-    pub fn line_intersection_plot_foo<L, O>(&self, line: &L) -> Vec<bool>
+    pub fn line_hausdorff_candidates_2<L, O>(&self, line: &L) -> Vec<(f64, H::Projected)>
     where
-        L: ELine + MakeImplicit<Input = H, Output = O>,
+        L: ELine<Point = H::Projected> + MakeImplicit<Input = H, Output = O>,
         O: HVector<
             Space = <<<H::Projected as EVector>::Space as ESpace>::Lower as ESpace>::Homogeneous,
         >,
     {
-        let coefficients = self
-            .make_implicit(line)
-            .map(|pt| pt.weight().truncate())
-            .collect::<Vec<_>>();
+        // Get coefficients for an implicit bezier curve oriented so the line is
+        // along the X-axis. Finding the Hausdorff distance requires finding all the
+        // "peaks and valleys" of this curve, which are the same as where its derivative
+        // curve crosses the X-axis. Therefore we need to also create a derivative of
+        // the implicit curve (not the same as the implicit form of the derivative curve
+        // of this Bezier), and then also get the derivative of that for use in Newton
+        // iteration.
+        let ctrl_pts = self.make_implicit(line).collect::<Vec<_>>();
 
-        let x = decasteljau(&coefficients, 0.0);
+        // Find the points where the first derivative crosses the X-axis using Newton's method.
+        let mut params = Vec::new();
+        let num_tests = self.degree() + 2;
+        for i in 0..num_tests {
+            let u_initial = i as f64 / (num_tests - 1) as f64;
 
-        let coefficients = self.line_intersection_coefficients(line);
+            let zero = newton(u_initial, 50, |u| {
+                let ders = derivatives(&ctrl_pts, u, 2);
+                (ders[1], ders[2])
+            });
 
-        let mut points = Vec::new();
-        for x in FloatRange::new(0.0, 1.0, 300) {
-            let point = EVec2::new(x, decasteljau(&coefficients, x));
-            points.push(EVec2::new(point.x, point.y / 10.0));
+            if let Some(zero) = zero {
+                params.push(zero);
+            }
         }
+
+        // Add the start point because it can also be furthest from the line
+        let mut points = Vec::new();
+        let start_point = self.point(0.0);
+        if !line.contains_point(&start_point) {
+            points.push((0.0, start_point));
+        }
+
+        // Evaluate the Bezier curve to find the points at each param value
+        points.extend(params.into_iter().map(|u| (u, self.point(u))));
+
+        // Add the end point because it can also be furthest from the line
+        let end_point = self.point(1.0);
+        if !line.contains_point(&end_point) {
+            points.push((1.0, end_point));
+        }
+
+        // Remove any duplicates if the Newton iteration converged on the same point(s)
+        points.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+        points.dedup_by(|a, b| (a.1 - b.1).magnitude() <= TOL);
 
         points
     }
-    */
 }
 impl BezierCurve<HVec2> {
     pub fn example_quarter_circle() -> Self {
@@ -367,7 +395,7 @@ impl BezierCurve<HVec2> {
         let mut max_u = None;
         let mut max_point = None;
 
-        let candidates = self.line_hausdorff_candidates(line);
+        let candidates = self.line_hausdorff_candidates_2(line);
 
         for (u, point) in candidates {
             let dist = (line.a * point.x + line.b * point.y + line.c).abs()

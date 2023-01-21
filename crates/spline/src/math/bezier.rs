@@ -36,6 +36,37 @@ where
     q[0]
 }
 
+pub fn newton<F, E: EVector>(u_guess: f64, max_iter: usize, eval: F) -> Option<f64>
+where
+    F: Fn(f64) -> (E, E),
+{
+    let mut u = u_guess;
+    for _ in 0..max_iter {
+        let (self_val, der_val) = eval(u);
+
+        let self_mag = self_val.magnitude();
+        let der_mag = der_val.magnitude();
+
+        if self_mag <= TOL {
+            return Some(u);
+        } else {
+            let correction =
+                (self_mag * self_val.signum_product()) / (der_mag * der_val.signum_product());
+
+            if correction.abs() < 0.3 * TOL {
+                return None;
+            }
+
+            u -= correction;
+            if u < 0.0 || u > 1.0 {
+                return None;
+            }
+        }
+    }
+
+    None
+}
+
 pub fn implicit_zero_nearest<E: EVector>(
     self_coefficients: &[E],
     der_coefficients: &[E],

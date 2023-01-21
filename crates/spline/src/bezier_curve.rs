@@ -5,7 +5,7 @@ use space::{
 
 use crate::math::{
     b_spline::curve_derivative_control_points,
-    bezier::{decasteljau, derivatives, differentiate_coefficients, implicit_zero_nearest},
+    bezier::{decas, decasteljau, derivatives, differentiate_coefficients, implicit_zero_nearest},
     knot_vector::KnotVector,
     FloatRange,
 };
@@ -84,17 +84,17 @@ impl<H: HVector> BezierCurve<H> {
         Self::new(cp.into_iter().map(|pt| H::cast_from_weighted(pt)).collect())
     }
 
-    fn make_implicit<L, O>(&self, line: &L) -> Vec<<L as MakeImplicit>::Output>
+    fn make_implicit<'a, L, O>(
+        &'a self,
+        line: &'a L,
+    ) -> impl Iterator<Item = <L as MakeImplicit>::Output> + 'a
     where
         L: ELine + MakeImplicit<Input = H, Output = O>,
         O: HVector<
             Space = <<<H::Projected as EVector>::Space as ESpace>::Lower as ESpace>::Homogeneous,
         >,
     {
-        self.control_points
-            .iter()
-            .map(|cp| line.make_implicit(cp))
-            .collect::<Vec<_>>()
+        self.control_points.iter().map(|cp| line.make_implicit(cp))
     }
 
     fn make_implicit_weighted<L, O>(&self, line: &L) -> Vec<<O as HVector>::Weighted>
@@ -109,6 +109,76 @@ impl<H: HVector> BezierCurve<H> {
             .map(|cp| line.make_implicit(cp).weight())
             .collect::<Vec<_>>()
     }
+
+    pub fn line_intersections_2<L, O>(&self, line: &L) -> Vec<H::Projected>
+    where
+        L: ELine + MakeImplicit<Input = H, Output = O>,
+        O: HVector<
+            Space = <<<H::Projected as EVector>::Space as ESpace>::Lower as ESpace>::Homogeneous,
+        >,
+    {
+        // Get coefficients for an implicit Bezier curve oriented so the line is
+        // along the X-axis. Do the same for this curve's derivative curve, which
+        // we'll need for Newton iteration.
+        let self_co = self
+            .make_implicit(line)
+            .map(|pt| pt.weight().truncate())
+            .collect::<Vec<_>>();
+
+        let der_co = differentiate_coefficients(&self_co);
+
+        //let der_coefficients = differentiate_coefficients(&cox);
+        //let der_coefficients = self.derivative_curve().line_intersection_coefficients(line);
+
+        // Find the points where the implicit curve crosses the X-axis using Newton's method.
+        let mut params = Vec::new();
+        let num_tests = self.degree() + 2;
+        for i in 0..num_tests {
+            let u = i as f64 / (num_tests - 1) as f64;
+            if let Some(zero) = implicit_zero_nearest(&self_co, &der_co, u, 50) {
+                params.push(zero);
+            }
+        }
+
+        // Evaluate the curve at the found parameter values to find the intersection points
+        let mut points = params
+            .into_iter()
+            .map(|u| self.point(u))
+            .collect::<Vec<_>>();
+
+        // Newton iteration may have converged on the same points, so remove any duplicates.
+        // TODO: Sort these somehow, deduplication does nothing unless duplicates are next to each other
+        points.dedup_by(|a, b| (*a - *b).magnitude() <= TOL);
+
+        points
+    }
+
+    /*
+    pub fn line_intersection_plot_foo<L, O>(&self, line: &L) -> Vec<bool>
+    where
+        L: ELine + MakeImplicit<Input = H, Output = O>,
+        O: HVector<
+            Space = <<<H::Projected as EVector>::Space as ESpace>::Lower as ESpace>::Homogeneous,
+        >,
+    {
+        let coefficients = self
+            .make_implicit(line)
+            .map(|pt| pt.weight().truncate())
+            .collect::<Vec<_>>();
+
+        let x = decasteljau(&coefficients, 0.0);
+
+        let coefficients = self.line_intersection_coefficients(line);
+
+        let mut points = Vec::new();
+        for x in FloatRange::new(0.0, 1.0, 300) {
+            let point = EVec2::new(x, decasteljau(&coefficients, x));
+            points.push(EVec2::new(point.x, point.y / 10.0));
+        }
+
+        points
+    }
+    */
 }
 impl BezierCurve<HVec2> {
     pub fn example_quarter_circle() -> Self {
@@ -147,7 +217,13 @@ impl BezierCurve<HVec2> {
     }
 
     pub fn line_intersection_plot(&self, line: &ELine2) -> Vec<EVec2> {
-        let coefficients = self.make_implicit(line);
+        let coefficients = self
+            .make_implicit(line)
+            .map(|pt| pt.weight().truncate())
+            .collect::<Vec<_>>();
+
+        let x = decasteljau(&coefficients, 0.0);
+
         let coefficients = self.line_intersection_coefficients(line);
 
         let mut points = Vec::new();
@@ -171,6 +247,7 @@ impl BezierCurve<HVec2> {
         points
     }
 
+    /*
     pub fn line_intersections(&self, line: &ELine2) -> Vec<EVec2> {
         // Get coefficients for an implicit Bezier curve oriented so the line is
         // along the X-axis. Do the same for this curve's derivative curve, which
@@ -202,6 +279,7 @@ impl BezierCurve<HVec2> {
 
         points
     }
+    */
 
     pub fn line_hausdorff_candidates(&self, line: &ELine2) -> Vec<(f64, EVec2)> {
         // Get coefficients for an implicit bezier curve oriented so the line is

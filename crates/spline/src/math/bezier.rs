@@ -20,9 +20,25 @@ where
     q[0]
 }
 
-pub fn implicit_zero_nearest(
-    self_coefficients: &[f64],
-    der_coefficients: &[f64],
+pub fn decas<T>(coefficients: &[T], u: f64) -> T
+where
+    T: Clone + Copy + Sub<f64> + Mul<f64, Output = T> + Add<Output = T>,
+{
+    let mut q = coefficients.to_vec();
+    let degree = coefficients.len() - 1;
+
+    for k in 1..=degree as usize {
+        for i in 0..=(degree as usize - k) {
+            q[i] = q[i] * (1.0 - u) + (q[i + 1] * u);
+        }
+    }
+
+    q[0]
+}
+
+pub fn implicit_zero_nearest<E: EVector>(
+    self_coefficients: &[E],
+    der_coefficients: &[E],
     u_guess: f64,
     max_iter: usize,
 ) -> Option<f64> {
@@ -31,10 +47,13 @@ pub fn implicit_zero_nearest(
         let self_val = decasteljau(self_coefficients, u);
         let der_val = decasteljau(der_coefficients, u);
 
-        if self_val.abs() <= TOL {
+        let self_mag = self_val.magnitude();
+        let der_mag = der_val.magnitude();
+
+        if self_mag <= TOL {
             return Some(u);
         } else {
-            u -= self_val / der_val;
+            u = u - (self_mag * self_val.signum_product()) / (der_mag * der_val.signum_product());
             if u < 0.0 {
                 u = 0.0;
             } else if u > 1.0 {
@@ -46,7 +65,7 @@ pub fn implicit_zero_nearest(
     None
 }
 
-pub fn differentiate_coefficients(coefficients: &[f64]) -> Vec<f64> {
+pub fn differentiate_coefficients<C: EVector>(coefficients: &[C]) -> Vec<C> {
     let deg = (coefficients.len() - 1) as f64;
 
     let mut derivative = Vec::new();

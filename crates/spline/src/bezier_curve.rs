@@ -96,6 +96,19 @@ impl<H: HVector> BezierCurve<H> {
             .map(|cp| line.make_implicit(cp))
             .collect::<Vec<_>>()
     }
+
+    fn make_implicit_weighted<L, O>(&self, line: &L) -> Vec<<O as HVector>::Weighted>
+    where
+        L: ELine + MakeImplicit<Input = H, Output = O>,
+        O: HVector<
+            Space = <<<H::Projected as EVector>::Space as ESpace>::Lower as ESpace>::Homogeneous,
+        >,
+    {
+        self.control_points
+            .iter()
+            .map(|cp| line.make_implicit(cp).weight())
+            .collect::<Vec<_>>()
+    }
 }
 impl BezierCurve<HVec2> {
     pub fn example_quarter_circle() -> Self {
@@ -134,8 +147,8 @@ impl BezierCurve<HVec2> {
     }
 
     pub fn line_intersection_plot(&self, line: &ELine2) -> Vec<EVec2> {
+        let coefficients = self.make_implicit(line);
         let coefficients = self.line_intersection_coefficients(line);
-        //let coefficients = self.make_implicit(line);
 
         let mut points = Vec::new();
         for x in FloatRange::new(0.0, 1.0, 300) {

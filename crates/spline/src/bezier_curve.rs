@@ -87,10 +87,17 @@ impl<H: HVector> BezierCurve<H> {
             Space = <<<H::Projected as EVector>::Space as ESpace>::Lower as ESpace>::Homogeneous,
         >,
     {
+        println!(
+            "IMPLICIT {:?}",
+            self.make_implicit(line).collect::<Vec<_>>()
+        );
+
         let self_coefficients = self
             .make_implicit(line)
             .map(|pt| pt.weight().truncate())
             .collect::<Vec<_>>();
+
+        println!("SELF CO {:?}", self_coefficients);
 
         let der_coefficients = differentiate_coefficients(&self_coefficients);
 
@@ -128,6 +135,8 @@ impl<H: HVector> BezierCurve<H> {
         for i in 0..num_tests {
             let u_initial = i as f64 / (num_tests - 1) as f64;
 
+            println!("U INIT {}", u_initial);
+
             let zero = newton(u_initial, 50, |u| {
                 (
                     decasteljau(&self_coefficients, u),
@@ -136,7 +145,10 @@ impl<H: HVector> BezierCurve<H> {
             });
 
             if let Some(zero) = zero {
+                println!("U ZERO {}", zero);
                 params.push(zero);
+            } else {
+                println!("U NOT FOUND");
             }
         }
 

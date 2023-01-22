@@ -34,8 +34,8 @@ pub struct App {
 }
 impl App {
     pub fn new() -> Self {
-        const SHOW_INTERSECTION_PLOT: bool = false;
-        const SHOW_HAUSDORFF_PLOT: bool = true;
+        const SHOW_INTERSECTION_PLOT: bool = true;
+        const SHOW_HAUSDORFF_PLOT: bool = false;
 
         let grid_lines = {
             let gs = 5;

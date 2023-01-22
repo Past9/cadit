@@ -33,6 +33,8 @@ pub struct App {
 }
 impl App {
     pub fn new() -> Self {
+        const SHOW_INTERSECTION_PLOT: bool = true;
+
         let grid_lines = {
             let gs = 5;
             let color = rgba(0.0, 0.075, 0.15, 1.0);
@@ -185,7 +187,7 @@ impl App {
             intersection_points
         };
 
-        let deviation_points = {
+        let hausdorff_points = {
             let num_times = 1000;
             let mut times = vec![0u128; num_times];
             for i in 0..num_times {
@@ -206,7 +208,7 @@ impl App {
             }
 
             let points = curve.hausdorff_to_line_candidates(&line);
-            let deviation_points = points
+            let hausdorff_points = points
                 .into_iter()
                 .map(|p| {
                     let floats = p.1.f32s();
@@ -221,7 +223,45 @@ impl App {
                 })
                 .collect::<Vec<_>>();
 
-            deviation_points
+            hausdorff_points
+        };
+
+        let (intersection_self_edge, intersection_der_edge) = {
+            let (self_plot, der_plot) = if SHOW_INTERSECTION_PLOT {
+                curve.line_intersection_plot(&line, 200)
+            } else {
+                (vec![], vec![])
+            };
+
+            let self_edge = ModelEdge::new(
+                0.into(),
+                Edge {
+                    vertices: self_plot
+                        .into_iter()
+                        .map(|(u, pt)| EdgeVertex {
+                            position: [u as f32, pt.x as f32 / 10.0, pt.y as f32 / 10.0],
+                            expand: [0.0, 0.0, 0.0],
+                        })
+                        .collect(),
+                },
+                Rgba::BLUE,
+            );
+
+            let der_edge = ModelEdge::new(
+                0.into(),
+                Edge {
+                    vertices: der_plot
+                        .into_iter()
+                        .map(|(u, pt)| EdgeVertex {
+                            position: [u as f32, pt.x as f32 / 10.0, pt.y as f32 / 10.0],
+                            expand: [0.0, 0.0, 0.0],
+                        })
+                        .collect(),
+                },
+                Rgba::CYAN,
+            );
+
+            (self_edge, der_edge)
         };
 
         Self {
@@ -256,14 +296,19 @@ impl App {
                     ),
                     vec![Model::new(
                         vec![],
-                        vec![curve_edge, line_edge]
-                            .into_iter()
-                            .chain(grid_lines.into_iter())
-                            .collect(),
+                        vec![
+                            curve_edge,
+                            line_edge,
+                            intersection_self_edge,
+                            intersection_der_edge,
+                        ]
+                        .into_iter()
+                        .chain(grid_lines.into_iter())
+                        .collect(),
                         vec![]
                             .into_iter()
                             .chain(intersection_points.into_iter())
-                            .chain(deviation_points.into_iter())
+                            .chain(hausdorff_points.into_iter())
                             .collect(),
                     )],
                     vec![Material::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],

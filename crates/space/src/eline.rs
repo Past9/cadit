@@ -70,7 +70,7 @@ pub struct ELine3 {
 }
 impl ELine3 {
     pub fn from_pos_and_dir(pos: EVec3, dir: EVec3) -> Self {
-        //let dir = dir.normalize();
+        let dir = dir.normalize();
 
         let x0 = pos.x;
         let y0 = pos.y;
@@ -79,26 +79,6 @@ impl ELine3 {
         let a = dir.x;
         let b = dir.y;
         let c = dir.z;
-
-        println!("x0 = {}", x0);
-        println!("y0 = {}", y0);
-        println!("z0 = {}", z0);
-
-        println!("a = {}", a);
-        println!("b = {}", b);
-        println!("c = {}", c);
-
-        /*
-        let a1 = -b * c;
-        let b1 = a * c;
-        let c1 = 0.0;
-        let d1 = (b * c * x0) - (a * c * y0);
-
-        let a2 = -b * c;
-        let b2 = 0.0;
-        let c2 = a * b;
-        let d2 = (b * c * x0) - (a * b * z0);
-        */
 
         let a1 = -b;
         let b1 = a;
@@ -109,18 +89,6 @@ impl ELine3 {
         let b2 = 0.0;
         let c2 = a;
         let d2 = (c * x0) - (a * z0);
-
-        /*
-        let a1 = -1.0 / dir.x;
-        let b1 = 1.0 / dir.y;
-        let c1 = 0.0;
-        let d1 = (pos.x / dir.x) - (pos.y / dir.y);
-
-        let a2 = -1.0 / dir.x;
-        let b2 = 0.0;
-        let c2 = 1.0 / dir.z;
-        let d2 = (pos.x / dir.x) - (pos.z - dir.z);
-        */
 
         Self {
             a1,

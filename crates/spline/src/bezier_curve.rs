@@ -4,6 +4,7 @@ use crate::math::{
     b_spline::curve_derivative_control_points,
     bezier::{decasteljau, differentiate_coefficients, newton, rational_bezier_derivatives},
     knot_vector::KnotVector,
+    FloatRange,
 };
 
 #[derive(Debug)]
@@ -72,8 +73,14 @@ impl<H: HVector> BezierCurve<H> {
         self.control_points.iter().map(|cp| line.make_implicit(cp))
     }
 
-    /*
-    pub fn line_intersection_plot<L, O>(&self, line: &L) -> Vec<H::Projected>
+    pub fn line_intersection_plot<L, O>(
+        &self,
+        line: &L,
+        segments: usize,
+    ) -> (
+        Vec<(f64, <<O as HVector>::Weighted as EVector>::Truncated)>,
+        Vec<(f64, <<O as HVector>::Weighted as EVector>::Truncated)>,
+    )
     where
         L: ELine + MakeImplicit<Input = H, Output = O>,
         O: HVector<
@@ -89,8 +96,17 @@ impl<H: HVector> BezierCurve<H> {
             .collect::<Vec<_>>();
 
         let der_coefficients = differentiate_coefficients(&self_coefficients);
+
+        let mut self_points = Vec::new();
+        let mut der_points = Vec::new();
+
+        for u in FloatRange::new(0.0, 1.0, segments) {
+            self_points.push((u, decasteljau(&self_coefficients, u)));
+            der_points.push((u, decasteljau(&der_coefficients, u)));
+        }
+
+        (self_points, der_points)
     }
-    */
 
     pub fn line_intersections<L, O>(&self, line: &L) -> Vec<H::Projected>
     where

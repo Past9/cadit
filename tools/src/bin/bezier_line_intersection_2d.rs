@@ -1,3 +1,4 @@
+use std::f32::consts::E;
 use std::time::Instant;
 
 use cgmath::{point3, vec3, Deg, InnerSpace};
@@ -33,6 +34,8 @@ pub struct App {
 }
 impl App {
     pub fn new() -> Self {
+        const SHOW_INTERSECTION_PLOT: bool = false;
+
         let grid_lines = {
             let gs = 5;
             let color = rgba(0.0, 0.075, 0.15, 1.0);
@@ -152,6 +155,44 @@ impl App {
             (line, line_edge)
         };
 
+        let (intersection_self_edge, intersection_der_edge) = {
+            let (self_plot, der_plot) = if SHOW_INTERSECTION_PLOT {
+                curve.line_intersection_plot(&line, 200)
+            } else {
+                (vec![], vec![])
+            };
+
+            let self_edge = ModelEdge::new(
+                0.into(),
+                Edge {
+                    vertices: self_plot
+                        .into_iter()
+                        .map(|(u, pt)| EdgeVertex {
+                            position: [u as f32, pt.x as f32 / 10.0, 0.0],
+                            expand: [0.0, 0.0, 0.0],
+                        })
+                        .collect(),
+                },
+                Rgba::BLUE,
+            );
+
+            let der_edge = ModelEdge::new(
+                0.into(),
+                Edge {
+                    vertices: der_plot
+                        .into_iter()
+                        .map(|(u, pt)| EdgeVertex {
+                            position: [u as f32, pt.x as f32 / 10.0, 0.0],
+                            expand: [0.0, 0.0, 0.0],
+                        })
+                        .collect(),
+                },
+                Rgba::CYAN,
+            );
+
+            (self_edge, der_edge)
+        };
+
         let intersection_points = {
             let points = curve.line_intersections(&line);
 
@@ -246,10 +287,15 @@ impl App {
                     ),
                     vec![Model::new(
                         vec![],
-                        vec![curve_edge, line_edge]
-                            .into_iter()
-                            .chain(grid_lines.into_iter())
-                            .collect(),
+                        vec![
+                            curve_edge,
+                            line_edge,
+                            intersection_self_edge,
+                            intersection_der_edge,
+                        ]
+                        .into_iter()
+                        .chain(grid_lines.into_iter())
+                        .collect(),
                         vec![]
                             .into_iter()
                             .chain(intersection_points.into_iter())

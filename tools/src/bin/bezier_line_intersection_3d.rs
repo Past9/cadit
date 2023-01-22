@@ -52,7 +52,7 @@ impl App {
                                 },
                             ],
                         },
-                        color,
+                        if x == 0 { Rgba::BLACK } else { color },
                     )
                 })
                 .chain((-gs..=gs).map(|y| {
@@ -70,7 +70,7 @@ impl App {
                                 },
                             ],
                         },
-                        color,
+                        if y == 0 { Rgba::BLACK } else { color },
                     )
                 }))
                 .collect::<Vec<_>>();

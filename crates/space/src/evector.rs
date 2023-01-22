@@ -9,6 +9,7 @@ use crate::{ESpace, ESpace1, ESpace2, ESpace3, ESpace4, EUnimplementedSpace};
 /// Trait for vectors in Euclidean space
 pub trait EVector:
     Debug
+    + PartialEq
     + Copy
     + Clone
     + Sized
@@ -86,7 +87,7 @@ macro_rules! impl_evector_ops {
 }
 
 /// A vector in 1-dimensional Euclidean space
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct EVec1 {
     pub x: f64,
 }
@@ -117,7 +118,7 @@ impl EVector for EVec1 {
 impl_evector_ops!(EVec1, x);
 
 /// A vector in 2-dimensional Euclidean space
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct EVec2 {
     pub x: f64,
     pub y: f64,
@@ -156,7 +157,7 @@ impl EVector for EVec2 {
 impl_evector_ops!(EVec2, x, y);
 
 /// A vector in 3-dimensional Euclidean space
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct EVec3 {
     pub x: f64,
     pub y: f64,
@@ -206,7 +207,7 @@ impl EVector for EVec3 {
 impl_evector_ops!(EVec3, x, y, z);
 
 /// A vector in 4-dimensional Euclidean space
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 
 pub struct EVec4 {
     pub x: f64,
@@ -262,7 +263,7 @@ impl EVector for EVec4 {
 }
 impl_evector_ops!(EVec4, x, y, z, w);
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct EUnimplementedVector {}
 impl EVector for EUnimplementedVector {
     type Space = EUnimplementedSpace;

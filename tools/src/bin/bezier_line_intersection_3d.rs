@@ -249,7 +249,9 @@ impl App {
                 times.into_iter().sum::<u128>() as f64 / num_times as f64
             );
 
-            if let Some(hausdorff) = curve.hausdorff_to_line(&line) {
+            let hausdorff = curve.hausdorff_to_line(&line);
+
+            if let Some(ref hausdorff) = hausdorff {
                 println!("Hausdorff distance: {}", hausdorff.distance);
                 println!("Hausdorff point: {:?}", hausdorff.point);
                 println!("Hausdorff U: {}", hausdorff.u);
@@ -259,6 +261,16 @@ impl App {
             let hausdorff_points = points
                 .into_iter()
                 .map(|p| {
+                    let color = match &hausdorff {
+                        Some(hausdorff) => {
+                            if hausdorff.point == p.1 {
+                                Rgba::WHITE
+                            } else {
+                                Rgba::RED
+                            }
+                        }
+                        None => Rgba::RED,
+                    };
                     let floats = p.1.f32s();
                     ModelPoint::new(
                         0.into(),
@@ -266,7 +278,7 @@ impl App {
                             position: floats,
                             expand: [0.0, 0.0, 0.0],
                         },
-                        Rgba::RED,
+                        color,
                     )
                 })
                 .collect::<Vec<_>>();
@@ -426,6 +438,12 @@ impl App {
                 ),
             ),
         }
+    }
+}
+
+impl Default for App {
+    fn default() -> Self {
+        Self::new()
     }
 }
 impl Window for App {

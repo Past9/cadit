@@ -33,6 +33,7 @@ pub trait HVector:
     fn euclidean_components(&self) -> Self::Projected;
     fn homogeneous_component(&self) -> f64;
     fn unweight(weighted: Self::Weighted) -> Self;
+    fn split_dimensions(&self) -> Vec<HVec1>;
 }
 
 macro_rules! hvector_ops {
@@ -120,6 +121,13 @@ impl HVector for HVec1 {
             h: weighted.y,
         }
     }
+
+    fn split_dimensions(&self) -> Vec<HVec1> {
+        vec![HVec1 {
+            x: self.x,
+            h: self.h,
+        }]
+    }
 }
 impl_hvector!(HVec1, x, h);
 
@@ -183,6 +191,19 @@ impl HVector for HVec2 {
             y: weighted.y / weighted.z,
             h: weighted.z,
         }
+    }
+
+    fn split_dimensions(&self) -> Vec<HVec1> {
+        vec![
+            HVec1 {
+                x: self.x,
+                h: self.h,
+            },
+            HVec1 {
+                x: self.y,
+                h: self.h,
+            },
+        ]
     }
 }
 impl_hvector!(HVec2, x, y, h);
@@ -254,6 +275,23 @@ impl HVector for HVec3 {
             z: weighted.z / weighted.w,
             h: weighted.w,
         }
+    }
+
+    fn split_dimensions(&self) -> Vec<HVec1> {
+        vec![
+            HVec1 {
+                x: self.x,
+                h: self.h,
+            },
+            HVec1 {
+                x: self.y,
+                h: self.h,
+            },
+            HVec1 {
+                x: self.z,
+                h: self.h,
+            },
+        ]
     }
 }
 impl_hvector!(HVec3, x, y, z, h);

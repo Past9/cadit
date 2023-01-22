@@ -1,4 +1,4 @@
-use space::{ELine, ESpace, EVector, HVec2, HVector, MakeImplicit, TOL};
+use space::{ELine, ESpace, EVector, HSpace, HVec1, HVec2, HVector, MakeImplicit, TOL};
 
 use crate::math::{
     b_spline::curve_derivative_control_points,
@@ -214,7 +214,17 @@ impl<H: HVector> BezierCurve<H> {
         // the implicit curve (not the same as the implicit form of the derivative curve
         // of this Bezier), and then also get the derivative of that for use in Newton
         // iteration.
-        let ctrl_pts = self.make_implicit(line).collect::<Vec<_>>();
+        let implicit = self.make_implicit(line).collect::<Vec<_>>();
+        //.map(|pt| pt.to_singles());
+
+        let mut ctrl_pts: Vec<Vec<HVec1>> = vec![Vec::new(); <O::Space as HSpace>::DIMENSIONS];
+
+        for pt in implicit.into_iter() {
+            let dims = pt.split_dimensions();
+            for d in 0..<O::Space as HSpace>::DIMENSIONS {
+                ctrl_pts[d].push(dims[d]);
+            }
+        }
 
         // Find the points where the first derivative crosses the X-axis using Newton's method.
         let mut params = Vec::new();
@@ -228,13 +238,15 @@ impl<H: HVector> BezierCurve<H> {
             accum_weight += self.control_points[i].homogeneous_component();
             let u_initial = accum_weight / total_weight;
 
-            let zero = newton(u_initial, 50, |u| {
-                let ders = rational_bezier_derivatives(&ctrl_pts, u, 2);
-                (ders[1], ders[2])
-            });
+            for d in 0..<O::Space as HSpace>::DIMENSIONS {
+                let zero = newton(u_initial, 50, |u| {
+                    let ders = rational_bezier_derivatives(&ctrl_pts[d], u, 2);
+                    (ders[1], ders[2])
+                });
 
-            if let Some(zero) = zero {
-                params.push(zero);
+                if let Some(zero) = zero {
+                    params.push(zero);
+                }
             }
         }
 

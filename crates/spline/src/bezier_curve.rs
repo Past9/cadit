@@ -141,7 +141,7 @@ impl<H: HVector> BezierCurve<H> {
             accum_weight += self.control_points[i].homogeneous_component();
             let u_initial = accum_weight / total_weight;
 
-            let zero = newton(u_initial, 50, |u| {
+            let zero = newton(u_initial, 50, 0.0, 1.0, |u| {
                 (
                     decasteljau(&self_coefficients, u),
                     decasteljau(&der_coefficients, u),
@@ -200,13 +200,21 @@ impl<H: HVector> BezierCurve<H> {
         (self_points, der1_points, der2_points)
     }
 
-    pub fn hausdorff_to_line_candidates<L, O>(&self, line: &L) -> Vec<(f64, H::Projected)>
+    pub fn hausdorff_to_line_candidates<L, O>(
+        &self,
+        line: &L,
+        min_u: Option<f64>,
+        max_u: Option<f64>,
+    ) -> Vec<(f64, H::Projected)>
     where
         L: ELine<Point = H::Projected> + MakeImplicit<Input = H, Output = O>,
         O: HVector<
             Space = <<<H::Projected as EVector>::Space as ESpace>::Lower as ESpace>::Homogeneous,
         >,
     {
+        let min_u = min_u.unwrap_or(0.0);
+        let max_u = max_u.unwrap_or(1.0);
+
         // Get coefficients for an implicit bezier curve oriented so the line is
         // along the X-axis. Finding the Hausdorff distance requires finding all the
         // "peaks and valleys" of this curve, which are the same as where its derivative
@@ -226,20 +234,11 @@ impl<H: HVector> BezierCurve<H> {
             }
         }
 
-        // Find the points where the first derivative crosses the X-axis using Newton's method.
-        let mut params = Vec::new();
-        let total_weight: f64 = self
-            .control_points
-            .iter()
-            .map(|pt| pt.homogeneous_component())
-            .sum();
-        let mut accum_weight = 0.0;
-        for i in 0..self.degree() {
-            accum_weight += self.control_points[i].homogeneous_component();
-            let u_initial = accum_weight / total_weight;
-
+        // Find the points where the first derivative in each dimension crosses an origin plane
+        // using Newton's method.
+        let try_point = |u_initial: f64, params: &mut Vec<f64>| {
             for d in 0..<O::Space as HSpace>::DIMENSIONS {
-                let zero = newton(u_initial, 50, |u| {
+                let zero = newton(u_initial, 20, min_u, max_u, |u| {
                     let ders = rational_bezier_derivatives(&ctrl_pts[d], u, 2);
                     (ders[1], ders[2])
                 });
@@ -248,22 +247,55 @@ impl<H: HVector> BezierCurve<H> {
                     params.push(zero);
                 }
             }
+        };
+
+        let mut params = Vec::new();
+        let total_weight: f64 = self
+            .control_points
+            .iter()
+            .map(|pt| pt.homogeneous_component())
+            .sum();
+
+        let mut initial_us = Vec::new();
+        let mut accum_weight = 0.0;
+        for i in 0..self.degree() {
+            accum_weight += self.control_points[i].homogeneous_component();
+            initial_us.push(accum_weight / total_weight);
+        }
+
+        let mut skipped_start = false;
+        for u_initial in initial_us.into_iter() {
+            if u_initial < min_u {
+                skipped_start = true;
+            }
+
+            if skipped_start {
+                try_point(min_u, &mut params);
+                skipped_start = false;
+            }
+
+            if u_initial > max_u {
+                try_point(max_u, &mut params);
+                break;
+            }
+
+            try_point(u_initial, &mut params);
         }
 
         // Add the start point because it can also be furthest from the line
         let mut points = Vec::new();
-        let start_point = self.point(0.0);
+        let start_point = self.point(min_u);
         if !line.contains_point(&start_point) {
-            points.push((0.0, start_point));
+            points.push((min_u, start_point));
         }
 
         // Evaluate the Bezier curve to find the points at each param value
         points.extend(params.into_iter().map(|u| (u, self.point(u))));
 
         // Add the end point because it can also be furthest from the line
-        let end_point = self.point(1.0);
+        let end_point = self.point(max_u);
         if !line.contains_point(&end_point) {
-            points.push((1.0, end_point));
+            points.push((max_u, end_point));
         }
 
         // Remove any duplicates if the Newton iteration converged on the same point(s)
@@ -273,7 +305,12 @@ impl<H: HVector> BezierCurve<H> {
         points
     }
 
-    pub fn hausdorff_to_line<L, O>(&self, line: &L) -> Option<HausdorffResult<H::Projected>>
+    pub fn hausdorff_to_line<L, O>(
+        &self,
+        line: &L,
+        min_u: Option<f64>,
+        max_u: Option<f64>,
+    ) -> Option<HausdorffResult<H::Projected>>
     where
         L: ELine<Point = H::Projected> + MakeImplicit<Input = H, Output = O>,
         O: HVector<
@@ -283,7 +320,7 @@ impl<H: HVector> BezierCurve<H> {
         let mut max = 0.0;
         let mut max_u_and_point: Option<(f64, H::Projected)> = None;
 
-        let candidates = self.hausdorff_to_line_candidates(line);
+        let candidates = self.hausdorff_to_line_candidates(line, min_u, max_u);
 
         for (u, point) in candidates {
             let dist = line.dist_to_point(&point);

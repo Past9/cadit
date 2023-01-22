@@ -2176,6 +2176,7 @@ dependencies = [
  "render",
  "space",
  "spline",
+ "tesselate",
  "thiserror",
 ]
 

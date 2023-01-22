@@ -34,7 +34,7 @@ pub struct App {
 impl App {
     pub fn new() -> Self {
         const SHOW_INTERSECTION_PLOT: bool = false;
-        const SHOW_HAUSDORFF_PLOT: bool = true;
+        const SHOW_HAUSDORFF_PLOT: bool = false;
 
         let xy_grid_lines = {
             let gs = 5;
@@ -180,18 +180,20 @@ impl App {
             (curve, curve_edge)
         };
 
+        let start_u = 0.1;
+        let end_u = 0.9;
         let (line, line_edge) = {
             //let start = EVec3::new(-5.0, 3.5, 0.0);
             //let end = EVec3::new(5.0, -2.5, 0.0);
-            let start = curve.point(0.001);
-            let end = curve.point(0.999);
+            let start_pt = curve.point(start_u);
+            let end_pt = curve.point(end_u);
 
-            let line = ELine3::from_pos_and_dir(start, start - end);
+            let line = ELine3::from_pos_and_dir(start_pt, start_pt - end_pt);
 
             println!("LINE {:#?}", line);
 
-            let start_f32s = start.f32s();
-            let end_f32s = end.f32s();
+            let start_f32s = start_pt.f32s();
+            let end_f32s = end_pt.f32s();
 
             let line_edge = ModelEdge::new(
                 0.into(),
@@ -236,11 +238,13 @@ impl App {
         };
 
         let hausdorff_points = {
+            let min_u = Some(start_u);
+            let max_u = Some(end_u);
             let num_times = 1000;
             let mut times = vec![0u128; num_times];
             for i in 0..num_times {
                 let start = Instant::now();
-                curve.hausdorff_to_line(&line);
+                curve.hausdorff_to_line(&line, min_u, max_u);
                 let dur = (Instant::now() - start).as_micros();
                 times[i] = dur;
             }
@@ -249,7 +253,7 @@ impl App {
                 times.into_iter().sum::<u128>() as f64 / num_times as f64
             );
 
-            let hausdorff = curve.hausdorff_to_line(&line);
+            let hausdorff = curve.hausdorff_to_line(&line, min_u, max_u);
 
             if let Some(ref hausdorff) = hausdorff {
                 println!("Hausdorff distance: {}", hausdorff.distance);
@@ -257,7 +261,7 @@ impl App {
                 println!("Hausdorff U: {}", hausdorff.u);
             }
 
-            let points = curve.hausdorff_to_line_candidates(&line);
+            let points = curve.hausdorff_to_line_candidates(&line, min_u, max_u);
             let hausdorff_points = points
                 .into_iter()
                 .map(|p| {

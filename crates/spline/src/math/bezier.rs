@@ -44,14 +44,10 @@ where
     for _ in 0..max_iter {
         let (self_val, der_val) = eval(u);
 
-        let self_mag = self_val.magnitude();
-        let der_mag = der_val.magnitude();
-
-        if self_mag <= TOL {
+        if self_val.magnitude() <= TOL {
             return Some(u);
         } else {
-            let correction =
-                (self_mag * self_val.signum_product()) / (der_mag * der_val.signum_product());
+            let correction = (self_val / der_val).max_component();
 
             if correction.abs() < 0.3 * TOL {
                 return None;

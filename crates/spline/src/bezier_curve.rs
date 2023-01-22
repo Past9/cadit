@@ -131,11 +131,15 @@ impl<H: HVector> BezierCurve<H> {
 
         // Find the points where the implicit curve crosses the X-axis using Newton's method.
         let mut params = Vec::new();
-        let num_tests = self.degree() + 2;
-        for i in 0..num_tests {
-            let u_initial = i as f64 / (num_tests - 1) as f64;
-
-            println!("U INIT {}", u_initial);
+        let total_weight: f64 = self
+            .control_points
+            .iter()
+            .map(|pt| pt.homogeneous_component())
+            .sum();
+        let mut accum_weight = 0.0;
+        for i in 0..self.degree() {
+            accum_weight += self.control_points[i].homogeneous_component();
+            let u_initial = accum_weight / total_weight;
 
             let zero = newton(u_initial, 50, |u| {
                 (
@@ -214,6 +218,32 @@ impl<H: HVector> BezierCurve<H> {
 
         // Find the points where the first derivative crosses the X-axis using Newton's method.
         let mut params = Vec::new();
+        let total_weight: f64 = self
+            .control_points
+            .iter()
+            .map(|pt| pt.homogeneous_component())
+            .sum();
+        let mut accum_weight = 0.0;
+        for i in 0..self.degree() {
+            accum_weight += self.control_points[i].homogeneous_component();
+            let u_initial = accum_weight / total_weight;
+
+            let zero = newton(u_initial, 50, |u| {
+                let ders = rational_bezier_derivatives(&ctrl_pts, u, 2);
+                (ders[1], ders[2])
+            });
+
+            if let Some(zero) = zero {
+                println!("U ZERO {}", zero);
+                params.push(zero);
+            } else {
+                println!("U NOT FOUND");
+            }
+        }
+
+        // Find the points where the first derivative crosses the X-axis using Newton's method.
+        /*
+        let mut params = Vec::new();
         let num_tests = self.degree() + 2;
         for i in 0..num_tests {
             let u_initial = i as f64 / (num_tests - 1) as f64;
@@ -227,14 +257,13 @@ impl<H: HVector> BezierCurve<H> {
                 params.push(zero);
             }
         }
+        */
 
         // Add the start point because it can also be furthest from the line
         let mut points = Vec::new();
         let start_point = self.point(0.0);
         if !line.contains_point(&start_point) {
             points.push((0.0, start_point));
-        } else {
-            println!("CONTAINS START");
         }
 
         // Evaluate the Bezier curve to find the points at each param value
@@ -244,8 +273,6 @@ impl<H: HVector> BezierCurve<H> {
         let end_point = self.point(1.0);
         if !line.contains_point(&end_point) {
             points.push((1.0, end_point));
-        } else {
-            println!("CONTAINS END");
         }
 
         // Remove any duplicates if the Newton iteration converged on the same point(s)

@@ -43,6 +43,8 @@ pub trait EVector:
     }
 
     fn signum_product(&self) -> f64;
+
+    fn max_component(&self) -> f64;
 }
 
 macro_rules! evector_ops {
@@ -107,6 +109,10 @@ impl EVector for EVec1 {
     fn signum_product(&self) -> f64 {
         self.x.signum()
     }
+
+    fn max_component(&self) -> f64 {
+        self.x
+    }
 }
 impl_evector_ops!(EVec1, x);
 
@@ -134,6 +140,17 @@ impl EVector for EVec2 {
 
     fn signum_product(&self) -> f64 {
         self.x.signum() * self.y.signum()
+    }
+
+    fn max_component(&self) -> f64 {
+        let mut max: f64 = 0.0;
+        if self.x.abs() > max.abs() {
+            max = self.x;
+        }
+        if self.y.abs() > max.abs() {
+            max = self.y;
+        }
+        max
     }
 }
 impl_evector_ops!(EVec2, x, y);
@@ -170,6 +187,20 @@ impl EVector for EVec3 {
 
     fn signum_product(&self) -> f64 {
         self.x.signum() * self.y.signum() * self.z.signum()
+    }
+
+    fn max_component(&self) -> f64 {
+        let mut max: f64 = 0.0;
+        if self.x.abs() > max.abs() {
+            max = self.x;
+        }
+        if self.y.abs() > max.abs() {
+            max = self.y;
+        }
+        if self.z.abs() > max.abs() {
+            max = self.z;
+        }
+        max
     }
 }
 impl_evector_ops!(EVec3, x, y, z);
@@ -211,6 +242,23 @@ impl EVector for EVec4 {
     fn signum_product(&self) -> f64 {
         self.x.signum() * self.y.signum() * self.z.signum() * self.w.signum()
     }
+
+    fn max_component(&self) -> f64 {
+        let mut max: f64 = 0.0;
+        if self.x.abs() > max.abs() {
+            max = self.x;
+        }
+        if self.y.abs() > max.abs() {
+            max = self.y;
+        }
+        if self.z.abs() > max.abs() {
+            max = self.z;
+        }
+        if self.w.abs() > max.abs() {
+            max = self.w;
+        }
+        max
+    }
 }
 impl_evector_ops!(EVec4, x, y, z, w);
 
@@ -245,6 +293,10 @@ impl EVector for EUnimplementedVector {
     }
 
     fn signum_product(&self) -> f64 {
+        unimplemented!()
+    }
+
+    fn max_component(&self) -> f64 {
         unimplemented!()
     }
 }

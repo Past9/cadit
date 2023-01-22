@@ -33,7 +33,8 @@ pub struct App {
 }
 impl App {
     pub fn new() -> Self {
-        const SHOW_INTERSECTION_PLOT: bool = true;
+        const SHOW_INTERSECTION_PLOT: bool = false;
+        const SHOW_HAUSDORFF_PLOT: bool = true;
 
         let xy_grid_lines = {
             let gs = 5;
@@ -311,6 +312,65 @@ impl App {
             (self_edge, der_edge)
         };
 
+        let (hausdorff_self_edge, hausdorff_der1_edge, hausdorff_der2_edge) = {
+            let (self_plot, der1_plot, der2_plot) = if SHOW_HAUSDORFF_PLOT {
+                curve.line_hausdorff_plot(&line, 1000)
+            } else {
+                (vec![], vec![], vec![])
+            };
+
+            let self_scale = 10.0;
+            let der_scale = 50.0;
+
+            let self_edge = ModelEdge::new(
+                0.into(),
+                Edge {
+                    vertices: self_plot
+                        .into_iter()
+                        .map(|(u, pt)| EdgeVertex {
+                            position: [
+                                u as f32,
+                                pt.x as f32 / self_scale,
+                                pt.y as f32 / self_scale,
+                            ],
+                            expand: [0.0, 0.0, 0.0],
+                        })
+                        .collect(),
+                },
+                Rgba::BLUE,
+            );
+
+            let der1_edge = ModelEdge::new(
+                0.into(),
+                Edge {
+                    vertices: der1_plot
+                        .into_iter()
+                        .map(|(u, pt)| EdgeVertex {
+                            position: [u as f32, pt.x as f32 / der_scale, pt.y as f32 / der_scale],
+                            expand: [0.0, 0.0, 0.0],
+                        })
+                        .collect(),
+                },
+                Rgba::CYAN,
+            );
+
+            let der2_edge = ModelEdge::new(
+                0.into(),
+                Edge {
+                    vertices: der2_plot
+                        .into_iter()
+                        .map(|(u, pt)| EdgeVertex {
+                            position: [u as f32, pt.x as f32 / der_scale, pt.y as f32 / der_scale],
+                            expand: [0.0, 0.0, 0.0],
+                        })
+                        .collect(),
+                },
+                Rgba::GREEN,
+            );
+
+            (self_edge, der1_edge, der2_edge)
+        };
+
         Self {
             viewer: SceneViewer::new(
                 CameraAngle::Front.get_rotation(),
@@ -348,6 +408,9 @@ impl App {
                             line_edge,
                             intersection_self_edge,
                             intersection_der_edge,
+                            hausdorff_self_edge,
+                            hausdorff_der1_edge,
+                            hausdorff_der2_edge,
                         ]
                         .into_iter()
                         .chain(xy_grid_lines.into_iter())

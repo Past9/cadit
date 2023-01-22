@@ -10,7 +10,7 @@ use render::{
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
-use space::HVec3;
+use space::{EVector, HVec3};
 use spline::math::knot_vector::KnotVector;
 use spline::math::FloatRange;
 use spline::nurbs_curve::NurbsCurve;

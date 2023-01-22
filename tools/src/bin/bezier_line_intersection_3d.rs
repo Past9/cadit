@@ -12,7 +12,7 @@ use render::{
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
-use space::{ELine2, ELine3, EVec2, EVec3, HVec2, HVec3};
+use space::{ELine, ELine2, ELine3, EVec2, EVec3, EVector, HVec2, HVec3};
 use spline::bezier_curve::BezierCurve;
 use spline::math::FloatRange;
 
@@ -165,12 +165,9 @@ impl App {
                 0.into(),
                 Edge {
                     vertices: FloatRange::new(0.0, 1.0, num_segments)
-                        .map(|u| {
-                            let floats = curve.point(u).f32s();
-                            EdgeVertex {
-                                position: floats,
-                                expand: [0.0, 0.0, 0.0],
-                            }
+                        .map(|u| EdgeVertex {
+                            position: curve.point(u).f32s(),
+                            expand: [0.0, 0.0, 0.0],
                         })
                         .collect::<Vec<_>>(),
                 },
@@ -190,21 +187,16 @@ impl App {
 
             let line = ELine3::from_pos_and_dir(start_pt, start_pt - end_pt);
 
-            println!("LINE {:#?}", line);
-
-            let start_f32s = start_pt.f32s();
-            let end_f32s = end_pt.f32s();
-
             let line_edge = ModelEdge::new(
                 0.into(),
                 Edge {
                     vertices: vec![
                         EdgeVertex {
-                            position: start_f32s,
+                            position: start_pt.f32s(),
                             expand: [0.0, 0.0, 0.0],
                         },
                         EdgeVertex {
-                            position: end_f32s,
+                            position: end_pt.f32s(),
                             expand: [0.0, 0.0, 0.0],
                         },
                     ],
@@ -222,11 +214,10 @@ impl App {
                 .into_iter()
                 .map(|p| {
                     //
-                    let floats = p.f32s();
                     ModelPoint::new(
                         0.into(),
                         Point {
-                            position: floats,
+                            position: p.f32s(),
                             expand: [0.0, 0.0, 0.0],
                         },
                         Rgba::GREEN,
@@ -275,11 +266,10 @@ impl App {
                         }
                         None => Rgba::RED,
                     };
-                    let floats = p.1.f32s();
                     ModelPoint::new(
                         0.into(),
                         Point {
-                            position: floats,
+                            position: p.1.f32s(),
                             expand: [0.0, 0.0, 0.0],
                         },
                         color,

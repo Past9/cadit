@@ -2063,6 +2063,8 @@ name = "tesselate"
 version = "0.1.0"
 dependencies = [
  "cgmath",
+ "render",
+ "space",
  "spline",
 ]
 

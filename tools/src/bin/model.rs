@@ -10,7 +10,7 @@ use render::{
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
-use space::HVec3;
+use space::{EVector, HVec3};
 use spline::math::FloatRange;
 
 pub fn main() {

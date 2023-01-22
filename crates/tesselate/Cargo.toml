@@ -7,4 +7,6 @@ edition = "2021"
 
 [dependencies]
 spline = { path = "../spline" }
+render = { path = "../render" }
+space = { path = "../space" }
 cgmath = { version = "0.18.0" }

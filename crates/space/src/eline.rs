@@ -5,6 +5,7 @@ pub trait ELine: Debug + Clone {
     type Space: ESpace;
     type Point: EVector<Space = Self::Space>;
 
+    fn from_pos_and_dir(pos: Self::Point, dir: Self::Point) -> Self;
     fn dist_to_point(&self, point: &Self::Point) -> f64;
     fn contains_point(&self, point: &Self::Point) -> bool;
 }
@@ -16,8 +17,11 @@ pub struct ELine2 {
     pub b: f64,
     pub c: f64,
 }
-impl ELine2 {
-    pub fn from_pos_and_dir(pos: EVec2, dir: EVec2) -> Self {
+impl ELine for ELine2 {
+    type Space = ESpace2;
+    type Point = EVec2;
+
+    fn from_pos_and_dir(pos: EVec2, dir: EVec2) -> Self {
         let dir = dir.normalize();
 
         let a = dir.y;
@@ -26,10 +30,6 @@ impl ELine2 {
 
         Self { a, b, c }
     }
-}
-impl ELine for ELine2 {
-    type Space = ESpace2;
-    type Point = EVec2;
 
     fn dist_to_point(&self, point: &Self::Point) -> f64 {
         (self.a * point.x + self.b * point.y + self.c).abs()
@@ -68,8 +68,11 @@ pub struct ELine3 {
     pub c2: f64,
     pub d2: f64,
 }
-impl ELine3 {
-    pub fn from_pos_and_dir(pos: EVec3, dir: EVec3) -> Self {
+impl ELine for ELine3 {
+    type Space = ESpace3;
+    type Point = EVec3;
+
+    fn from_pos_and_dir(pos: EVec3, dir: EVec3) -> Self {
         let dir = dir.normalize();
 
         let x0 = pos.x;
@@ -79,18 +82,6 @@ impl ELine3 {
         let a = dir.x;
         let b = dir.y;
         let c = dir.z;
-
-        /*
-        let a1 = -b;
-        let b1 = a;
-        let c1 = 0.0;
-        let d1 = (b * x0) - (a * y0);
-
-        let a2 = c;
-        let b2 = 0.0;
-        let c2 = a;
-        let d2 = (c * x0) - (a * z0);
-        */
 
         let a1 = -b * c;
         let b1 = a * c;
@@ -113,10 +104,6 @@ impl ELine3 {
             d2,
         }
     }
-}
-impl ELine for ELine3 {
-    type Space = ESpace3;
-    type Point = EVec3;
 
     fn dist_to_point(&self, point: &Self::Point) -> f64 {
         let dist1 = (self.a1 * point.x + self.b1 * point.y + self.c1 * point.z + self.d1).abs()

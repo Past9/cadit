@@ -46,6 +46,8 @@ pub trait EVector:
     fn signum_product(&self) -> f64;
 
     fn max_component(&self) -> f64;
+
+    fn f32s(&self) -> [f32; 3];
 }
 
 macro_rules! evector_ops {
@@ -61,14 +63,6 @@ macro_rules! evector_ops {
                         $comp,
                     )*
                 }
-            }
-
-            pub fn f32s(&self) -> [f32; crate::count_args!($($comp)*)] {
-                [
-                    $(
-                        self.$comp as f32,
-                    )*
-                ]
             }
         }
         impl std::iter::Sum for $typ {
@@ -114,6 +108,10 @@ impl EVector for EVec1 {
     fn max_component(&self) -> f64 {
         self.x
     }
+
+    fn f32s(&self) -> [f32; 3] {
+        [self.x as f32, 0.0, 0.0]
+    }
 }
 impl_evector_ops!(EVec1, x);
 
@@ -152,6 +150,10 @@ impl EVector for EVec2 {
             max = self.y;
         }
         max
+    }
+
+    fn f32s(&self) -> [f32; 3] {
+        [self.x as f32, self.y as f32, 0.0]
     }
 }
 impl_evector_ops!(EVec2, x, y);
@@ -202,6 +204,10 @@ impl EVector for EVec3 {
             max = self.z;
         }
         max
+    }
+
+    fn f32s(&self) -> [f32; 3] {
+        [self.x as f32, self.y as f32, self.z as f32]
     }
 }
 impl_evector_ops!(EVec3, x, y, z);
@@ -260,6 +266,10 @@ impl EVector for EVec4 {
         }
         max
     }
+
+    fn f32s(&self) -> [f32; 3] {
+        [self.x as f32, self.y as f32, self.z as f32]
+    }
 }
 impl_evector_ops!(EVec4, x, y, z, w);
 
@@ -298,6 +308,10 @@ impl EVector for EUnimplementedVector {
     }
 
     fn max_component(&self) -> f64 {
+        unimplemented!()
+    }
+
+    fn f32s(&self) -> [f32; 3] {
         unimplemented!()
     }
 }

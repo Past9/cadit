@@ -10,7 +10,7 @@ use render::{
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
-use space::{HVec2, HVector};
+use space::{EVector, HVec2, HVector};
 use spline::math::FloatRange;
 use spline::{math::knot_vector::KnotVector, nurbs_curve::NurbsCurve};
 
@@ -109,12 +109,9 @@ impl App {
             0.into(),
             Edge {
                 vertices: FloatRange::new(curve.min_u(), curve.max_u(), num_segments)
-                    .map(|u| {
-                        let floats = curve.point(u).f32s();
-                        EdgeVertex {
-                            position: [floats[0], floats[1], 0.0],
-                            expand: [0.0, 0.0, 0.0],
-                        }
+                    .map(|u| EdgeVertex {
+                        position: curve.point(u).f32s(),
+                        expand: [0.0, 0.0, 0.0],
                     })
                     .collect::<Vec<_>>(),
             },

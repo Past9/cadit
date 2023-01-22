@@ -10,7 +10,7 @@ use render::{
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
-use space::HVec2;
+use space::{EVector, HVec2};
 use spline::math::FloatRange;
 use spline::nurbs_curve::NurbsCurve;
 
@@ -59,12 +59,9 @@ impl App {
                 0.into(),
                 Edge {
                     vertices: FloatRange::new(0.0, 1.0, num_segments)
-                        .map(|u| {
-                            let floats = bezier.point(u).f32s();
-                            EdgeVertex {
-                                position: [floats[0] as f32, floats[1] as f32, 0.0],
-                                expand: [0.0, 0.0, -1.0],
-                            }
+                        .map(|u| EdgeVertex {
+                            position: bezier.point(u).f32s(),
+                            expand: [0.0, 0.0, -1.0],
                         })
                         .collect::<Vec<_>>(),
                 },
@@ -77,12 +74,9 @@ impl App {
             0.into(),
             Edge {
                 vertices: FloatRange::new(curve.min_u(), curve.max_u(), num_segments)
-                    .map(|u| {
-                        let floats = curve.point(u).f32s();
-                        EdgeVertex {
-                            position: [floats[0] as f32, floats[1] as f32, 0.0],
-                            expand: [0.0, 0.0, 0.0],
-                        }
+                    .map(|u| EdgeVertex {
+                        position: curve.point(u).f32s(),
+                        expand: [0.0, 0.0, 0.0],
                     })
                     .collect::<Vec<_>>(),
             },

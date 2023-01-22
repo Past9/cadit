@@ -1,4 +1,4 @@
-use crate::{HSpace, HSpace1, HSpace2, HSpace3, HUnimplementedSpace};
+use crate::{ELine, EVector, HSpace, HSpace1, HSpace2, HSpace3, HUnimplementedSpace};
 
 /// Trait for Euclidean spaces
 pub trait ESpace {

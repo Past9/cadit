@@ -13,7 +13,7 @@ use render::{
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
-use space::{ELine2, EVec2, HVec2};
+use space::{ELine, ELine2, EVec2, EVector, HVec2};
 use spline::bezier_curve::BezierCurve;
 use spline::math::FloatRange;
 
@@ -112,12 +112,9 @@ impl App {
                 0.into(),
                 Edge {
                     vertices: FloatRange::new(0.0, 1.0, num_segments)
-                        .map(|u| {
-                            let floats = curve.point(u).f32s();
-                            EdgeVertex {
-                                position: [floats[0], floats[1], 0.0],
-                                expand: [0.0, 0.0, 0.0],
-                            }
+                        .map(|u| EdgeVertex {
+                            position: curve.point(u).f32s(),
+                            expand: [0.0, 0.0, 0.0],
                         })
                         .collect::<Vec<_>>(),
                 },
@@ -141,11 +138,11 @@ impl App {
                 Edge {
                     vertices: vec![
                         EdgeVertex {
-                            position: [start_f32s[0], start_f32s[1], 0.0],
+                            position: start_f32s,
                             expand: [0.0, 0.0, 0.0],
                         },
                         EdgeVertex {
-                            position: [end_f32s[0], end_f32s[1], 0.0],
+                            position: end_f32s,
                             expand: [0.0, 0.0, 0.0],
                         },
                     ],
@@ -162,12 +159,10 @@ impl App {
             let intersection_points = points
                 .into_iter()
                 .map(|p| {
-                    //
-                    let floats = p.f32s();
                     ModelPoint::new(
                         0.into(),
                         Point {
-                            position: [floats[0], floats[1], 0.0],
+                            position: p.f32s(),
                             expand: [0.0, 0.0, 0.0],
                         },
                         Rgba::GREEN,
@@ -202,12 +197,10 @@ impl App {
             let hausdorff_points = points
                 .into_iter()
                 .map(|p| {
-                    //
-                    let floats = p.1.f32s();
                     ModelPoint::new(
                         0.into(),
                         Point {
-                            position: [floats[0], floats[1], 0.0],
+                            position: p.1.f32s(),
                             expand: [0.0, 0.0, 0.0],
                         },
                         Rgba::RED,

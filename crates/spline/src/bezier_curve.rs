@@ -234,30 +234,9 @@ impl<H: HVector> BezierCurve<H> {
             });
 
             if let Some(zero) = zero {
-                println!("U ZERO {}", zero);
-                params.push(zero);
-            } else {
-                println!("U NOT FOUND");
-            }
-        }
-
-        // Find the points where the first derivative crosses the X-axis using Newton's method.
-        /*
-        let mut params = Vec::new();
-        let num_tests = self.degree() + 2;
-        for i in 0..num_tests {
-            let u_initial = i as f64 / (num_tests - 1) as f64;
-
-            let zero = newton(u_initial, 50, |u| {
-                let ders = rational_bezier_derivatives(&ctrl_pts, u, 2);
-                (ders[1], ders[2])
-            });
-
-            if let Some(zero) = zero {
                 params.push(zero);
             }
         }
-        */
 
         // Add the start point because it can also be furthest from the line
         let mut points = Vec::new();

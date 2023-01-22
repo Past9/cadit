@@ -49,7 +49,7 @@ where
         } else {
             let correction = (self_val / der_val).max_component();
 
-            if correction.abs() < 0.3 * TOL {
+            if correction.abs() < 0.03 * TOL {
                 return None;
             }
 

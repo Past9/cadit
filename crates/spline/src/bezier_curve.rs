@@ -87,9 +87,6 @@ impl<H: HVector> BezierCurve<H> {
             Space = <<<H::Projected as EVector>::Space as ESpace>::Lower as ESpace>::Homogeneous,
         >,
     {
-        // Get coefficients for an implicit Bezier curve oriented so the line is
-        // along the X-axis. Do the same for this curve's derivative curve, which
-        // we'll need for Newton iteration.
         let self_coefficients = self
             .make_implicit(line)
             .map(|pt| pt.weight().truncate())
@@ -154,6 +151,37 @@ impl<H: HVector> BezierCurve<H> {
         points.dedup_by(|a, b| (*a - *b).magnitude() <= TOL);
 
         points
+    }
+
+    pub fn line_hausdorff_plot<L, O>(
+        &self,
+        line: &L,
+        segments: usize,
+    ) -> (
+        Vec<(f64, O::Projected)>,
+        Vec<(f64, O::Projected)>,
+        Vec<(f64, O::Projected)>,
+    )
+    where
+        L: ELine + MakeImplicit<Input = H, Output = O>,
+        O: HVector<
+            Space = <<<H::Projected as EVector>::Space as ESpace>::Lower as ESpace>::Homogeneous,
+        >,
+    {
+        let ctrl_pts = self.make_implicit(line).collect::<Vec<_>>();
+
+        let mut self_points = Vec::new();
+        let mut der1_points = Vec::new();
+        let mut der2_points = Vec::new();
+
+        for u in FloatRange::new(0.0, 1.0, segments) {
+            let ders = rational_bezier_derivatives(&ctrl_pts, u, 2);
+            self_points.push((u, ders[0]));
+            der1_points.push((u, ders[1]));
+            der2_points.push((u, ders[2]));
+        }
+
+        (self_points, der1_points, der2_points)
     }
 
     pub fn hausdorff_to_line_candidates<L, O>(&self, line: &L) -> Vec<(f64, H::Projected)>

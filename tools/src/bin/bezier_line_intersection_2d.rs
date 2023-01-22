@@ -35,6 +35,7 @@ pub struct App {
 impl App {
     pub fn new() -> Self {
         const SHOW_INTERSECTION_PLOT: bool = false;
+        const SHOW_HAUSDORFF_PLOT: bool = true;
 
         let grid_lines = {
             let gs = 5;
@@ -155,6 +156,68 @@ impl App {
             (line, line_edge)
         };
 
+        let intersection_points = {
+            let points = curve.line_intersections(&line);
+
+            let intersection_points = points
+                .into_iter()
+                .map(|p| {
+                    //
+                    let floats = p.f32s();
+                    ModelPoint::new(
+                        0.into(),
+                        Point {
+                            position: [floats[0], floats[1], 0.0],
+                            expand: [0.0, 0.0, 0.0],
+                        },
+                        Rgba::GREEN,
+                    )
+                })
+                .collect::<Vec<_>>();
+
+            intersection_points
+        };
+
+        let hausdorff_points = {
+            let num_times = 1000;
+            let mut times = vec![0u128; num_times];
+            for i in 0..num_times {
+                let start = Instant::now();
+                curve.hausdorff_to_line(&line);
+                let dur = (Instant::now() - start).as_micros();
+                times[i] = dur;
+            }
+            println!(
+                "Mean Hausdorff time: {}μs",
+                times.into_iter().sum::<u128>() as f64 / num_times as f64
+            );
+
+            if let Some(hausdorff) = curve.hausdorff_to_line(&line) {
+                println!("Hausdorff distance: {}", hausdorff.distance);
+                println!("Hausdorff point: {:?}", hausdorff.point);
+                println!("Hausdorff U: {}", hausdorff.u);
+            }
+
+            let points = curve.hausdorff_to_line_candidates(&line);
+            let hausdorff_points = points
+                .into_iter()
+                .map(|p| {
+                    //
+                    let floats = p.1.f32s();
+                    ModelPoint::new(
+                        0.into(),
+                        Point {
+                            position: [floats[0], floats[1], 0.0],
+                            expand: [0.0, 0.0, 0.0],
+                        },
+                        Rgba::RED,
+                    )
+                })
+                .collect::<Vec<_>>();
+
+            hausdorff_points
+        };
+
         let (intersection_self_edge, intersection_der_edge) = {
             let (self_plot, der_plot) = if SHOW_INTERSECTION_PLOT {
                 curve.line_intersection_plot(&line, 200)
@@ -193,66 +256,56 @@ impl App {
             (self_edge, der_edge)
         };
 
-        let intersection_points = {
-            let points = curve.line_intersections(&line);
+        let (hausdorff_self_edge, hausdorff_der1_edge, hausdorff_der2_edge) = {
+            let (self_plot, der1_plot, der2_plot) = if SHOW_HAUSDORFF_PLOT {
+                curve.line_hausdorff_plot(&line, 200)
+            } else {
+                (vec![], vec![], vec![])
+            };
 
-            let intersection_points = points
-                .into_iter()
-                .map(|p| {
-                    //
-                    let floats = p.f32s();
-                    ModelPoint::new(
-                        0.into(),
-                        Point {
-                            position: [floats[0], floats[1], 0.0],
+            let self_edge = ModelEdge::new(
+                0.into(),
+                Edge {
+                    vertices: self_plot
+                        .into_iter()
+                        .map(|(u, pt)| EdgeVertex {
+                            position: [u as f32, pt.x as f32 / 10.0, 0.0],
                             expand: [0.0, 0.0, 0.0],
-                        },
-                        Rgba::GREEN,
-                    )
-                })
-                .collect::<Vec<_>>();
-
-            intersection_points
-        };
-
-        let deviation_points = {
-            let num_times = 1000;
-            let mut times = vec![0u128; num_times];
-            for i in 0..num_times {
-                let start = Instant::now();
-                curve.hausdorff_to_line(&line);
-                let dur = (Instant::now() - start).as_micros();
-                times[i] = dur;
-            }
-            println!(
-                "Mean Hausdorff time: {}μs",
-                times.into_iter().sum::<u128>() as f64 / num_times as f64
+                        })
+                        .collect(),
+                },
+                Rgba::BLUE,
             );
 
-            if let Some(hausdorff) = curve.hausdorff_to_line(&line) {
-                println!("Hausdorff distance: {}", hausdorff.distance);
-                println!("Hausdorff point: {:?}", hausdorff.point);
-                println!("Hausdorff U: {}", hausdorff.u);
-            }
-
-            let points = curve.hausdorff_to_line_candidates(&line);
-            let deviation_points = points
-                .into_iter()
-                .map(|p| {
-                    //
-                    let floats = p.1.f32s();
-                    ModelPoint::new(
-                        0.into(),
-                        Point {
-                            position: [floats[0], floats[1], 0.0],
+            let der1_edge = ModelEdge::new(
+                0.into(),
+                Edge {
+                    vertices: der1_plot
+                        .into_iter()
+                        .map(|(u, pt)| EdgeVertex {
+                            position: [u as f32, pt.x as f32 / 10.0, 0.0],
                             expand: [0.0, 0.0, 0.0],
-                        },
-                        Rgba::RED,
-                    )
-                })
-                .collect::<Vec<_>>();
+                        })
+                        .collect(),
+                },
+                Rgba::CYAN,
+            );
 
-            deviation_points
+            let der2_edge = ModelEdge::new(
+                0.into(),
+                Edge {
+                    vertices: der2_plot
+                        .into_iter()
+                        .map(|(u, pt)| EdgeVertex {
+                            position: [u as f32, pt.x as f32 / 10.0, 0.0],
+                            expand: [0.0, 0.0, 0.0],
+                        })
+                        .collect(),
+                },
+                Rgba::GREEN,
+            );
+
+            (self_edge, der1_edge, der2_edge)
         };
 
         Self {
@@ -292,6 +345,9 @@ impl App {
                             line_edge,
                             intersection_self_edge,
                             intersection_der_edge,
+                            hausdorff_self_edge,
+                            hausdorff_der1_edge,
+                            hausdorff_der2_edge,
                         ]
                         .into_iter()
                         .chain(grid_lines.into_iter())
@@ -299,7 +355,7 @@ impl App {
                         vec![]
                             .into_iter()
                             .chain(intersection_points.into_iter())
-                            .chain(deviation_points.into_iter())
+                            .chain(hausdorff_points.into_iter())
                             .collect(),
                     )],
                     vec![Material::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],

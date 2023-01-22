@@ -35,7 +35,7 @@ impl App {
     pub fn new() -> Self {
         const SHOW_INTERSECTION_PLOT: bool = true;
 
-        let grid_lines = {
+        let xy_grid_lines = {
             let gs = 5;
             let color = rgba(0.0, 0.075, 0.15, 1.0);
             let grid_lines = (-gs..=gs)
@@ -80,6 +80,51 @@ impl App {
             grid_lines
         };
 
+        let xz_grid_lines = {
+            let gs = 5;
+            let color = rgba(0.0, 0.075, 0.15, 1.0);
+            let grid_lines = (-gs..=gs)
+                .map(|x| {
+                    ModelEdge::new(
+                        0.into(),
+                        Edge {
+                            vertices: vec![
+                                EdgeVertex {
+                                    position: [x as f32, 0.0, gs as f32],
+                                    expand: [0.0, 0.0, 0.0],
+                                },
+                                EdgeVertex {
+                                    position: [x as f32, 0.0, -gs as f32],
+                                    expand: [0.0, 0.0, 0.0],
+                                },
+                            ],
+                        },
+                        if x == 0 { Rgba::BLACK } else { color },
+                    )
+                })
+                .chain((-gs..=gs).map(|z| {
+                    ModelEdge::new(
+                        0.into(),
+                        Edge {
+                            vertices: vec![
+                                EdgeVertex {
+                                    position: [gs as f32, 0.0, z as f32],
+                                    expand: [0.0, 0.0, 0.0],
+                                },
+                                EdgeVertex {
+                                    position: [-gs as f32, 0.0, z as f32],
+                                    expand: [0.0, 0.0, 0.0],
+                                },
+                            ],
+                        },
+                        if z == 0 { Rgba::BLACK } else { color },
+                    )
+                }))
+                .collect::<Vec<_>>();
+
+            grid_lines
+        };
+
         let (curve, curve_edge) = {
             /*
             let curve = BezierCurve::new(vec![
@@ -92,7 +137,7 @@ impl App {
 
             let curve = BezierCurve::new(vec![
                 HVec3::new(-4.0, -1.0, 0.0, 1.0),
-                HVec3::new(-2.0, 4.0, 0.0, 10.0),
+                HVec3::new(-2.0, 4.0, 2.0, 10.0),
                 HVec3::new(2.0, -4.0, 0.0, 10.0),
                 HVec3::new(4.0, 1.0, 0.0, 1.0),
             ]);
@@ -135,8 +180,10 @@ impl App {
         };
 
         let (line, line_edge) = {
-            let start = EVec3::new(-5.0, 3.5, 0.0);
-            let end = EVec3::new(5.0, -2.5, 0.0);
+            //let start = EVec3::new(-5.0, 3.5, 0.0);
+            //let end = EVec3::new(5.0, -2.5, 0.0);
+            let start = curve.point(0.05);
+            let end = curve.point(0.97);
 
             let line = ELine3::from_pos_and_dir(start, start - end);
 
@@ -303,7 +350,8 @@ impl App {
                             intersection_der_edge,
                         ]
                         .into_iter()
-                        .chain(grid_lines.into_iter())
+                        .chain(xy_grid_lines.into_iter())
+                        .chain(xz_grid_lines.into_iter())
                         .collect(),
                         vec![]
                             .into_iter()

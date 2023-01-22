@@ -1,7 +1,7 @@
 use std::{
     fmt::Debug,
     iter::Sum,
-    ops::{Add, Div, Mul, Sub},
+    ops::{Add, Div, Mul, Neg, Sub},
 };
 
 use crate::{ESpace, ESpace1, ESpace2, ESpace3, ESpace4, EUnimplementedSpace};
@@ -20,6 +20,7 @@ pub trait EVector:
     + Sub<f64, Output = Self>
     + Mul<f64, Output = Self>
     + Div<f64, Output = Self>
+    + Neg
     + Sum<Self>
 {
     type Space: ESpace;
@@ -300,6 +301,13 @@ impl Div<f64> for EUnimplementedVector {
     type Output = Self;
 
     fn div(self, _rhs: f64) -> Self::Output {
+        unimplemented!()
+    }
+}
+impl Neg for EUnimplementedVector {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
         unimplemented!()
     }
 }

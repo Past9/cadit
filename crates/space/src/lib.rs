@@ -133,6 +133,13 @@ macro_rules! vector_arithmetic {
             )*
         });
 
+        auto_ops::impl_op_ex!(- |a: $typ| -> $typ {
+            $typ {
+                $(
+                    $comp: -a.$comp,
+                )*
+            }
+        });
     };
 }
 

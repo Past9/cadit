@@ -70,7 +70,7 @@ pub struct ELine3 {
 }
 impl ELine3 {
     pub fn from_pos_and_dir(pos: EVec3, dir: EVec3) -> Self {
-        let dir = dir.normalize();
+        let dir = -dir.normalize();
 
         let x0 = pos.x;
         let y0 = pos.y;
@@ -117,17 +117,20 @@ impl ELine for ELine3 {
     }
 
     fn contains_point(&self, point: &Self::Point) -> bool {
+        // Check if point lies in first plane
         let eval = self.a1 * point.x + self.b1 * point.y + self.c1 * point.z + self.d1;
-        if eval.abs() <= TOL {
-            return true;
+        if eval.abs() > TOL {
+            return false;
         }
 
+        // Check if point lies in second plane
         let eval = self.a2 * point.x + self.b2 * point.y + self.c2 * point.z + self.d2;
-        if eval.abs() <= TOL {
-            return true;
+        if eval.abs() > TOL {
+            return false;
         }
 
-        false
+        // If point lies in both planes, it's on the line
+        true
     }
 }
 impl MakeImplicit for ELine3 {

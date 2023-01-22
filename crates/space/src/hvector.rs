@@ -2,7 +2,7 @@ use crate::{EVec1, EVec2, EVec3, EVec4, EVector, HSpace, HSpace1, HSpace2, HSpac
 use std::{
     fmt::Debug,
     iter::Sum,
-    ops::{Add, Div, Mul, Sub},
+    ops::{Add, Div, Mul, Neg, Sub},
 };
 
 /// Trait for vectors in homogeneous space
@@ -19,6 +19,7 @@ pub trait HVector:
     + Sub<f64, Output = Self>
     + Mul<f64, Output = Self>
     + Div<f64, Output = Self>
+    + Neg
     + Sum<Self>
 {
     type Space: HSpace;

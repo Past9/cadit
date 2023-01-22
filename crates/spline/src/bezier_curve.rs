@@ -233,6 +233,8 @@ impl<H: HVector> BezierCurve<H> {
         let start_point = self.point(0.0);
         if !line.contains_point(&start_point) {
             points.push((0.0, start_point));
+        } else {
+            println!("CONTAINS START");
         }
 
         // Evaluate the Bezier curve to find the points at each param value
@@ -242,6 +244,8 @@ impl<H: HVector> BezierCurve<H> {
         let end_point = self.point(1.0);
         if !line.contains_point(&end_point) {
             points.push((1.0, end_point));
+        } else {
+            println!("CONTAINS END");
         }
 
         // Remove any duplicates if the Newton iteration converged on the same point(s)

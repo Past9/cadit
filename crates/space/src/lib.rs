@@ -10,6 +10,8 @@ pub use evector::*;
 pub use hspace::*;
 pub use hvector::*;
 
+pub mod exp;
+
 pub const TOL: f64 = 0.0000001;
 
 macro_rules! count_args {

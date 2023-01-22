@@ -6,6 +6,6 @@ members = [
     "crates/components",
     "crates/render",
     "crates/spline",
-    "crates/tesselate",
+    #"crates/tesselate",
     "crates/space",
 ]

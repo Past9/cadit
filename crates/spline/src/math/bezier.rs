@@ -67,35 +67,6 @@ where
     None
 }
 
-pub fn implicit_zero_nearest<E: EVector>(
-    self_coefficients: &[E],
-    der_coefficients: &[E],
-    u_guess: f64,
-    max_iter: usize,
-) -> Option<f64> {
-    let mut u = u_guess;
-    for _ in 0..max_iter {
-        let self_val = decasteljau(self_coefficients, u);
-        let der_val = decasteljau(der_coefficients, u);
-
-        let self_mag = self_val.magnitude();
-        let der_mag = der_val.magnitude();
-
-        if self_mag <= TOL {
-            return Some(u);
-        } else {
-            u = u - (self_mag * self_val.signum_product()) / (der_mag * der_val.signum_product());
-            if u < 0.0 {
-                u = 0.0;
-            } else if u > 1.0 {
-                u = 1.0;
-            }
-        }
-    }
-
-    None
-}
-
 pub fn differentiate_coefficients<C: EVector>(coefficients: &[C]) -> Vec<C> {
     let deg = (coefficients.len() - 1) as f64;
 
@@ -107,7 +78,11 @@ pub fn differentiate_coefficients<C: EVector>(coefficients: &[C]) -> Vec<C> {
     derivative
 }
 
-pub fn derivatives<H: HVector>(control_points: &[H], u: f64, num_ders: usize) -> Vec<H::Projected> {
+pub fn rational_bezier_derivatives<H: HVector>(
+    control_points: &[H],
+    u: f64,
+    num_ders: usize,
+) -> Vec<H::Projected> {
     let ders = curve_derivatives_1(
         &control_points
             .iter()

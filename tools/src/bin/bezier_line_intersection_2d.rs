@@ -79,15 +79,14 @@ impl App {
         };
 
         let (curve, curve_edge) = {
-            /*
             let curve = BezierCurve::new(vec![
-                Vec2H::new(-4.0, -1.0, 1.0),
-                Vec2H::new(-2.0, 4.0, 10.0),
-                Vec2H::new(2.0, -4.0, 10.0),
-                Vec2H::new(4.0, 1.0, 1.0),
+                HVec2::new(-4.0, -1.0, 1.0),
+                HVec2::new(-2.0, 4.0, 10.0),
+                HVec2::new(2.0, -4.0, 10.0),
+                HVec2::new(4.0, 1.0, 1.0),
             ]);
-            */
 
+            /*
             let curve = BezierCurve::new(vec![
                 HVec2::new(-4.1, -4.0, 1.0),
                 HVec2::new(-7.0, 3.0, 20.0),
@@ -102,6 +101,7 @@ impl App {
                 HVec2::new(1.0, 3.0, 1.0),
                 HVec2::new(0.1, 0.0, 1.0),
             ]);
+            */
 
             let num_segments = 500;
             let curve_edge = ModelEdge::new(

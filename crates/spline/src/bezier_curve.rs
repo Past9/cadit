@@ -2,7 +2,7 @@ use space::{ELine, ESpace, EVector, HVec2, HVector, MakeImplicit, TOL};
 
 use crate::math::{
     b_spline::curve_derivative_control_points,
-    bezier::{decasteljau, derivatives, differentiate_coefficients, implicit_zero_nearest, newton},
+    bezier::{decasteljau, differentiate_coefficients, newton, rational_bezier_derivatives},
     knot_vector::KnotVector,
 };
 
@@ -72,6 +72,26 @@ impl<H: HVector> BezierCurve<H> {
         self.control_points.iter().map(|cp| line.make_implicit(cp))
     }
 
+    /*
+    pub fn line_intersection_plot<L, O>(&self, line: &L) -> Vec<H::Projected>
+    where
+        L: ELine + MakeImplicit<Input = H, Output = O>,
+        O: HVector<
+            Space = <<<H::Projected as EVector>::Space as ESpace>::Lower as ESpace>::Homogeneous,
+        >,
+    {
+        // Get coefficients for an implicit Bezier curve oriented so the line is
+        // along the X-axis. Do the same for this curve's derivative curve, which
+        // we'll need for Newton iteration.
+        let self_coefficients = self
+            .make_implicit(line)
+            .map(|pt| pt.weight().truncate())
+            .collect::<Vec<_>>();
+
+        let der_coefficients = differentiate_coefficients(&self_coefficients);
+    }
+    */
+
     pub fn line_intersections<L, O>(&self, line: &L) -> Vec<H::Projected>
     where
         L: ELine + MakeImplicit<Input = H, Output = O>,
@@ -93,9 +113,16 @@ impl<H: HVector> BezierCurve<H> {
         let mut params = Vec::new();
         let num_tests = self.degree() + 2;
         for i in 0..num_tests {
-            let u = i as f64 / (num_tests - 1) as f64;
-            if let Some(zero) = implicit_zero_nearest(&self_coefficients, &der_coefficients, u, 50)
-            {
+            let u_initial = i as f64 / (num_tests - 1) as f64;
+
+            let zero = newton(u_initial, 50, |u| {
+                (
+                    decasteljau(&self_coefficients, u),
+                    decasteljau(&der_coefficients, u),
+                )
+            });
+
+            if let Some(zero) = zero {
                 params.push(zero);
             }
         }
@@ -136,7 +163,7 @@ impl<H: HVector> BezierCurve<H> {
             let u_initial = i as f64 / (num_tests - 1) as f64;
 
             let zero = newton(u_initial, 50, |u| {
-                let ders = derivatives(&ctrl_pts, u, 2);
+                let ders = rational_bezier_derivatives(&ctrl_pts, u, 2);
                 (ders[1], ders[2])
             });
 

@@ -81,27 +81,36 @@ impl App {
         let (curve, curve_edge) = {
             /*
             let curve = BezierCurve::new(vec![
-                Vec2H::new(-4.0, -1.0, 1.0),
-                Vec2H::new(-2.0, 4.0, 10.0),
-                Vec2H::new(2.0, -4.0, 10.0),
-                Vec2H::new(4.0, 1.0, 1.0),
+                HVec3::new(-4.0, -1.0, -4.0, 1.0),
+                HVec3::new(-2.0, 4.0, -2.0, 10.0),
+                HVec3::new(2.0, -4.0, 2.0, 10.0),
+                HVec3::new(4.0, 1.0, 4.0, 1.0),
             ]);
             */
 
             let curve = BezierCurve::new(vec![
-                HVec3::new(-4.1, -4.0, 0.0, 1.0),
-                HVec3::new(-7.0, 3.0, 0.0, 20.0),
-                HVec3::new(-3.0, 5.0, 0.0, 10.0),
-                HVec3::new(2.0, 5.0, 0.0, 20.0),
-                HVec3::new(6.0, 1.0, 0.0, 1.0),
-                HVec3::new(5.0, -5.0, 0.0, 30.0),
-                HVec3::new(-1.0, -8.0, 0.0, 20.0),
-                HVec3::new(-5.0, -7.0, 0.0, 1.0),
-                HVec3::new(-6.0, -2.0, 0.0, 20.0),
-                HVec3::new(-3.0, 3.0, 0.0, 0.5),
-                HVec3::new(1.0, 3.0, 0.0, 1.0),
-                HVec3::new(0.1, 0.0, 0.0, 1.0),
+                HVec3::new(-4.0, -1.0, 0.0, 1.0),
+                HVec3::new(-2.0, 4.0, 0.0, 10.0),
+                HVec3::new(2.0, -4.0, 0.0, 10.0),
+                HVec3::new(4.0, 1.0, 0.0, 1.0),
             ]);
+
+            /*
+            let curve = BezierCurve::new(vec![
+                HVec3::new(-4.1, -4.0, -4.0, 1.0),
+                HVec3::new(-7.0, 3.0, -7.0, 20.0),
+                HVec3::new(-3.0, 5.0, -3.0, 10.0),
+                HVec3::new(2.0, 5.0, 2.0, 20.0),
+                HVec3::new(6.0, 1.0, 6.0, 1.0),
+                HVec3::new(5.0, -5.0, 5.0, 30.0),
+                HVec3::new(-1.0, -8.0, -1.0, 20.0),
+                HVec3::new(-5.0, -7.0, -5.0, 1.0),
+                HVec3::new(-6.0, -2.0, -6.0, 20.0),
+                HVec3::new(-3.0, 3.0, -3.0, 0.5),
+                HVec3::new(1.0, 3.0, 1.0, 1.0),
+                HVec3::new(0.1, 0.0, 0.1, 1.0),
+            ]);
+            */
 
             let num_segments = 500;
             let curve_edge = ModelEdge::new(
@@ -111,7 +120,7 @@ impl App {
                         .map(|u| {
                             let floats = curve.point(u).f32s();
                             EdgeVertex {
-                                position: [floats[0], floats[1], 0.0],
+                                position: floats,
                                 expand: [0.0, 0.0, 0.0],
                             }
                         })
@@ -124,8 +133,8 @@ impl App {
         };
 
         let (line, line_edge) = {
-            let start = EVec3::new(-5.0, 3.5, 1.0);
-            let end = EVec3::new(5.0, -2.5, 1.0);
+            let start = EVec3::new(-5.0, 3.5, 0.0);
+            let end = EVec3::new(5.0, -2.5, 0.0);
 
             let line = ELine3::from_pos_and_dir(start, start - end);
 

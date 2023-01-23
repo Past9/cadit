@@ -26,14 +26,14 @@ pub struct NurbsCurve<H: HSpace> {
     knot_vector: KnotVector,
 }
 impl<H: HSpace> NurbsCurve<H> {
-    pub fn new(control_points: Vec<H>, knot_vector: KnotVector) -> Self {
+    pub fn new(control_points: Vec<H::Vector>, knot_vector: KnotVector) -> Self {
         Self {
             control_points,
             knot_vector,
         }
     }
 
-    pub fn control_points(&self) -> &[H] {
+    pub fn control_points(&self) -> &[H::Vector] {
         &self.control_points
     }
 
@@ -46,13 +46,13 @@ impl<H: HSpace> NurbsCurve<H> {
             &self
                 .control_points
                 .iter()
-                .map(|p| H::weight(p))
+                .map(|p| H::weight_vec(p.clone()))
                 .collect::<Vec<_>>(),
             self.degree(),
             &self.knot_vector,
         )
         .into_iter()
-        .map(|pts| BezierCurve::new(pts.iter().map(|p| H::unweight(*p)).collect()))
+        .map(|pts| BezierCurve::new(pts.into_iter().map(|p| H::unweight_vec(p)).collect()))
         .collect()
     }
 
@@ -114,7 +114,7 @@ impl<H: HSpace> NurbsCurve<H> {
             &self
                 .control_points
                 .iter()
-                .map(|cp| cp.weight())
+                .map(|cp| H::weight_vec(cp.clone()))
                 .collect::<Vec<_>>(),
             degree,
             &self.knot_vector,
@@ -129,7 +129,7 @@ impl<H: HSpace> NurbsCurve<H> {
                 .unwrap()
                 .into_iter()
                 .take(self.control_points.len() - der)
-                .map(H::cast_from_weighted)
+                .map(H::cast_vec_from_weighted)
                 .collect(),
             self.knot_vector
                 .iter()
@@ -145,7 +145,7 @@ impl<H: HSpace> NurbsCurve<H> {
     }
 
     pub fn point(&self, u: f64) -> H::ProjectedVector {
-        curve_point(&self.control_points, self.degree(), &self.knot_vector, u)
+        curve_point::<H>(&self.control_points, self.degree(), &self.knot_vector, u)
     }
 
     pub fn derivatives(&self, u: f64, num_ders: usize) -> Vec<H::ProjectedVector> {
@@ -153,7 +153,7 @@ impl<H: HSpace> NurbsCurve<H> {
             &self
                 .control_points
                 .iter()
-                .map(|p| p.weight())
+                .map(|p| H::weight_vec(p.clone()))
                 .collect::<Vec<_>>(),
             self.degree(),
             &self.knot_vector,
@@ -161,10 +161,10 @@ impl<H: HSpace> NurbsCurve<H> {
             u,
         )
         .into_iter()
-        .map(H::cast_from_weighted)
+        .map(H::cast_vec_from_weighted)
         .collect::<Vec<_>>();
 
-        curve_derivatives(&ders, num_ders)
+        curve_derivatives::<H>(&ders, num_ders)
     }
 
     pub fn derivative(&self, u: f64, der: usize) -> H::ProjectedVector {
@@ -172,7 +172,7 @@ impl<H: HSpace> NurbsCurve<H> {
             &self
                 .control_points
                 .iter()
-                .map(|p| p.weight())
+                .map(|p| H::weight_vec(p.clone()))
                 .collect::<Vec<_>>(),
             self.degree(),
             &self.knot_vector,
@@ -180,10 +180,10 @@ impl<H: HSpace> NurbsCurve<H> {
             u,
         )
         .into_iter()
-        .map(H::cast_from_weighted)
+        .map(H::cast_vec_from_weighted)
         .collect::<Vec<_>>();
 
-        curve_derivatives(&ders, der)[der]
+        curve_derivatives::<H>(&ders, der)[der]
     }
 
     pub fn dist_func(&self, point: H::ProjectedVector, u: f64) -> f64 {

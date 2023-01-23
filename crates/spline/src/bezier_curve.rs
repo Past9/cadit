@@ -1,4 +1,7 @@
-use space::{exp::{HSpace, HSpace2}, ELine, EVector, HVec1, HVec2, HVector, TOL};
+use space::{
+    exp::{HSpace, HSpace1, HSpace2},
+    ELine, EVector, HVec1, HVec2, HVector, TOL,
+};
 
 use crate::math::{
     b_spline::curve_derivative_control_points,
@@ -21,12 +24,12 @@ impl<H: HSpace> BezierCurve<H> {
             &self
                 .control_points
                 .iter()
-                .map(|p| H::weight_vec(p))
+                .map(|p| H::weight_vec(p.clone()))
                 .collect::<Vec<_>>(),
             u,
         );
 
-        H::project_vec(&H::cast_vec_from_weighted(&p))
+        H::project_vec(H::cast_vec_from_weighted(p))
     }
 
     pub fn degree(&self) -> usize {
@@ -44,7 +47,7 @@ impl<H: HSpace> BezierCurve<H> {
             &self
                 .control_points
                 .iter()
-                .map(|pt| H::weight_vec(pt))
+                .map(|pt| H::weight_vec(pt.clone()))
                 .collect::<Vec<_>>(),
             self.degree(),
             &KnotVector::from_iter(kv),
@@ -59,7 +62,7 @@ impl<H: HSpace> BezierCurve<H> {
 
         Self::new(
             cp.into_iter()
-                .map(|pt| H::cast_vec_from_weighted(&pt))
+                .map(|pt| H::cast_vec_from_weighted(pt))
                 .collect(),
         )
     }
@@ -77,8 +80,8 @@ impl<H: HSpace> BezierCurve<H> {
             .iter()
             .map(|pt| {
                 let implicit = H::make_point_implicit_by_line(line, pt);
-                let weighted = H::weight_implicit_vec(&implicit);
-                let truncated = H::truncate_projected_vec(&weighted);
+                let weighted = H::weight_implicit_vec(implicit);
+                let truncated = H::truncate_projected_vec(weighted);
                 truncated
             })
             .collect::<Vec<_>>();
@@ -105,8 +108,8 @@ impl<H: HSpace> BezierCurve<H> {
             .iter()
             .map(|pt| {
                 let implicit = H::make_point_implicit_by_line(line, pt);
-                let weighted = H::weight_implicit_vec(&implicit);
-                let truncated = H::truncate_projected_vec(&weighted);
+                let weighted = H::weight_implicit_vec(implicit);
+                let truncated = H::truncate_projected_vec(weighted);
                 truncated
             })
             .collect::<Vec<_>>();
@@ -173,7 +176,7 @@ impl<H: HSpace> BezierCurve<H> {
         let mut der2_points = Vec::new();
 
         for u in FloatRange::new(0.0, 1.0, segments) {
-            let ders = rational_bezier_derivatives::<H>(&ctrl_pts, u, 2);
+            let ders = rational_bezier_derivatives::<H::Lower>(ctrl_pts, u, 2);
             self_points.push((u, ders[0]));
             der1_points.push((u, ders[1]));
             der2_points.push((u, ders[2]));
@@ -198,18 +201,16 @@ impl<H: HSpace> BezierCurve<H> {
         // the implicit curve (not the same as the implicit form of the derivative curve
         // of this Bezier), and then also get the derivative of that for use in Newton
         // iteration.
-        //let implicit = self.make_implicit(line).collect::<Vec<_>>();
         let implicit = self
             .control_points
             .iter()
             .map(|pt| H::make_point_implicit_by_line(line, pt))
             .collect::<Vec<_>>();
-        //.map(|pt| pt.to_singles());
 
-        let mut ctrl_pts: Vec<Vec<HVec1>> = vec![Vec::new(); H::DIMENSIONS] - 1;
+        let mut ctrl_pts: Vec<Vec<HVec1>> = vec![Vec::new(); H::DIMENSIONS - 1];
 
         for pt in implicit.into_iter() {
-            let dims = pt.split_dimensions();
+            let dims = H::split_implicit_vec_dimensions(pt);
             for d in 0..H::DIMENSIONS - 1 {
                 ctrl_pts[d].push(dims[d]);
             }
@@ -220,7 +221,7 @@ impl<H: HSpace> BezierCurve<H> {
         let try_point = |u_initial: f64, params: &mut Vec<f64>| {
             for d in 0..H::DIMENSIONS - 1 {
                 let zero = newton(u_initial, 20, min_u, max_u, |u| {
-                    let ders = rational_bezier_derivatives(&ctrl_pts[d], u, 2);
+                    let ders = rational_bezier_derivatives::<HSpace1>(&ctrl_pts[d], u, 2);
                     (ders[1], ders[2])
                 });
 

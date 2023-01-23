@@ -1,6 +1,6 @@
 use std::ops::{Add, Mul, Sub};
 
-use space::{EVector, HVector, TOL};
+use space::{exp::HSpace, EVector, HVector, TOL};
 
 use super::binomial_coefficient;
 
@@ -80,24 +80,24 @@ pub fn differentiate_coefficients<C: EVector>(coefficients: &[C]) -> Vec<C> {
     derivative
 }
 
-pub fn rational_bezier_derivatives<H: HVector>(
-    control_points: &[H],
+pub fn rational_bezier_derivatives<H: HSpace>(
+    control_points: &[H::Vector],
     u: f64,
     num_ders: usize,
-) -> Vec<H::Projected> {
+) -> Vec<H::ProjectedVector> {
     let ders = curve_derivatives_1(
         &control_points
             .iter()
-            .map(|p| p.weight())
+            .map(|p| H::weight_vec(*p))
             .collect::<Vec<_>>(),
         num_ders,
         u,
     )
     .into_iter()
-    .map(H::cast_from_weighted)
+    .map(H::cast_vec_from_weighted)
     .collect::<Vec<_>>();
 
-    curve_derivatives(&ders, num_ders)
+    curve_derivatives::<H>(&ders, num_ders)
 }
 
 fn curve_derivatives_1<E: EVector>(control_points: &[E], num_derivatives: usize, u: f64) -> Vec<E> {
@@ -116,14 +116,14 @@ fn curve_derivatives_1<E: EVector>(control_points: &[E], num_derivatives: usize,
     derivatives
 }
 
-pub fn curve_derivatives<H: HVector>(
-    weighted_derivatives: &[H],
+pub fn curve_derivatives<H: HSpace>(
+    weighted_derivatives: &[H::Vector],
     num_derivatives: usize,
-) -> Vec<H::Projected> {
-    let mut derivatives = vec![H::Projected::zero(); num_derivatives + 1];
+) -> Vec<H::ProjectedVector> {
+    let mut derivatives = vec![H::ProjectedVector::zero(); num_derivatives + 1];
 
     for k in 0..=num_derivatives {
-        let mut v = weighted_derivatives[k].euclidean_components();
+        let mut v = H::euclidean_vec_components(weighted_derivatives[k]);
         for i in 1..=k {
             v = v - derivatives[k - i]
                 * binomial_coefficient(k, i)

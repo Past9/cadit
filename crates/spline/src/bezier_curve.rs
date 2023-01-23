@@ -1,4 +1,4 @@
-use space::{ELine, ESpace, EVector, HSpace, HVec1, HVec2, HVector, MakeImplicit, TOL};
+use space::{exp::{HSpace, HSpace2}, ELine, EVector, HVec1, HVec2, HVector, TOL};
 
 use crate::math::{
     b_spline::curve_derivative_control_points,
@@ -8,25 +8,25 @@ use crate::math::{
 };
 
 #[derive(Debug)]
-pub struct BezierCurve<H: HVector> {
-    control_points: Vec<H>,
+pub struct BezierCurve<H: HSpace> {
+    control_points: Vec<H::Vector>,
 }
-impl<H: HVector> BezierCurve<H> {
-    pub fn new(control_points: Vec<H>) -> Self {
+impl<H: HSpace> BezierCurve<H> {
+    pub fn new(control_points: Vec<H::Vector>) -> Self {
         Self { control_points }
     }
 
-    pub fn point(&self, u: f64) -> H::Projected {
+    pub fn point(&self, u: f64) -> H::ProjectedVector {
         let p = decasteljau(
             &self
                 .control_points
                 .iter()
-                .map(|p| p.weight())
+                .map(|p| H::weight_vec(p))
                 .collect::<Vec<_>>(),
             u,
         );
 
-        H::cast_from_weighted(p).project()
+        H::project_vec(&H::cast_vec_from_weighted(&p))
     }
 
     pub fn degree(&self) -> usize {
@@ -44,7 +44,7 @@ impl<H: HVector> BezierCurve<H> {
             &self
                 .control_points
                 .iter()
-                .map(|pt| pt.weight())
+                .map(|pt| H::weight_vec(pt))
                 .collect::<Vec<_>>(),
             self.degree(),
             &KnotVector::from_iter(kv),
@@ -57,47 +57,31 @@ impl<H: HVector> BezierCurve<H> {
         .take(self.degree())
         .collect::<Vec<_>>();
 
-        Self::new(cp.into_iter().map(|pt| H::cast_from_weighted(pt)).collect())
+        Self::new(
+            cp.into_iter()
+                .map(|pt| H::cast_vec_from_weighted(&pt))
+                .collect(),
+        )
     }
 
-    fn make_implicit<'a, L, O>(
-        &'a self,
-        line: &'a L,
-    ) -> impl Iterator<Item = <L as MakeImplicit>::Output> + 'a
-    where
-        L: ELine + MakeImplicit<Input = H, Output = O>,
-        O: HVector<
-            Space = <<<H::Projected as EVector>::Space as ESpace>::Lower as ESpace>::Homogeneous,
-        >,
-    {
-        self.control_points.iter().map(|cp| line.make_implicit(cp))
-    }
-
-    pub fn line_intersection_plot<L, O>(
+    pub fn line_intersection_plot(
         &self,
-        line: &L,
+        line: &H::EuclideanLine,
         segments: usize,
     ) -> (
-        Vec<(f64, <<O as HVector>::Weighted as EVector>::Truncated)>,
-        Vec<(f64, <<O as HVector>::Weighted as EVector>::Truncated)>,
-    )
-    where
-        L: ELine + MakeImplicit<Input = H, Output = O>,
-        O: HVector<
-            Space = <<<H::Projected as EVector>::Space as ESpace>::Lower as ESpace>::Homogeneous,
-        >,
-    {
-        println!(
-            "IMPLICIT {:?}",
-            self.make_implicit(line).collect::<Vec<_>>()
-        );
-
+        Vec<(f64, H::ProjectedTruncatedVector)>,
+        Vec<(f64, H::ProjectedTruncatedVector)>,
+    ) {
         let self_coefficients = self
-            .make_implicit(line)
-            .map(|pt| pt.weight().truncate())
+            .control_points
+            .iter()
+            .map(|pt| {
+                let implicit = H::make_point_implicit_by_line(line, pt);
+                let weighted = H::weight_implicit_vec(&implicit);
+                let truncated = H::truncate_projected_vec(&weighted);
+                truncated
+            })
             .collect::<Vec<_>>();
-
-        println!("SELF CO {:?}", self_coefficients);
 
         let der_coefficients = differentiate_coefficients(&self_coefficients);
 
@@ -112,19 +96,19 @@ impl<H: HVector> BezierCurve<H> {
         (self_points, der_points)
     }
 
-    pub fn line_intersections<L, O>(&self, line: &L) -> Vec<H::Projected>
-    where
-        L: ELine + MakeImplicit<Input = H, Output = O>,
-        O: HVector<
-            Space = <<<H::Projected as EVector>::Space as ESpace>::Lower as ESpace>::Homogeneous,
-        >,
-    {
+    pub fn line_intersections(&self, line: &H::EuclideanLine) -> Vec<H::ProjectedVector> {
         // Get coefficients for an implicit Bezier curve oriented so the line is
         // along the X-axis. Do the same for this curve's derivative curve, which
         // we'll need for Newton iteration.
         let self_coefficients = self
-            .make_implicit(line)
-            .map(|pt| pt.weight().truncate())
+            .control_points
+            .iter()
+            .map(|pt| {
+                let implicit = H::make_point_implicit_by_line(line, pt);
+                let weighted = H::weight_implicit_vec(&implicit);
+                let truncated = H::truncate_projected_vec(&weighted);
+                truncated
+            })
             .collect::<Vec<_>>();
 
         let der_coefficients = differentiate_coefficients(&self_coefficients);
@@ -169,29 +153,27 @@ impl<H: HVector> BezierCurve<H> {
         points
     }
 
-    pub fn line_hausdorff_plot<L, O>(
+    pub fn line_hausdorff_plot(
         &self,
-        line: &L,
+        line: &H::EuclideanLine,
         segments: usize,
     ) -> (
-        Vec<(f64, O::Projected)>,
-        Vec<(f64, O::Projected)>,
-        Vec<(f64, O::Projected)>,
-    )
-    where
-        L: ELine + MakeImplicit<Input = H, Output = O>,
-        O: HVector<
-            Space = <<<H::Projected as EVector>::Space as ESpace>::Lower as ESpace>::Homogeneous,
-        >,
-    {
-        let ctrl_pts = self.make_implicit(line).collect::<Vec<_>>();
+        Vec<(f64, H::ProjectedTruncatedVector)>,
+        Vec<(f64, H::ProjectedTruncatedVector)>,
+        Vec<(f64, H::ProjectedTruncatedVector)>,
+    ) {
+        let ctrl_pts = self
+            .control_points
+            .iter()
+            .map(|pt| H::make_point_implicit_by_line(line, pt))
+            .collect::<Vec<_>>();
 
         let mut self_points = Vec::new();
         let mut der1_points = Vec::new();
         let mut der2_points = Vec::new();
 
         for u in FloatRange::new(0.0, 1.0, segments) {
-            let ders = rational_bezier_derivatives(&ctrl_pts, u, 2);
+            let ders = rational_bezier_derivatives::<H>(&ctrl_pts, u, 2);
             self_points.push((u, ders[0]));
             der1_points.push((u, ders[1]));
             der2_points.push((u, ders[2]));
@@ -200,18 +182,12 @@ impl<H: HVector> BezierCurve<H> {
         (self_points, der1_points, der2_points)
     }
 
-    pub fn hausdorff_to_line_candidates<L, O>(
+    pub fn hausdorff_to_line_candidates(
         &self,
-        line: &L,
+        line: &H::EuclideanLine,
         min_u: Option<f64>,
         max_u: Option<f64>,
-    ) -> Vec<(f64, H::Projected)>
-    where
-        L: ELine<Point = H::Projected> + MakeImplicit<Input = H, Output = O>,
-        O: HVector<
-            Space = <<<H::Projected as EVector>::Space as ESpace>::Lower as ESpace>::Homogeneous,
-        >,
-    {
+    ) -> Vec<(f64, H::ProjectedVector)> {
         let min_u = min_u.unwrap_or(0.0);
         let max_u = max_u.unwrap_or(1.0);
 
@@ -222,14 +198,19 @@ impl<H: HVector> BezierCurve<H> {
         // the implicit curve (not the same as the implicit form of the derivative curve
         // of this Bezier), and then also get the derivative of that for use in Newton
         // iteration.
-        let implicit = self.make_implicit(line).collect::<Vec<_>>();
+        //let implicit = self.make_implicit(line).collect::<Vec<_>>();
+        let implicit = self
+            .control_points
+            .iter()
+            .map(|pt| H::make_point_implicit_by_line(line, pt))
+            .collect::<Vec<_>>();
         //.map(|pt| pt.to_singles());
 
-        let mut ctrl_pts: Vec<Vec<HVec1>> = vec![Vec::new(); <O::Space as HSpace>::DIMENSIONS];
+        let mut ctrl_pts: Vec<Vec<HVec1>> = vec![Vec::new(); H::DIMENSIONS] - 1;
 
         for pt in implicit.into_iter() {
             let dims = pt.split_dimensions();
-            for d in 0..<O::Space as HSpace>::DIMENSIONS {
+            for d in 0..H::DIMENSIONS - 1 {
                 ctrl_pts[d].push(dims[d]);
             }
         }
@@ -237,7 +218,7 @@ impl<H: HVector> BezierCurve<H> {
         // Find the points where the first derivative in each dimension crosses an origin plane
         // using Newton's method.
         let try_point = |u_initial: f64, params: &mut Vec<f64>| {
-            for d in 0..<O::Space as HSpace>::DIMENSIONS {
+            for d in 0..H::DIMENSIONS - 1 {
                 let zero = newton(u_initial, 20, min_u, max_u, |u| {
                     let ders = rational_bezier_derivatives(&ctrl_pts[d], u, 2);
                     (ders[1], ders[2])
@@ -285,7 +266,7 @@ impl<H: HVector> BezierCurve<H> {
         // Add the start point because it can also be furthest from the line
         let mut points = Vec::new();
         let start_point = self.point(min_u);
-        if !line.contains_point(&start_point) {
+        if !H::line_contains_projected_point(line, &start_point) {
             points.push((min_u, start_point));
         }
 
@@ -294,7 +275,7 @@ impl<H: HVector> BezierCurve<H> {
 
         // Add the end point because it can also be furthest from the line
         let end_point = self.point(max_u);
-        if !line.contains_point(&end_point) {
+        if !H::line_contains_projected_point(line, &end_point) {
             points.push((max_u, end_point));
         }
 
@@ -305,25 +286,19 @@ impl<H: HVector> BezierCurve<H> {
         points
     }
 
-    pub fn hausdorff_to_line<L, O>(
+    pub fn hausdorff_to_line(
         &self,
-        line: &L,
+        line: &H::EuclideanLine,
         min_u: Option<f64>,
         max_u: Option<f64>,
-    ) -> Option<HausdorffResult<H::Projected>>
-    where
-        L: ELine<Point = H::Projected> + MakeImplicit<Input = H, Output = O>,
-        O: HVector<
-            Space = <<<H::Projected as EVector>::Space as ESpace>::Lower as ESpace>::Homogeneous,
-        >,
-    {
+    ) -> Option<HausdorffResult<H>> {
         let mut max = 0.0;
-        let mut max_u_and_point: Option<(f64, H::Projected)> = None;
+        let mut max_u_and_point: Option<(f64, H::ProjectedVector)> = None;
 
         let candidates = self.hausdorff_to_line_candidates(line, min_u, max_u);
 
         for (u, point) in candidates {
-            let dist = line.dist_to_point(&point);
+            let dist = H::line_dist_to_projected_point(line, &point);
 
             if dist > max {
                 max = dist;
@@ -338,7 +313,7 @@ impl<H: HVector> BezierCurve<H> {
         })
     }
 }
-impl BezierCurve<HVec2> {
+impl BezierCurve<HSpace2> {
     pub fn example_quarter_circle() -> Self {
         Self::new(Vec::from([
             HVec2::new(-1.0, 0.0, 1.0),
@@ -348,8 +323,8 @@ impl BezierCurve<HVec2> {
     }
 }
 
-pub struct HausdorffResult<E: EVector> {
+pub struct HausdorffResult<H: HSpace> {
     pub distance: f64,
     pub u: f64,
-    pub point: E,
+    pub point: H::ProjectedVector,
 }

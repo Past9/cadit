@@ -4,8 +4,6 @@ use std::{
     ops::{Add, Div, Mul, Neg, Sub},
 };
 
-use crate::{ESpace, ESpace1, ESpace2, ESpace3, ESpace4, EUnimplementedSpace};
-
 /// Trait for vectors in Euclidean space
 pub trait EVector:
     Debug
@@ -24,12 +22,8 @@ pub trait EVector:
     + Neg
     + Sum<Self>
 {
-    type Space: ESpace;
-    type Truncated: EVector<Space = <Self::Space as ESpace>::Lower>;
-
     fn zero() -> Self;
     fn dot(&self, rhs: &Self) -> f64;
-    fn truncate(&self) -> Self::Truncated;
 
     fn magnitude(&self) -> f64 {
         self.magnitude2().sqrt()
@@ -86,19 +80,12 @@ pub struct EVec1 {
     pub x: f64,
 }
 impl EVector for EVec1 {
-    type Space = ESpace1;
-    type Truncated = EUnimplementedVector;
-
     fn zero() -> Self {
         Self { x: 0.0 }
     }
 
     fn dot(&self, rhs: &Self) -> f64 {
         self.x * rhs.x
-    }
-
-    fn truncate(&self) -> Self::Truncated {
-        EUnimplementedVector {}
     }
 
     fn signum_product(&self) -> f64 {
@@ -122,19 +109,12 @@ pub struct EVec2 {
     pub y: f64,
 }
 impl EVector for EVec2 {
-    type Space = ESpace2;
-    type Truncated = EVec1;
-
     fn zero() -> Self {
         Self { x: 0.0, y: 0.0 }
     }
 
     fn dot(&self, rhs: &Self) -> f64 {
         self.x * rhs.x + self.y * rhs.y
-    }
-
-    fn truncate(&self) -> Self::Truncated {
-        EVec1 { x: self.x }
     }
 
     fn signum_product(&self) -> f64 {
@@ -166,9 +146,6 @@ pub struct EVec3 {
     pub z: f64,
 }
 impl EVector for EVec3 {
-    type Space = ESpace3;
-    type Truncated = EVec2;
-
     fn zero() -> Self {
         Self {
             x: 0.0,
@@ -179,13 +156,6 @@ impl EVector for EVec3 {
 
     fn dot(&self, rhs: &Self) -> f64 {
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z
-    }
-
-    fn truncate(&self) -> Self::Truncated {
-        EVec2 {
-            x: self.x,
-            y: self.y,
-        }
     }
 
     fn signum_product(&self) -> f64 {
@@ -222,9 +192,6 @@ pub struct EVec4 {
     pub w: f64,
 }
 impl EVector for EVec4 {
-    type Space = ESpace4;
-    type Truncated = EVec3;
-
     fn zero() -> Self {
         Self {
             x: 0.0,
@@ -236,14 +203,6 @@ impl EVector for EVec4 {
 
     fn dot(&self, rhs: &Self) -> f64 {
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z + self.w * rhs.w
-    }
-
-    fn truncate(&self) -> Self::Truncated {
-        EVec3 {
-            x: self.x,
-            y: self.y,
-            z: self.z,
-        }
     }
 
     fn signum_product(&self) -> f64 {
@@ -276,18 +235,11 @@ impl_evector_ops!(EVec4, x, y, z, w);
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct EUnimplementedVector {}
 impl EVector for EUnimplementedVector {
-    type Space = EUnimplementedSpace;
-    type Truncated = EUnimplementedVector;
-
     fn zero() -> Self {
         unimplemented!()
     }
 
     fn dot(&self, _rhs: &Self) -> f64 {
-        unimplemented!()
-    }
-
-    fn truncate(&self) -> Self::Truncated {
         unimplemented!()
     }
 

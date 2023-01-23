@@ -1,37 +1,37 @@
-use space::{EVector, HVector};
+use space::{exp::HSpace, EVector, HVector};
 
 use super::{basis::eval_basis_function, binomial_coefficient, knot_vector::KnotVector};
 
-pub fn curve_point<H: HVector>(
-    control_points: &[H],
+pub fn curve_point<H: HSpace>(
+    control_points: &[H::Vector],
     degree: usize,
     knot_vector: &KnotVector,
     u: f64,
-) -> H::Projected {
+) -> H::ProjectedVector {
     let knot_span = knot_vector.find_span(degree, control_points.len(), u);
     let basis_values = eval_basis_function(degree, knot_span, knot_vector, u);
 
     let weighted = (0..=degree)
-        .map(|i| control_points[knot_span + i - degree].weight() * basis_values[i])
-        .sum::<H::Weighted>();
+        .map(|i| H::weight_vec(control_points[knot_span + i - degree]) * basis_values[i])
+        .sum::<H::WeightedVector>();
 
-    H::cast_from_weighted(weighted).project()
+    H::project_vec(H::cast_vec_from_weighted(weighted))
 }
 
-pub fn curve_derivatives<H: HVector>(
-    weighted_derivatives: &[H],
+pub fn curve_derivatives<H: HSpace>(
+    h_derivatives: &[H::Vector],
     num_derivatives: usize,
-) -> Vec<H::Projected> {
-    let mut derivatives = vec![H::Projected::zero(); num_derivatives + 1];
+) -> Vec<H::ProjectedVector> {
+    let mut derivatives = vec![H::ProjectedVector::zero(); num_derivatives + 1];
 
     for k in 0..=num_derivatives {
-        let mut v = weighted_derivatives[k].euclidean_components();
+        let mut v = H::euclidean_vec_components(h_derivatives[k]);
         for i in 1..=k {
             v = v - derivatives[k - i]
                 * binomial_coefficient(k, i)
-                * weighted_derivatives[i].homogeneous_component();
+                * h_derivatives[i].homogeneous_component();
         }
-        derivatives[k] = v / weighted_derivatives[0].homogeneous_component();
+        derivatives[k] = v / h_derivatives[0].homogeneous_component();
     }
 
     derivatives

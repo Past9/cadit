@@ -1,4 +1,7 @@
-use space::{EVec2, EVector, HVec2, HVec3, HVector};
+use space::{
+    exp::{HSpace, HSpace2, HSpace3},
+    EVec2, EVector, HVec2, HVec3, HVector,
+};
 
 use crate::{
     bezier_curve::BezierCurve,
@@ -10,19 +13,19 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct ClosestResult<E: EVector> {
+pub struct ClosestResult<H: HSpace> {
     pub u: f64,
-    pub closest_point: E,
+    pub closest_point: H::ProjectedVector,
     pub distance: f64,
     pub iterations: usize,
 }
 
 #[derive(Debug)]
-pub struct NurbsCurve<H: HVector> {
-    control_points: Vec<H>,
+pub struct NurbsCurve<H: HSpace> {
+    control_points: Vec<H::Vector>,
     knot_vector: KnotVector,
 }
-impl<H: HVector> NurbsCurve<H> {
+impl<H: HSpace> NurbsCurve<H> {
     pub fn new(control_points: Vec<H>, knot_vector: KnotVector) -> Self {
         Self {
             control_points,
@@ -55,10 +58,10 @@ impl<H: HVector> NurbsCurve<H> {
 
     pub fn find_closest(
         &self,
-        point: H::Projected,
+        point: H::ProjectedVector,
         u_guess: f64,
         max_iter: usize,
-    ) -> Option<ClosestResult<H::Projected>> {
+    ) -> Option<ClosestResult<H>> {
         const TOL: f64 = 0.0000001;
         let mut u = u_guess;
         for i in 0..max_iter {
@@ -141,11 +144,11 @@ impl<H: HVector> NurbsCurve<H> {
         self.knot_vector.len() - self.control_points.len() - 1
     }
 
-    pub fn point(&self, u: f64) -> H::Projected {
+    pub fn point(&self, u: f64) -> H::ProjectedVector {
         curve_point(&self.control_points, self.degree(), &self.knot_vector, u)
     }
 
-    pub fn derivatives(&self, u: f64, num_ders: usize) -> Vec<H::Projected> {
+    pub fn derivatives(&self, u: f64, num_ders: usize) -> Vec<H::ProjectedVector> {
         let ders = curve_derivatives_1(
             &self
                 .control_points
@@ -164,7 +167,7 @@ impl<H: HVector> NurbsCurve<H> {
         curve_derivatives(&ders, num_ders)
     }
 
-    pub fn derivative(&self, u: f64, der: usize) -> H::Projected {
+    pub fn derivative(&self, u: f64, der: usize) -> H::ProjectedVector {
         let ders = curve_derivatives_2(
             &self
                 .control_points
@@ -183,14 +186,14 @@ impl<H: HVector> NurbsCurve<H> {
         curve_derivatives(&ders, der)[der]
     }
 
-    pub fn dist_func(&self, point: H::Projected, u: f64) -> f64 {
+    pub fn dist_func(&self, point: H::ProjectedVector, u: f64) -> f64 {
         let der = self.derivative(u, 1);
         let curve_point = self.point(u);
 
         der.dot(&(curve_point - point))
     }
 
-    pub fn tangent(&self, u: f64) -> H::Projected {
+    pub fn tangent(&self, u: f64) -> H::ProjectedVector {
         self.derivative(u, 1).normalize()
     }
 
@@ -202,7 +205,7 @@ impl<H: HVector> NurbsCurve<H> {
         self.knot_vector[self.knot_vector.len() - 1]
     }
 }
-impl NurbsCurve<HVec2> {
+impl NurbsCurve<HSpace2> {
     pub fn normal(&self, u: f64) -> EVec2 {
         let tan = self.tangent(u);
         EVec2::new(tan.y, -tan.x)
@@ -251,7 +254,7 @@ impl NurbsCurve<HVec2> {
         )
     }
 }
-impl NurbsCurve<HVec3> {
+impl NurbsCurve<HSpace3> {
     pub fn example_quarter_circle() -> Self {
         Self::new(
             Vec::from([

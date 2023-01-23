@@ -65,7 +65,7 @@ pub struct Vertex<V: EVector> {
     pos: V,
 }
 
-pub struct Line {
+pub struct EuclideanLine {
     left: usize,
     error: f64,
     right: usize,

@@ -1,5 +1,5 @@
 use space::{
-    exp::{HSpace, HSpace2, HSpace3},
+    hspace::{HSpace, HSpace2, HSpace3},
     EVec2, EVector, HVec2, HVec3, HVector,
 };
 

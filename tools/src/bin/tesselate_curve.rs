@@ -13,6 +13,7 @@ use render::{
 use space::hspace::HSpace3;
 use space::{EVector, HVec3};
 use spline::math::FloatRange;
+use tesselate::tesselate_bezier_curve;
 
 pub fn main() {
     run_window(
@@ -32,27 +33,56 @@ pub struct App {
 impl App {
     pub fn new() -> Self {
         // Create grid
-        let gs = 50;
-        let grid_points = (-gs..=gs)
-            .flat_map(|x| {
-                (-gs..=gs).map(move |y| {
-                    ModelPoint::new(
+        let grid_lines = {
+            let gs = 5;
+            let color = rgba(0.0, 0.075, 0.15, 1.0);
+            let grid_lines = (-gs..=gs)
+                .map(|x| {
+                    ModelEdge::new(
                         0.into(),
-                        Point {
-                            position: [x as f32, y as f32, 0.0],
-                            expand: [0.0, 0.0, 0.0],
+                        Edge {
+                            vertices: vec![
+                                EdgeVertex {
+                                    position: [x as f32, gs as f32, 0.0],
+                                    expand: [0.0, 0.0, 0.0],
+                                },
+                                EdgeVertex {
+                                    position: [x as f32, -gs as f32, 0.0],
+                                    expand: [0.0, 0.0, 0.0],
+                                },
+                            ],
                         },
-                        rgba(0.0, 0.05, 0.15, 1.0),
+                        color,
                     )
                 })
-            })
-            .collect::<Vec<_>>();
+                .chain((-gs..=gs).map(|y| {
+                    ModelEdge::new(
+                        0.into(),
+                        Edge {
+                            vertices: vec![
+                                EdgeVertex {
+                                    position: [gs as f32, y as f32, 0.0],
+                                    expand: [0.0, 0.0, 0.0],
+                                },
+                                EdgeVertex {
+                                    position: [-gs as f32, y as f32, 0.0],
+                                    expand: [0.0, 0.0, 0.0],
+                                },
+                            ],
+                        },
+                        color,
+                    )
+                }))
+                .collect::<Vec<_>>();
+
+            grid_lines
+        };
 
         // Create curve
         let curve = spline::nurbs_curve::NurbsCurve::<HSpace3>::example_quarter_circle();
 
-        let num_segments = 50;
-        let curve_edge = ModelEdge::new(
+        let num_segments = 5000;
+        let reference_edge = ModelEdge::new(
             0.into(),
             Edge {
                 vertices: FloatRange::new(curve.min_u(), curve.max_u(), num_segments)
@@ -62,8 +92,17 @@ impl App {
                     })
                     .collect::<Vec<_>>(),
             },
-            Rgba::YELLOW,
+            Rgba::BLACK,
         );
+
+        let tolerance = 0.1;
+        let beziers = curve.decompose();
+        let tesselated_edges = beziers
+            .iter()
+            .map(|bezier| {
+                tesselate_bezier_curve(bezier, tolerance).to_model_edge(0.into(), Rgba::GREEN)
+            })
+            .collect::<Vec<_>>();
 
         Self {
             viewer: SceneViewer::new(
@@ -97,8 +136,12 @@ impl App {
                     ),
                     vec![Model::new(
                         vec![],
-                        vec![curve_edge],
-                        grid_points.into_iter().collect(),
+                        vec![reference_edge]
+                            .into_iter()
+                            .chain(grid_lines.into_iter())
+                            .chain(tesselated_edges)
+                            .collect(),
+                        vec![],
                     )],
                     vec![Material::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],
                 ),

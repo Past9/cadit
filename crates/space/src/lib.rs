@@ -6,7 +6,7 @@ pub use eline::*;
 pub use evector::*;
 pub use hvector::*;
 
-pub mod exp;
+pub mod hspace;
 
 pub const TOL: f64 = 0.0000001;
 

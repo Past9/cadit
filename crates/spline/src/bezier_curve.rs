@@ -1,5 +1,5 @@
 use space::{
-    exp::{HSpace, HSpace1, HSpace2},
+    hspace::{HSpace, HSpace1, HSpace2},
     ELine, EVector, HVec1, HVec2, HVector, TOL,
 };
 
@@ -324,6 +324,7 @@ impl BezierCurve<HSpace2> {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct HausdorffResult<H: HSpace> {
     pub distance: f64,
     pub u: f64,

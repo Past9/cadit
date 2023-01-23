@@ -1,6 +1,6 @@
 use std::ops::{Add, Mul, Sub};
 
-use space::{exp::HSpace, EVector, HVector, TOL};
+use space::{hspace::HSpace, EVector, HVector, TOL};
 
 use super::binomial_coefficient;
 

@@ -13,7 +13,7 @@ use render::{
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
-use space::exp::{HSpace, HSpace2};
+use space::hspace::{HSpace, HSpace2};
 use space::{ELine, ELine2, EVec2, EVector, HVec2};
 use spline::bezier_curve::BezierCurve;
 use spline::math::FloatRange;

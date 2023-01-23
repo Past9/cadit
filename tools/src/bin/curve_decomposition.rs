@@ -10,7 +10,7 @@ use render::{
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
-use space::exp::HSpace2;
+use space::hspace::HSpace2;
 use space::{EVector, HVec2};
 use spline::math::FloatRange;
 use spline::nurbs_curve::NurbsCurve;

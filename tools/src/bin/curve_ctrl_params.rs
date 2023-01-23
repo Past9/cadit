@@ -10,6 +10,7 @@ use render::{
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
+use space::exp::{HSpace, HSpace2};
 use space::{EVector, HVec2, HVector};
 use spline::math::FloatRange;
 use spline::{math::knot_vector::KnotVector, nurbs_curve::NurbsCurve};
@@ -66,7 +67,7 @@ impl App {
             KnotVector::new([0.0, 0.0, 0.0, 0.25, 0.5, 0.75, 1.0, 1.0, 1.0]),
         );
         */
-        let curve = NurbsCurve::new(
+        let curve = NurbsCurve::<HSpace2>::new(
             Vec::from([
                 HVec2::new(-3.0, 0.0, 1.0),
                 HVec2::new(-2.0, -4.0, 1.0),
@@ -80,8 +81,10 @@ impl App {
         let mut closest_lines: Vec<ModelEdge> = Vec::new();
         for (i, point) in curve.control_points().iter().enumerate() {
             let u = curve.u_at_control_point(i);
-            let closest = curve.find_closest(point.project(), u, 20).unwrap();
-            println!("{:?} {:#?}", point.project(), closest);
+            let closest = curve
+                .find_closest(HSpace2::project_vec(point.clone()), u, 20)
+                .unwrap();
+            println!("{:?} {:#?}", HSpace2::project_vec(point.clone()), closest);
             closest_lines.push(ModelEdge::new(
                 0.into(),
                 Edge {

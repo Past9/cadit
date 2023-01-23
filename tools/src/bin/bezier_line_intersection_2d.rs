@@ -13,6 +13,7 @@ use render::{
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
+use space::exp::{HSpace, HSpace2};
 use space::{ELine, ELine2, EVec2, EVector, HVec2};
 use spline::bezier_curve::BezierCurve;
 use spline::math::FloatRange;
@@ -83,7 +84,7 @@ impl App {
         };
 
         let (curve, curve_edge) = {
-            let curve = BezierCurve::new(vec![
+            let curve = BezierCurve::<HSpace2>::new(vec![
                 HVec2::new(-4.0, -1.0, 1.0),
                 HVec2::new(-2.0, 4.0, 10.0),
                 HVec2::new(2.0, -4.0, 10.0),
@@ -128,7 +129,7 @@ impl App {
             let start = EVec2::new(-5.0, 3.5);
             let end = EVec2::new(5.0, -2.5);
 
-            let line = ELine2::from_pos_and_dir(start, start - end);
+            let line = HSpace2::make_line(start, start - end);
 
             let start_f32s = start.f32s();
             let end_f32s = end.f32s();

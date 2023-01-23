@@ -8,6 +8,7 @@ use render::{
 use space::{ELine, ELine3, EVector, HVec3, HVector};
 use spline::bezier_curve::{BezierCurve, HausdorffResult};
 
+/*
 pub trait TesselateCurve<H: HVector> {
     fn tesselate(&self, tolerance: f64) -> TesselatedEdge<H::Projected>;
 
@@ -70,3 +71,4 @@ pub struct EuclideanLine {
     error: f64,
     right: usize,
 }
+*/

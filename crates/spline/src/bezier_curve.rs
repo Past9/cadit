@@ -72,8 +72,8 @@ impl<H: HSpace> BezierCurve<H> {
         line: &H::EuclideanLine,
         segments: usize,
     ) -> (
-        Vec<(f64, H::ProjectedTruncatedVector)>,
-        Vec<(f64, H::ProjectedTruncatedVector)>,
+        Vec<(f64, <H::Lower as HSpace>::ProjectedVector)>,
+        Vec<(f64, <H::Lower as HSpace>::ProjectedVector)>,
     ) {
         let self_coefficients = self
             .control_points
@@ -161,9 +161,9 @@ impl<H: HSpace> BezierCurve<H> {
         line: &H::EuclideanLine,
         segments: usize,
     ) -> (
-        Vec<(f64, H::ProjectedTruncatedVector)>,
-        Vec<(f64, H::ProjectedTruncatedVector)>,
-        Vec<(f64, H::ProjectedTruncatedVector)>,
+        Vec<(f64, <H::Lower as HSpace>::ProjectedVector)>,
+        Vec<(f64, <H::Lower as HSpace>::ProjectedVector)>,
+        Vec<(f64, <H::Lower as HSpace>::ProjectedVector)>,
     ) {
         let ctrl_pts = self
             .control_points
@@ -176,7 +176,7 @@ impl<H: HSpace> BezierCurve<H> {
         let mut der2_points = Vec::new();
 
         for u in FloatRange::new(0.0, 1.0, segments) {
-            let ders = rational_bezier_derivatives::<H::Lower>(ctrl_pts, u, 2);
+            let ders = rational_bezier_derivatives::<H::Lower>(&ctrl_pts, u, 2);
             self_points.push((u, ders[0]));
             der1_points.push((u, ders[1]));
             der2_points.push((u, ders[2]));

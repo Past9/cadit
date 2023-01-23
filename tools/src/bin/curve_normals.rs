@@ -10,6 +10,7 @@ use render::{
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
+use space::exp::HSpace2;
 use space::HVec2;
 use spline::math::FloatRange;
 use spline::nurbs_curve::NurbsCurve;
@@ -39,7 +40,7 @@ demo indicates that curve normals, tangents, and first derivatives are correctly
 "#
         );
 
-        let curve = NurbsCurve::<HVec2>::example_circle();
+        let curve = NurbsCurve::<HSpace2>::example_circle();
 
         let gs = 3;
         let grid_points = (-gs..=gs)

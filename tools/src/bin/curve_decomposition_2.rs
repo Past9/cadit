@@ -10,6 +10,7 @@ use render::{
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
+use space::exp::HSpace3;
 use space::{EVector, HVec3};
 use spline::math::knot_vector::KnotVector;
 use spline::math::FloatRange;
@@ -49,7 +50,7 @@ impl App {
             })
             .collect::<Vec<_>>();
 
-        let curve = NurbsCurve::new(
+        let curve = NurbsCurve::<HSpace3>::new(
             Vec::from([
                 HVec3::new(-5.0, -2.0, 0.0, 1.0),
                 HVec3::new(-3.0, 5.0, 2.0, 2.0),

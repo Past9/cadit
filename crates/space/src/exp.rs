@@ -2,8 +2,9 @@ use crate::{
     ELine, ELine2, ELine3, EUnimplementedLine, EUnimplementedVector, EVec1, EVec2, EVec3, EVec4,
     EVector, HUnimplementedVector, HVec1, HVec2, HVec3, HVector, TOL,
 };
+use std::fmt::Debug;
 
-pub trait HSpace {
+pub trait HSpace: Debug {
     const DIMENSIONS: usize;
 
     type EuclideanLine: ELine;
@@ -13,8 +14,8 @@ pub trait HSpace {
 
     type ProjectedVector: EVector;
     type WeightedVector: EVector;
-    type ImplicitVector: HVector;
-    type ProjectedTruncatedVector: EVector;
+    //type ImplicitVector: HVector;
+    //type ProjectedTruncatedVector: EVector;
 
     fn cast_vec_from_weighted(weighted: Self::WeightedVector) -> Self::Vector;
     fn weight_vec(hvec: Self::Vector) -> Self::WeightedVector;
@@ -32,14 +33,17 @@ pub trait HSpace {
     fn make_point_implicit_by_line(
         line: &Self::EuclideanLine,
         point: &Self::Vector,
-    ) -> Self::ImplicitVector;
-    fn split_implicit_vec_dimensions(point: Self::ImplicitVector) -> Vec<HVec1>;
+    ) -> <Self::Lower as HSpace>::Vector;
+    fn split_implicit_vec_dimensions(point: <Self::Lower as HSpace>::Vector) -> Vec<HVec1>;
     fn euclidean_vec_components(hvec: Self::Vector) -> Self::ProjectedVector;
-    fn weight_implicit_vec(vec: Self::ImplicitVector) -> Self::ProjectedVector;
-    fn truncate_projected_vec(vec: Self::ProjectedVector) -> Self::ProjectedTruncatedVector;
+    fn weight_implicit_vec(vec: <Self::Lower as HSpace>::Vector) -> Self::ProjectedVector;
+    fn truncate_projected_vec(
+        vec: Self::ProjectedVector,
+    ) -> <Self::Lower as HSpace>::ProjectedVector;
     fn truncate_weighted_vec(weighted: Self::WeightedVector) -> Self::ProjectedVector;
 }
 
+#[derive(Debug)]
 pub struct HUnimplementedSpace {}
 impl HSpace for HUnimplementedSpace {
     const DIMENSIONS: usize = 0;
@@ -48,8 +52,8 @@ impl HSpace for HUnimplementedSpace {
     type Vector = HUnimplementedVector;
     type ProjectedVector = EUnimplementedVector;
     type WeightedVector = EUnimplementedVector;
-    type ImplicitVector = HUnimplementedVector;
-    type ProjectedTruncatedVector = EUnimplementedVector;
+    //type ImplicitVector = HUnimplementedVector;
+    //type ProjectedTruncatedVector = EUnimplementedVector;
 
     fn cast_vec_from_weighted(weighted: Self::WeightedVector) -> Self::Vector {
         unimplemented!()
@@ -88,11 +92,11 @@ impl HSpace for HUnimplementedSpace {
     fn make_point_implicit_by_line(
         line: &Self::EuclideanLine,
         point: &Self::Vector,
-    ) -> Self::ImplicitVector {
+    ) -> <Self::Lower as HSpace>::Vector {
         unimplemented!()
     }
 
-    fn split_implicit_vec_dimensions(point: Self::ImplicitVector) -> Vec<HVec1> {
+    fn split_implicit_vec_dimensions(point: <Self::Lower as HSpace>::Vector) -> Vec<HVec1> {
         unimplemented!()
     }
 
@@ -100,11 +104,13 @@ impl HSpace for HUnimplementedSpace {
         unimplemented!()
     }
 
-    fn weight_implicit_vec(vec: Self::ImplicitVector) -> Self::ProjectedVector {
+    fn weight_implicit_vec(vec: <Self::Lower as HSpace>::Vector) -> Self::ProjectedVector {
         unimplemented!()
     }
 
-    fn truncate_projected_vec(vec: Self::ProjectedVector) -> Self::ProjectedTruncatedVector {
+    fn truncate_projected_vec(
+        vec: Self::ProjectedVector,
+    ) -> <Self::Lower as HSpace>::ProjectedVector {
         unimplemented!()
     }
 
@@ -113,6 +119,7 @@ impl HSpace for HUnimplementedSpace {
     }
 }
 
+#[derive(Debug)]
 pub struct HSpace1 {}
 impl HSpace for HSpace1 {
     const DIMENSIONS: usize = 1;
@@ -120,9 +127,9 @@ impl HSpace for HSpace1 {
     type EuclideanLine = EUnimplementedLine;
     type Vector = HVec1;
     type ProjectedVector = EVec1;
-    type ProjectedTruncatedVector = EUnimplementedVector;
+    //type ProjectedTruncatedVector = EUnimplementedVector;
     type WeightedVector = EVec2;
-    type ImplicitVector = HUnimplementedVector;
+    //type ImplicitVector = HUnimplementedVector;
 
     fn weight_vec(hvec: Self::Vector) -> Self::WeightedVector {
         Self::WeightedVector {
@@ -163,11 +170,11 @@ impl HSpace for HSpace1 {
     fn make_point_implicit_by_line(
         _line: &Self::EuclideanLine,
         _point: &Self::Vector,
-    ) -> Self::ImplicitVector {
+    ) -> <Self::Lower as HSpace>::Vector {
         unimplemented!()
     }
 
-    fn split_implicit_vec_dimensions(_point: Self::ImplicitVector) -> Vec<HVec1> {
+    fn split_implicit_vec_dimensions(_point: <Self::Lower as HSpace>::Vector) -> Vec<HVec1> {
         unimplemented!()
     }
 
@@ -186,15 +193,18 @@ impl HSpace for HSpace1 {
         Self::ProjectedVector { x: weighted.x }
     }
 
-    fn weight_implicit_vec(_vec: Self::ImplicitVector) -> Self::ProjectedVector {
+    fn weight_implicit_vec(_vec: <Self::Lower as HSpace>::Vector) -> Self::ProjectedVector {
         unimplemented!()
     }
 
-    fn truncate_projected_vec(_vec: Self::ProjectedVector) -> Self::ProjectedTruncatedVector {
+    fn truncate_projected_vec(
+        _vec: Self::ProjectedVector,
+    ) -> <Self::Lower as HSpace>::ProjectedVector {
         unimplemented!()
     }
 }
 
+#[derive(Debug)]
 pub struct HSpace2 {}
 impl HSpace for HSpace2 {
     const DIMENSIONS: usize = 2;
@@ -205,10 +215,10 @@ impl HSpace for HSpace2 {
 
     type ProjectedVector = EVec2;
 
-    type ProjectedTruncatedVector = EVec1;
+    //type ProjectedTruncatedVector = EVec1;
 
     type EuclideanLine = ELine2;
-    type ImplicitVector = HVec1;
+    //type ImplicitVector = HVec1;
 
     fn weight_vec(hvec: Self::Vector) -> Self::WeightedVector {
         Self::WeightedVector {
@@ -262,14 +272,14 @@ impl HSpace for HSpace2 {
     fn make_point_implicit_by_line(
         line: &Self::EuclideanLine,
         point: &Self::Vector,
-    ) -> Self::ImplicitVector {
+    ) -> <Self::Lower as HSpace>::Vector {
         HVec1 {
             x: point.x * line.a + point.y * line.b + line.c,
             h: point.h,
         }
     }
 
-    fn split_implicit_vec_dimensions(point: Self::ImplicitVector) -> Vec<HVec1> {
+    fn split_implicit_vec_dimensions(point: <Self::Lower as HSpace>::Vector) -> Vec<HVec1> {
         vec![HVec1 {
             x: point.x,
             h: point.h,
@@ -298,28 +308,31 @@ impl HSpace for HSpace2 {
         }
     }
 
-    fn weight_implicit_vec(vec: Self::ImplicitVector) -> Self::ProjectedVector {
+    fn weight_implicit_vec(vec: <Self::Lower as HSpace>::Vector) -> Self::ProjectedVector {
         Self::ProjectedVector {
             x: vec.x * vec.h,
             y: vec.h,
         }
     }
 
-    fn truncate_projected_vec(vec: Self::ProjectedVector) -> Self::ProjectedTruncatedVector {
-        Self::ProjectedTruncatedVector { x: vec.x }
+    fn truncate_projected_vec(
+        vec: Self::ProjectedVector,
+    ) -> <Self::Lower as HSpace>::ProjectedVector {
+        EVec1 { x: vec.x }
     }
 }
 
+#[derive(Debug)]
 pub struct HSpace3 {}
 impl HSpace for HSpace3 {
     const DIMENSIONS: usize = 3;
     type Lower = HSpace2;
     type Vector = HVec3;
     type ProjectedVector = EVec3;
-    type ProjectedTruncatedVector = EVec2;
+    //type ProjectedTruncatedVector = EVec2;
     type WeightedVector = EVec4;
     type EuclideanLine = ELine3;
-    type ImplicitVector = HVec2;
+    //type ImplicitVector = HVec2;
 
     fn weight_vec(hvec: Self::Vector) -> Self::WeightedVector {
         Self::WeightedVector {
@@ -416,7 +429,7 @@ impl HSpace for HSpace3 {
     fn make_point_implicit_by_line(
         line: &Self::EuclideanLine,
         point: &Self::Vector,
-    ) -> Self::ImplicitVector {
+    ) -> <Self::Lower as HSpace>::Vector {
         HVec2 {
             x: point.x * line.a1 + point.y * line.b1 + point.z * line.c1 + line.d1,
             y: point.x * line.a2 + point.y * line.b2 + point.z * line.c2 + line.d2,
@@ -424,7 +437,7 @@ impl HSpace for HSpace3 {
         }
     }
 
-    fn split_implicit_vec_dimensions(point: Self::ImplicitVector) -> Vec<HVec1> {
+    fn split_implicit_vec_dimensions(point: <Self::Lower as HSpace>::Vector) -> Vec<HVec1> {
         vec![
             HVec1 {
                 x: point.x,
@@ -462,7 +475,7 @@ impl HSpace for HSpace3 {
         }
     }
 
-    fn weight_implicit_vec(vec: Self::ImplicitVector) -> Self::ProjectedVector {
+    fn weight_implicit_vec(vec: <Self::Lower as HSpace>::Vector) -> Self::ProjectedVector {
         Self::ProjectedVector {
             x: vec.x * vec.h,
             y: vec.y * vec.h,
@@ -470,7 +483,9 @@ impl HSpace for HSpace3 {
         }
     }
 
-    fn truncate_projected_vec(vec: Self::ProjectedVector) -> Self::ProjectedTruncatedVector {
-        Self::ProjectedTruncatedVector { x: vec.x, y: vec.y }
+    fn truncate_projected_vec(
+        vec: Self::ProjectedVector,
+    ) -> <Self::Lower as HSpace>::ProjectedVector {
+        EVec2 { x: vec.x, y: vec.y }
     }
 }

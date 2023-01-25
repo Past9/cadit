@@ -22,12 +22,15 @@ pub fn tesselate_bezier_curve<H: HSpace>(
             Some(0.0),
             Some(1.0),
         )
-        .map(|err| TesselatedCurve {
-            start: CurveVertex { u: 0.0, pos: start },
-            segments: vec![CurveSegment {
-                err: err,
-                end: CurveVertex { u: 1.0, pos: end },
-            }],
+        .map(|err| {
+            println!("INITIAL ERR {:?}", err);
+            TesselatedCurve {
+                start: CurveVertex { u: 0.0, pos: start },
+                segments: vec![CurveSegment {
+                    err: err,
+                    end: CurveVertex { u: 1.0, pos: end },
+                }],
+            }
         })
         .expect("Could not find Hausdorff distance");
 
@@ -106,6 +109,8 @@ fn split_segment<H: HSpace>(
             },
         })
         .expect("Cannot find Hausdorff");
+
+    println!("SPLIT {:#?} \n{:#?}", seg1, seg2);
 
     (seg1, seg2)
 }

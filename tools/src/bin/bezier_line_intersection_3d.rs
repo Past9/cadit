@@ -35,7 +35,7 @@ pub struct App {
 impl App {
     pub fn new() -> Self {
         const SHOW_INTERSECTION_PLOT: bool = false;
-        const SHOW_HAUSDORFF_PLOT: bool = false;
+        const SHOW_HAUSDORFF_PLOT: bool = true;
 
         let xy_grid_lines = {
             let gs = 5;
@@ -137,15 +137,14 @@ impl App {
             ]);
             */
 
-            /*
-            let curve = BezierCurve::new(vec![
+            let curve = BezierCurve::<HSpace3>::new(vec![
                 HVec3::new(-4.0, -1.0, 0.0, 1.0),
                 HVec3::new(-2.0, 4.0, 2.0, 100.0),
                 HVec3::new(2.0, -4.0, 0.0, 10.0),
                 HVec3::new(4.0, 1.0, 0.0, 1.0),
             ]);
-            */
 
+            /*
             let curve = BezierCurve::<HSpace3>::new(vec![
                 HVec3::new(-4.1, -4.0, -4.0, 1.0),
                 HVec3::new(-7.0, 3.0, -12.0, 20.0),
@@ -160,6 +159,9 @@ impl App {
                 HVec3::new(1.0, 3.0, 10.0, 1.0),
                 HVec3::new(0.1, 0.0, 0.1, 1.0),
             ]);
+            */
+
+            //let curve = BezierCurve::<HSpace3>::example_quarter_circle_xy();
 
             let num_segments = 500;
             let curve_edge = ModelEdge::new(
@@ -178,8 +180,8 @@ impl App {
             (curve, curve_edge)
         };
 
-        let start_u = 0.1;
-        let end_u = 0.9;
+        let start_u = 0.0;
+        let end_u = 1.0;
         let (line, line_edge) = {
             //let start = EVec3::new(-5.0, 3.5, 0.0);
             //let end = EVec3::new(5.0, -2.5, 0.0);

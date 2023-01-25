@@ -1,6 +1,6 @@
 use space::{
-    hspace::{HSpace, HSpace1, HSpace2},
-    ELine, EVector, HVec1, HVec2, HVector, TOL,
+    hspace::{HSpace, HSpace1, HSpace2, HSpace3},
+    ELine, EVector, HVec1, HVec2, HVec3, HVector, TOL,
 };
 
 use crate::math::{
@@ -298,8 +298,11 @@ impl<H: HSpace> BezierCurve<H> {
 
         let candidates = self.hausdorff_to_line_candidates(line, min_u, max_u);
 
+        //println!("hausdorff_to_line");
         for (u, point) in candidates {
             let dist = H::line_dist_to_projected_point(line, &point);
+
+            //println!("POINT DIST {:?} {}", point, dist);
 
             if dist > max {
                 max = dist;
@@ -320,6 +323,15 @@ impl BezierCurve<HSpace2> {
             HVec2::new(-1.0, 0.0, 1.0),
             HVec2::new(-1.0, -1.0, 2.0_f64.sqrt() / 2.0),
             HVec2::new(-0.0, -1.0, 1.0),
+        ]))
+    }
+}
+impl BezierCurve<HSpace3> {
+    pub fn example_quarter_circle_xy() -> Self {
+        Self::new(Vec::from([
+            HVec3::new(-1.0, 0.0, 0.0, 1.0),
+            HVec3::new(-1.0, -1.0, 0.0, 2.0_f64.sqrt() / 2.0),
+            HVec3::new(-0.0, -1.0, 0.0, 1.0),
         ]))
     }
 }

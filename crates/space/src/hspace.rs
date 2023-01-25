@@ -41,6 +41,7 @@ pub trait HSpace: Debug + Clone {
         p1: Self::ProjectedVector,
         p2: Self::ProjectedVector,
     ) -> Self::EuclideanLine {
+        println!("POINTS {:?} {:?}", p1, p2);
         Self::make_line(p1, p2 - p1)
     }
 }
@@ -155,14 +156,14 @@ impl HSpace for HSpace1 {
         _line: &Self::EuclideanLine,
         _point: &Self::ProjectedVector,
     ) -> f64 {
-        todo!()
+        unimplemented!()
     }
 
     fn line_contains_projected_point(
         _line: &Self::EuclideanLine,
         _point: &Self::ProjectedVector,
     ) -> bool {
-        todo!()
+        unimplemented!()
     }
 
     fn make_point_implicit_by_line(
@@ -351,7 +352,46 @@ impl HSpace for HSpace3 {
     }
 
     fn make_line(pos: Self::ProjectedVector, dir: Self::ProjectedVector) -> Self::EuclideanLine {
+        println!("DIR {:?}", dir);
         let dir = dir.normalize();
+
+        /*
+        // Find the smallest dimension for the direction (may be 0),
+        // and use the other two planes to define a axis-aligned plane
+        // from which to "view" the vector
+        let min_dim = dir.x.abs().min(dir.y.abs()).min(dir.z.abs());
+
+        let (plane1_d, plane1_norm) = if dir.x.abs() == min_dim {
+            //YZ
+            let x = dir.y;
+            let y = dir.z;
+
+            let (d, vec) = get_3d_plane_params(EVec2::new(pos.y, pos.z), EVec2::new(dir.y, dir.z));
+
+            (d, EVec3::new(0.0, vec.x, vec.y))
+        } else if dir.y.abs() == min_dim {
+            // XZ
+            let x = dir.x;
+            let y = dir.z;
+
+            let (d, vec) = get_3d_plane_params(EVec2::new(pos.x, pos.z), EVec2::new(dir.x, dir.z));
+
+            (d, EVec3::new(vec.x, 0.0, vec.y))
+        } else {
+            // XY
+            let x = dir.x;
+            let y = dir.y;
+
+            let (d, vec) = get_3d_plane_params(EVec2::new(pos.x, pos.y), EVec2::new(dir.x, dir.y));
+
+            (d, EVec3::new(vec.x, vec.y, 0.0))
+        };
+
+        // Does the line pass through the origin?
+        let passes_through_origin: bool = {
+            todo!();
+        };
+        */
 
         let x0 = pos.x;
         let y0 = pos.y;
@@ -361,17 +401,72 @@ impl HSpace for HSpace3 {
         let b = dir.y;
         let c = dir.z;
 
-        let a1 = -b * c;
-        let b1 = a * c;
-        let c1 = 0.0;
-        let d1 = (b * c * x0) - (a * c * y0);
+        println!("IN PARAMS {} {} {}, {} {} {}", x0, y0, z0, a, b, c);
 
-        let a2 = -b * c;
-        let b2 = 0.0;
-        let c2 = a * b;
-        let d2 = (b * c * x0) - (a * b * z0);
+        let (a1, b1, c1, d1, a2, b2, c2, d2) = {
+            // Get the coefficients for the equation describing the first plane
+            // that contains the line. Select from one of several equations
+            // depending on whether the direction vector is zero in each axis,
+            // as this can yield an invalid equation.
+            let (a1, b1, c1, d1) = if a != 0.0 {
+                (0.0, -a * c, a * b, a * c * y0 - a * b * z0)
+            } else if b != 0.0 {
+                (-b * c, 0.0, a * b, b * c * x0 - a * b * z0)
+            } else if c != 0.0 {
+                (-b * c, a * c, 0.0, b * c * x0 - a * c * y0)
+            } else {
+                panic!("Invalid vector, all components are zero");
+            };
 
-        Self::EuclideanLine {
+            // Normalize the coefficients
+            let mag1 = EVec3::new(a1, b1, c1).magnitude();
+            let (a1, b1, c1, d1) = (a1 / mag1, b1 / mag1, c1 / mag1, d1 * mag1);
+
+            let (a2, b2, c2, d2) = {
+                let EVec3 {
+                    x: a2,
+                    y: b2,
+                    z: c2,
+                } = EVec3::new(a1, b1, c1).cross(&dir).normalize();
+
+                let d2 = -(a2 * pos.x) - (b2 * pos.y) - (c2 * pos.z);
+
+                let mag2 = EVec3::new(a2, b2, c2).magnitude();
+                let (a2, b2, c2, d2) = (a2 / mag2, b2 / mag2, c2 / mag2, d2 * mag2);
+
+                (a2, b2, c2, d2)
+            };
+
+            (a1, b1, c1, d1, a2, b2, c2, d2)
+        };
+
+        println!(
+            "OUT PARAMS {} {} {} {}, {} {} {} {}",
+            a1, b1, c1, d1, a2, b2, c2, d2
+        );
+
+        let angle_cos = (a1 * a2 + b1 * b2 + c1 * c2)
+            / ((a1.powi(2) + b1.powi(2) + c1.powi(2)).sqrt()
+                * (a2.powi(2) + b2.powi(2) + c2.powi(2)).sqrt());
+        let angle = angle_cos.acos();
+        println!("PLANE ANGLE: {}, {}", angle_cos, angle);
+
+        let orth_measure = a1 * a2 + b1 * b2 + c1 * c2;
+        println!("ORTH MEASURE {}", orth_measure);
+
+        if a1 == 0.0 && b1 == 0.0 && c1 == 0.0 {
+            panic!("Invalid first plane (zero normal)");
+        }
+
+        if a2 == 0.0 && b2 == 0.0 && c2 == 0.0 {
+            panic!("Invalid second plane (zero normal)");
+        }
+
+        if (a1 * a2 + b1 * b2 + c1 * c2).abs() > TOL {
+            panic!("Planes are not perpendicular");
+        }
+
+        let line = Self::EuclideanLine {
             a1,
             b1,
             c1,
@@ -380,7 +475,11 @@ impl HSpace for HSpace3 {
             b2,
             c2,
             d2,
-        }
+        };
+
+        println!("LINE {:?}", line);
+
+        line
     }
 
     fn line_dist_to_projected_point(
@@ -477,5 +576,36 @@ impl HSpace for HSpace3 {
         vec: Self::ProjectedVector,
     ) -> <Self::Lower as HSpace>::ProjectedVector {
         EVec2 { x: vec.x, y: vec.y }
+    }
+}
+
+fn get_3d_plane_params(pos: EVec2, dir: EVec2) -> (f64, EVec2) {
+    let m = dir.y / dir.x;
+    let b = pos.y - m * pos.x;
+
+    let nearest = EVec2::new((-m * b) / (m.powi(2) + 1.0), b / (m.powi(2) + 1.0));
+    println!("nearest {:?}", nearest);
+    let d = nearest.magnitude();
+    let orth_vec = EVec2::new(-dir.y, dir.x);
+
+    (d, orth_vec)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{EVec2, EVector, TOL};
+
+    use super::get_3d_plane_params;
+
+    #[test]
+    fn test_get_plane_params() {
+        let sqrt_2_2 = 2.0f64.sqrt() / 2.0;
+
+        let (d, vec) =
+            get_3d_plane_params(EVec2::new(-2.0, 3.0), EVec2::new(1.0, -1.0).normalize());
+
+        assert!((d - sqrt_2_2).abs() < TOL);
+        assert!((vec.x - sqrt_2_2).abs() < TOL);
+        assert!((vec.y - sqrt_2_2).abs() < TOL);
     }
 }

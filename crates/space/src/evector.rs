@@ -24,6 +24,7 @@ pub trait EVector:
 {
     fn zero() -> Self;
     fn dot(&self, rhs: &Self) -> f64;
+    fn cross(&self, rhs: &Self) -> Self;
 
     fn magnitude(&self) -> f64 {
         self.magnitude2().sqrt()
@@ -88,6 +89,10 @@ impl EVector for EVec1 {
         self.x * rhs.x
     }
 
+    fn cross(&self, rhs: &Self) -> Self {
+        todo!()
+    }
+
     fn signum_product(&self) -> f64 {
         self.x.signum()
     }
@@ -115,6 +120,10 @@ impl EVector for EVec2 {
 
     fn dot(&self, rhs: &Self) -> f64 {
         self.x * rhs.x + self.y * rhs.y
+    }
+
+    fn cross(&self, rhs: &Self) -> Self {
+        todo!()
     }
 
     fn signum_product(&self) -> f64 {
@@ -156,6 +165,14 @@ impl EVector for EVec3 {
 
     fn dot(&self, rhs: &Self) -> f64 {
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z
+    }
+
+    fn cross(&self, rhs: &Self) -> Self {
+        Self::new(
+            (self.y * rhs.z) - (self.z * rhs.y),
+            (self.z * rhs.x) - (self.x * rhs.z),
+            (self.x * rhs.y) - (self.y * rhs.x),
+        )
     }
 
     fn signum_product(&self) -> f64 {
@@ -205,6 +222,10 @@ impl EVector for EVec4 {
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z + self.w * rhs.w
     }
 
+    fn cross(&self, rhs: &Self) -> Self {
+        todo!()
+    }
+
     fn signum_product(&self) -> f64 {
         self.x.signum() * self.y.signum() * self.z.signum() * self.w.signum()
     }
@@ -240,6 +261,10 @@ impl EVector for EUnimplementedVector {
     }
 
     fn dot(&self, _rhs: &Self) -> f64 {
+        unimplemented!()
+    }
+
+    fn cross(&self, rhs: &Self) -> Self {
         unimplemented!()
     }
 

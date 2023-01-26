@@ -203,8 +203,12 @@ impl<H: HSpace> BezierCurve<H> {
                 let ders: Vec<H::ProjectedVector> =
                     rational_bezier_derivatives::<H>(&self.control_points, u, 2);
 
+                println!("DERS {:?}", ders);
+
                 let closest = H::closest_to_point(line, &ders[0]);
                 //let u_minus_p = ders[0] - closest;
+                // If line is in the other direction, this won't converge and needs to be
+                // the other way? WTF?
                 let u_minus_p = closest - ders[0];
 
                 let num = ders[1].dot(&u_minus_p);

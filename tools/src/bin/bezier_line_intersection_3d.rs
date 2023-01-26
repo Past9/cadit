@@ -161,7 +161,7 @@ impl App {
                 HVec3::new(0.1, 0.0, 0.1, 1.0),
             ]);
 
-            //let curve = BezierCurve::<HSpace3>::example_quarter_circle_xy();
+            let curve = BezierCurve::<HSpace3>::example_quarter_circle_xy();
 
             let num_segments = 500;
             let curve_edge = ModelEdge::new(

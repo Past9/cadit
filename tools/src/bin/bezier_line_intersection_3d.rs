@@ -137,14 +137,15 @@ impl App {
             ]);
             */
 
+            /*
             let curve = BezierCurve::<HSpace3>::new(vec![
                 HVec3::new(-4.0, -1.0, 0.0, 1.0),
                 HVec3::new(-2.0, 4.0, 2.0, 100.0),
                 HVec3::new(2.0, -4.0, 0.0, 10.0),
                 HVec3::new(4.0, 1.0, 0.0, 1.0),
             ]);
+            */
 
-            /*
             let curve = BezierCurve::<HSpace3>::new(vec![
                 HVec3::new(-4.1, -4.0, -4.0, 1.0),
                 HVec3::new(-7.0, 3.0, -12.0, 20.0),
@@ -159,7 +160,6 @@ impl App {
                 HVec3::new(1.0, 3.0, 10.0, 1.0),
                 HVec3::new(0.1, 0.0, 0.1, 1.0),
             ]);
-            */
 
             //let curve = BezierCurve::<HSpace3>::example_quarter_circle_xy();
 
@@ -401,6 +401,7 @@ impl App {
                         ],
                         vec![],
                     ),
+                    /*
                     Camera::create_perspective(
                         [0, 0],
                         point3(0.0, 0.0, -6.0),
@@ -409,6 +410,16 @@ impl App {
                         Deg(70.0).into(),
                         0.01,
                         5.0,
+                    ),
+                    */
+                    Camera::create_orthographic(
+                        [0, 0],
+                        point3(0.0, 0.0, -20.0),
+                        vec3(0.0, 0.0, 1.0),
+                        vec3(0.0, -1.0, 0.0).normalize(),
+                        15.0,
+                        0.01,
+                        100.0,
                     ),
                     vec![Model::new(
                         vec![],

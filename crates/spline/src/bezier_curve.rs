@@ -185,6 +185,10 @@ impl<H: HSpace> BezierCurve<H> {
         (self_points, der1_points, der2_points)
     }
 
+    pub fn hausdorff_candidates(&self, line: &H::EuclideanLine) -> Vec<(f64, H::ProjectedVector)> {
+        todo!()
+    }
+
     pub fn hausdorff_to_line_candidates(
         &self,
         line: &H::EuclideanLine,

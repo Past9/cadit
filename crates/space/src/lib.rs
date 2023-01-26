@@ -1,8 +1,10 @@
 mod eline;
+mod eplane;
 mod evector;
 mod hvector;
 
 pub use eline::*;
+pub use eplane::*;
 pub use evector::*;
 pub use hvector::*;
 

@@ -36,7 +36,34 @@ where
     q[0]
 }
 
-pub fn newton<F, E: EVector>(
+pub fn newton_f64<F>(u_guess: f64, max_iter: usize, min_u: f64, max_u: f64, eval: F) -> Option<f64>
+where
+    F: Fn(f64) -> (f64, f64),
+{
+    let mut u = u_guess;
+    for _ in 0..max_iter {
+        let (self_val, der_val) = eval(u);
+
+        if self_val.abs() <= TOL {
+            return Some(u);
+        } else {
+            let correction = self_val / der_val;
+
+            if correction.abs() < 0.03 * TOL {
+                //return None;
+            }
+
+            u -= correction;
+            if u < min_u || u > max_u {
+                return None;
+            }
+        }
+    }
+
+    None
+}
+
+pub fn newton_vec<F, E: EVector>(
     u_guess: f64,
     max_iter: usize,
     min_u: f64,

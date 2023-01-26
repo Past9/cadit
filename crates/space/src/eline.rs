@@ -20,6 +20,8 @@ impl ELine for ELine2 {}
 /// An infinite line in 3D Euclidean space
 #[derive(Debug, Clone)]
 pub struct ELine3 {
+    pos: EVec3,
+    dir: EVec3,
     pub p1: EPlane3,
     pub p2: EPlane3,
 }
@@ -72,9 +74,13 @@ impl ELine3 {
             panic!("Planes are not perpendicular");
         }
 
-        let line = Self { p1, p2 };
+        let line = Self { pos, dir, p1, p2 };
 
         line
+    }
+
+    pub fn closest_to_point(&self, point: &EVec3) -> EVec3 {
+        self.pos + self.dir * ((point - self.pos).dot(&self.dir))
     }
 
     pub fn dist_to_point(&self, point: &EVec3) -> f64 {

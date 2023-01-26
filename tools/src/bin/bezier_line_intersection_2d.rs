@@ -194,7 +194,7 @@ impl App {
                 println!("Hausdorff U: {}", hausdorff.u);
             }
 
-            let points = curve.hausdorff_to_line_candidates(&line, None, None);
+            let points = curve.hausdorff_candidates(&line, None, None);
             let hausdorff_points = points
                 .into_iter()
                 .map(|p| {

@@ -234,7 +234,7 @@ impl App {
         let hausdorff_points = {
             let min_u = Some(start_u);
             let max_u = Some(end_u);
-            let num_times = 1000;
+            let num_times = 1;
             let mut times = vec![0u128; num_times];
             for i in 0..num_times {
                 let start = Instant::now();
@@ -255,7 +255,7 @@ impl App {
                 println!("Hausdorff U: {}", hausdorff.u);
             }
 
-            let points = curve.hausdorff_to_line_candidates(&line, min_u, max_u);
+            let points = curve.hausdorff_candidates(&line, min_u, max_u);
             let hausdorff_points = points
                 .into_iter()
                 .map(|p| {

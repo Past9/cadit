@@ -27,6 +27,10 @@ pub trait HSpace: Debug + Clone {
         line: &Self::EuclideanLine,
         point: &Self::ProjectedVector,
     ) -> bool;
+    fn closest_to_point(
+        line: &Self::EuclideanLine,
+        point: &Self::ProjectedVector,
+    ) -> Self::ProjectedVector;
     fn make_point_implicit_by_line(
         line: &Self::EuclideanLine,
         point: &Self::Vector,
@@ -120,6 +124,13 @@ impl HSpace for HUnimplementedSpace {
     fn truncate_weighted_vec(_weighted: Self::WeightedVector) -> Self::ProjectedVector {
         unimplemented!()
     }
+
+    fn closest_to_point(
+        line: &Self::EuclideanLine,
+        point: &Self::ProjectedVector,
+    ) -> Self::ProjectedVector {
+        unimplemented!()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -202,6 +213,13 @@ impl HSpace for HSpace1 {
     fn truncate_projected_vec(
         _vec: Self::ProjectedVector,
     ) -> <Self::Lower as HSpace>::ProjectedVector {
+        unimplemented!()
+    }
+
+    fn closest_to_point(
+        line: &Self::EuclideanLine,
+        point: &Self::ProjectedVector,
+    ) -> Self::ProjectedVector {
         unimplemented!()
     }
 }
@@ -317,6 +335,13 @@ impl HSpace for HSpace2 {
     ) -> <Self::Lower as HSpace>::ProjectedVector {
         EVec1 { x: vec.x }
     }
+
+    fn closest_to_point(
+        line: &Self::EuclideanLine,
+        point: &Self::ProjectedVector,
+    ) -> Self::ProjectedVector {
+        todo!()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -372,6 +397,13 @@ impl HSpace for HSpace3 {
         point: &Self::ProjectedVector,
     ) -> bool {
         line.contains_point(point)
+    }
+
+    fn closest_to_point(
+        line: &Self::EuclideanLine,
+        point: &Self::ProjectedVector,
+    ) -> Self::ProjectedVector {
+        line.closest_to_point(point)
     }
 
     fn make_point_implicit_by_line(

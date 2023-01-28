@@ -203,22 +203,17 @@ impl<H: HSpace> BezierCurve<H> {
         };
 
         let try_point = |u_initial: f64, params: &mut Vec<f64>| {
-            let zero = newton_f64(u_initial, 100, min_u, max_u, |u| {
+            println!("TRY POINT {}", u_initial);
+            let zero = newton_f64(u_initial, 10000, min_u, max_u, |u| {
+                //println!("U {}", u);
                 let ders: Vec<H::ProjectedVector> =
                     rational_bezier_derivatives::<H>(&self.control_points, u, 2);
 
                 let closest = H::closest_to_point(line, &ders[0]);
-                //let u_minus_p = ders[0] - closest;
-                // If line is in the other direction, this won't converge and needs to be
-                // the other way? WTF?
-                //let between = (closest - ders[0]).normalize();
-                let between = (closest - ders[0]); //.normalize();
+                let between = closest - ders[0];
 
-                //let (d1, d2) = (ders[1].normalize(), ders[2].normalize());
-                let (d1, d2) = (ders[1], ders[2]);
-
-                let num = d1.dot(&between);
-                let denom = d2.dot(&between) + d1.magnitude2();
+                let num = ders[1].dot(&between);
+                let denom = ders[2].dot(&between) + ders[1].magnitude2();
 
                 (num, denom)
             });
@@ -235,13 +230,20 @@ impl<H: HSpace> BezierCurve<H> {
             .map(|pt| pt.homogeneous_component())
             .sum();
 
+        /*
         let mut initial_us = Vec::new();
         let mut accum_weight = 0.0;
         for i in 0..self.degree() {
             accum_weight += self.control_points[i].homogeneous_component();
             initial_us.push(accum_weight / total_weight);
         }
+        */
 
+        let initial_us = vec![(min_u + max_u) / 2.0];
+
+        //let initial_us: Vec<f64> = (0..=10).into_iter().map(|i| i as f64 / 10 as f64).collect();
+
+        println!("Initial Us {:?}", initial_us);
         let mut skipped_start = false;
         for u_initial in initial_us.into_iter() {
             if u_initial < min_u {
@@ -394,6 +396,10 @@ impl<H: HSpace> BezierCurve<H> {
         min_u: Option<f64>,
         max_u: Option<f64>,
     ) -> Option<HausdorffResult<H>> {
+        println!("POINTS {:?}", self.control_points);
+        println!("LINE {:?}", line);
+        println!("MIN MAX U {:?}..{:?}", min_u, max_u);
+
         let mut max = 0.0;
         let mut max_u_and_point: Option<(f64, H::ProjectedVector)> = None;
 

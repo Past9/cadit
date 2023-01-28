@@ -94,7 +94,7 @@ impl ModelSurface {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ModelEdge {
     id: ModelObjectId,
     edge: Edge,

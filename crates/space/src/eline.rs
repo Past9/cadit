@@ -51,7 +51,6 @@ impl ELine3 {
             } else if a != 0.0 {
                 EPlane3::new_general_form(0.0, -a * c, a * b, a * c * y0 - a * b * z0)
             } else if b != 0.0 {
-                println!("USE B, {} {} {}, {} {} {}", a, b, c, x0, y0, z0);
                 EPlane3::new_general_form(-b * c, 0.0, a * b, b * c * x0 - a * b * z0)
             } else if c != 0.0 {
                 EPlane3::new_general_form(-b * c, a * c, 0.0, b * c * x0 - a * c * y0)
@@ -68,9 +67,6 @@ impl ELine3 {
 
             (p1, p2)
         };
-
-        println!("P1 {:#?}", p1);
-        println!("P2 {:#?}", p2);
 
         if !p1.is_valid() {
             panic!("Invalid first plane");

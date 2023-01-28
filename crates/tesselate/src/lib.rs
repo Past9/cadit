@@ -25,10 +25,13 @@ pub fn tesselate_bezier_curve<H: HSpace>(
         .map(|err| {
             println!("INITIAL ERR {:?}", err);
             TesselatedCurve {
-                start: CurveVertex { u: 0.0, pos: start },
+                start: CurveVertex {
+                    u: 0.0,
+                    point: start,
+                },
                 segments: vec![CurveSegment {
                     err: err,
-                    end: CurveVertex { u: 1.0, pos: end },
+                    end: CurveVertex { u: 1.0, point: end },
                 }],
             }
         })
@@ -59,6 +62,8 @@ fn iter_tesselate_curve<H: HSpace>(
 
         let (seg1, seg2) = split_segment(curve, &start, segment);
 
+        start = seg2.end.clone();
+
         new_segments.push(seg1);
         new_segments.push(seg2);
 
@@ -80,9 +85,12 @@ fn split_segment<H: HSpace>(
     start: &CurveVertex<H>,
     segment: &CurveSegment<H>,
 ) -> (CurveSegment<H>, CurveSegment<H>) {
+    println!("\n\nSPLIT");
+
+    println!("LINE 1 {:?} to {:?}", start.point, segment.err.point);
     let seg1 = curve
         .hausdorff_to_line(
-            &H::make_line_through_points(start.pos, segment.err.point),
+            &H::make_line_through_points(start.point, segment.err.point),
             Some(start.u),
             Some(segment.err.u),
         )
@@ -90,14 +98,15 @@ fn split_segment<H: HSpace>(
             err,
             end: CurveVertex {
                 u: segment.err.u,
-                pos: segment.err.point,
+                point: segment.err.point,
             },
         })
         .expect("Cannot find Hausdorff");
 
+    println!("LINE 2 {:?} to {:?}", segment.err.point, segment.end.point);
     let seg2 = curve
         .hausdorff_to_line(
-            &H::make_line_through_points(segment.err.point, segment.end.pos),
+            &H::make_line_through_points(segment.err.point, segment.end.point),
             Some(segment.err.u),
             Some(segment.end.u),
         )
@@ -105,7 +114,7 @@ fn split_segment<H: HSpace>(
             err,
             end: CurveVertex {
                 u: segment.end.u,
-                pos: segment.end.pos,
+                point: segment.end.point,
             },
         })
         .expect("Cannot find Hausdorff");
@@ -123,12 +132,12 @@ pub struct TesselatedCurve<H: HSpace> {
 impl<H: HSpace> TesselatedCurve<H> {
     pub fn to_model_edge(&self, object_id: ModelObjectId, color: Rgba) -> ModelEdge {
         let vertices = [EdgeVertex {
-            position: self.start.pos.f32s(),
+            position: self.start.point.f32s(),
             expand: [0.0, 0.0, 0.0],
         }]
         .into_iter()
         .chain(self.segments.iter().map(|seg| EdgeVertex {
-            position: seg.end.pos.f32s(),
+            position: seg.end.point.f32s(),
             expand: [0.0, 0.0, 0.0],
         }))
         .collect::<Vec<EdgeVertex>>();
@@ -140,7 +149,7 @@ impl<H: HSpace> TesselatedCurve<H> {
 #[derive(Debug, Clone)]
 pub struct CurveVertex<H: HSpace> {
     u: f64,
-    pos: H::ProjectedVector,
+    point: H::ProjectedVector,
 }
 
 #[derive(Debug, Clone)]

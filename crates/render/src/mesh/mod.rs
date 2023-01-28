@@ -54,7 +54,7 @@ impl EdgeVertex {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Edge {
     pub vertices: Vec<EdgeVertex>,
 }

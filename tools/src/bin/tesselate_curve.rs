@@ -12,6 +12,7 @@ use render::{
 };
 use space::hspace::HSpace3;
 use space::{EVector, HVec3};
+use spline::bezier_curve::BezierCurve;
 use spline::math::FloatRange;
 use tesselate::tesselate_bezier_curve;
 
@@ -79,7 +80,8 @@ impl App {
         };
 
         // Create curve
-        let curve = spline::nurbs_curve::NurbsCurve::<HSpace3>::example_quarter_circle();
+
+        let curve = spline::nurbs_curve::NurbsCurve::<HSpace3>::example_circle();
 
         let num_segments = 5000;
         let reference_edge = ModelEdge::new(
@@ -103,6 +105,8 @@ impl App {
                 tesselate_bezier_curve(bezier, tolerance).to_model_edge(0.into(), Rgba::GREEN)
             })
             .collect::<Vec<_>>();
+
+        println!("TESSELATED {:?}", tesselated_edges);
 
         Self {
             viewer: SceneViewer::new(

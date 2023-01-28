@@ -144,7 +144,6 @@ impl App {
                 HVec3::new(4.0, 1.0, 0.0, 1.0),
             ]);
 
-            /*
             let curve = BezierCurve::<HSpace3>::new(vec![
                 HVec3::new(-4.1, -4.0, -4.0, 1.0),
                 HVec3::new(-7.0, 3.0, -12.0, 20.0),
@@ -160,6 +159,7 @@ impl App {
                 HVec3::new(0.1, 0.0, 0.1, 1.0),
             ]);
 
+            /*
             let curve = BezierCurve::<HSpace3>::example_quarter_circle_xy();
             */
 
@@ -234,7 +234,7 @@ impl App {
         let hausdorff_points = {
             let min_u = Some(start_u);
             let max_u = Some(end_u);
-            let num_times = 1;
+            let num_times = 1000;
             let mut times = vec![0u128; num_times];
             for i in 0..num_times {
                 let start = Instant::now();

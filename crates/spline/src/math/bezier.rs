@@ -64,7 +64,7 @@ where
 
             u -= correction;
             if u < min_u || u > max_u {
-                println!("Fail in {i} iter (out of bounds, {u})");
+                //println!("Fail in {i} iter (out of bounds, {u})");
                 return None;
             }
         }
@@ -72,7 +72,7 @@ where
         last_val = Some(self_val);
     }
 
-    println!("Fail in {max_iter} iter (max)");
+    //println!("Fail in {max_iter} iter (max)");
     None
 }
 

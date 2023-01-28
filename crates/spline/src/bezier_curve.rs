@@ -191,8 +191,16 @@ impl<H: HSpace> BezierCurve<H> {
         min_u: Option<f64>,
         max_u: Option<f64>,
     ) -> Vec<(f64, H::ProjectedVector)> {
-        let min_u = min_u.unwrap_or(0.0);
-        let max_u = max_u.unwrap_or(1.0);
+        let (min_u, max_u) = {
+            let min_u = min_u.unwrap_or(0.0);
+            let max_u = max_u.unwrap_or(1.0);
+
+            if min_u < max_u {
+                (min_u, max_u)
+            } else {
+                (max_u, min_u)
+            }
+        };
 
         let try_point = |u_initial: f64, params: &mut Vec<f64>| {
             let zero = newton_f64(u_initial, 100, min_u, max_u, |u| {

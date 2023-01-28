@@ -212,6 +212,7 @@ impl App {
             hausdorff_points
         };
 
+        /*
         let (intersection_self_edge, intersection_der_edge) = {
             let (self_plot, der_plot) = if SHOW_INTERSECTION_PLOT {
                 curve.line_intersection_plot(&line, 200)
@@ -249,6 +250,7 @@ impl App {
 
             (self_edge, der_edge)
         };
+        */
 
         let (hausdorff_self_edge, hausdorff_der1_edge, hausdorff_der2_edge) = {
             let (self_plot, der1_plot, der2_plot) = if SHOW_HAUSDORFF_PLOT {
@@ -337,8 +339,8 @@ impl App {
                         vec![
                             curve_edge,
                             line_edge,
-                            intersection_self_edge,
-                            intersection_der_edge,
+                            //intersection_self_edge,
+                            //intersection_der_edge,
                             hausdorff_self_edge,
                             hausdorff_der1_edge,
                             hausdorff_der2_edge,

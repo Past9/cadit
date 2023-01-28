@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::{EPlane3, EVec2, EVec3, EVector, HVec2, HVec3};
+use crate::{EPlane3, EVec2, EVec3, EVector, HVec2, HVec3, TOL};
 
 pub trait ELine: Debug + Clone {}
 
@@ -16,6 +16,34 @@ pub struct ELine2 {
     pub c: f64,
 }
 impl ELine for ELine2 {}
+impl ELine2 {
+    pub fn new_from_pos_and_dir(pos: EVec2, dir: EVec2) -> Self {
+        let dir = dir.normalize();
+
+        let a = dir.y;
+        let b = -dir.x;
+        let c = dir.x * pos.y - dir.y * pos.x;
+
+        Self { a, b, c }
+    }
+
+    pub fn dist_to_point(&self, point: &EVec2) -> f64 {
+        (self.a * point.x + self.b * point.y + self.c).abs()
+            / (self.a.powi(2) + self.b.powi(2)).sqrt()
+    }
+
+    pub fn contains_point(&self, point: &EVec2) -> bool {
+        (self.a * point.x + self.b * point.y + self.c).abs() <= TOL
+    }
+
+    pub fn make_implicit_point(&self, point: &HVec2, u: f64) -> HVec2 {
+        HVec2 {
+            x: u,
+            y: point.x * self.a + point.y * self.b + self.c,
+            h: point.h,
+        }
+    }
+}
 
 /// An infinite line in 3D Euclidean space
 #[derive(Debug, Clone)]
@@ -51,7 +79,6 @@ impl ELine3 {
             } else if a != 0.0 {
                 EPlane3::new_general_form(0.0, -a * c, a * b, a * c * y0 - a * b * z0)
             } else if b != 0.0 {
-                println!("USE B, {} {} {}, {} {} {}", a, b, c, x0, y0, z0);
                 EPlane3::new_general_form(-b * c, 0.0, a * b, b * c * x0 - a * b * z0)
             } else if c != 0.0 {
                 EPlane3::new_general_form(-b * c, a * c, 0.0, b * c * x0 - a * c * y0)
@@ -68,9 +95,6 @@ impl ELine3 {
 
             (p1, p2)
         };
-
-        println!("P1 {:#?}", p1);
-        println!("P2 {:#?}", p2);
 
         if !p1.is_valid() {
             panic!("Invalid first plane");
@@ -101,13 +125,14 @@ impl ELine3 {
         self.p1.contains_point(point) && self.p2.contains_point(point)
     }
 
-    pub fn make_implicit_point(&self, point: &HVec3) -> HVec2 {
-        HVec2 {
-            x: point.x * self.p1.norm.x
+    pub fn make_implicit_point(&self, point: &HVec3, u: f64) -> HVec3 {
+        HVec3 {
+            x: u,
+            y: point.x * self.p1.norm.x
                 + point.y * self.p1.norm.y
                 + point.z * self.p1.norm.z
                 + self.p1.d,
-            y: point.x * self.p2.norm.x
+            z: point.x * self.p2.norm.x
                 + point.y * self.p2.norm.y
                 + point.z * self.p2.norm.z
                 + self.p2.d,
@@ -129,7 +154,5 @@ mod tests {
         let point = EVec3::new(-5.5, -3.0, -4.0);
 
         let closest = line.closest_to_point(&point);
-
-        println!("{:?}", closest);
     }
 }

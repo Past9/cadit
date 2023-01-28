@@ -35,7 +35,7 @@ pub struct App {
 impl App {
     pub fn new() -> Self {
         const SHOW_INTERSECTION_PLOT: bool = false;
-        const SHOW_HAUSDORFF_PLOT: bool = false;
+        const SHOW_HAUSDORFF_PLOT: bool = true;
 
         let xy_grid_lines = {
             let gs = 5;
@@ -138,13 +138,21 @@ impl App {
             */
 
             let curve = BezierCurve::<HSpace3>::new(vec![
+                HVec3::new(0.0, 0.0, 0.0, 1.0),
+                HVec3::new(1.0 / 3.0, -1.0, 0.0, 2.0),
+                HVec3::new(2.0 / 3.0, 2.0, 0.0, 3.0),
+                HVec3::new(1.0, 0.0, 0.0, 4.0),
+            ]);
+
+            /*
+            let curve = BezierCurve::<HSpace3>::new(vec![
                 HVec3::new(-4.0, -1.0, 0.0, 1.0),
                 HVec3::new(-2.0, 4.0, 2.0, 100.0),
                 HVec3::new(2.0, -4.0, 0.0, 10.0),
                 HVec3::new(4.0, 1.0, 0.0, 1.0),
             ]);
+            */
 
-            /*
             let curve = BezierCurve::<HSpace3>::new(vec![
                 HVec3::new(-4.1, -4.0, -4.0, 1.0),
                 HVec3::new(-7.0, 3.0, -12.0, 20.0),
@@ -160,8 +168,7 @@ impl App {
                 HVec3::new(0.1, 0.0, 0.1, 1.0),
             ]);
 
-            let curve = BezierCurve::<HSpace3>::example_quarter_circle_xy();
-            */
+            //let curve = BezierCurve::<HSpace3>::example_quarter_circle_xy();
 
             let num_segments = 500;
             let curve_edge = ModelEdge::new(
@@ -180,8 +187,8 @@ impl App {
             (curve, curve_edge)
         };
 
-        let start_u = 1.0;
-        let end_u = 0.0;
+        let start_u = 0.0;
+        let end_u = 1.0;
         let (line, line_edge) = {
             //let start = EVec3::new(-5.0, 3.5, 0.0);
             //let end = EVec3::new(5.0, -2.5, 0.0);
@@ -234,7 +241,7 @@ impl App {
         let hausdorff_points = {
             let min_u = Some(start_u);
             let max_u = Some(end_u);
-            let num_times = 1;
+            let num_times = 1000;
             let mut times = vec![0u128; num_times];
             for i in 0..num_times {
                 let start = Instant::now();
@@ -255,7 +262,7 @@ impl App {
                 println!("Hausdorff U: {}", hausdorff.u);
             }
 
-            let points = curve.hausdorff_candidates(&line, min_u, max_u);
+            let points = curve.hausdorff_to_line_candidates(&line, min_u, max_u);
             let hausdorff_points = points
                 .into_iter()
                 .map(|p| {
@@ -283,6 +290,7 @@ impl App {
             hausdorff_points
         };
 
+        /*
         let (intersection_self_edge, intersection_der_edge) = {
             let (self_plot, der_plot) = if SHOW_INTERSECTION_PLOT {
                 curve.line_intersection_plot(&line, 200)
@@ -320,6 +328,7 @@ impl App {
 
             (self_edge, der_edge)
         };
+        */
 
         let (hausdorff_self_edge, hausdorff_der1_edge, hausdorff_der2_edge) = {
             let (self_plot, der1_plot, der2_plot) = if SHOW_HAUSDORFF_PLOT {
@@ -401,7 +410,6 @@ impl App {
                         ],
                         vec![],
                     ),
-                    /*
                     Camera::create_perspective(
                         [0, 0],
                         point3(0.0, 0.0, -6.0),
@@ -411,7 +419,7 @@ impl App {
                         0.01,
                         5.0,
                     ),
-                    */
+                    /*
                     Camera::create_orthographic(
                         [0, 0],
                         point3(0.0, 0.0, -20.0),
@@ -421,13 +429,14 @@ impl App {
                         0.01,
                         100.0,
                     ),
+                    */
                     vec![Model::new(
                         vec![],
                         vec![
                             curve_edge,
                             line_edge,
-                            intersection_self_edge,
-                            intersection_der_edge,
+                            //intersection_self_edge,
+                            //intersection_der_edge,
                             hausdorff_self_edge,
                             hausdorff_der1_edge,
                             hausdorff_der2_edge,

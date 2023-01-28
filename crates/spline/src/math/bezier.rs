@@ -46,7 +46,6 @@ where
         let (self_val, der_val) = eval(u);
 
         if self_val.abs() <= TOL {
-            println!("Solution in {i} iter");
             return Some(u);
         } else {
             if let Some(last_val) = last_val {

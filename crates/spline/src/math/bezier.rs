@@ -41,12 +41,21 @@ where
     F: Fn(f64) -> (f64, f64),
 {
     let mut u = u_guess;
-    for _ in 0..max_iter {
+    let mut last_val: Option<f64> = None;
+    for i in 0..max_iter {
         let (self_val, der_val) = eval(u);
 
         if self_val.abs() <= TOL {
+            println!("Solution in {i} iter");
             return Some(u);
         } else {
+            if let Some(last_val) = last_val {
+                if self_val.abs() >= last_val.abs() {
+                    //println!("Fail in {i} iter (divergence)");
+                    //return None;
+                }
+            }
+
             let correction = self_val / der_val;
 
             if correction.abs() < 0.03 * TOL {
@@ -55,11 +64,15 @@ where
 
             u -= correction;
             if u < min_u || u > max_u {
+                println!("Fail in {i} iter (out of bounds, {u})");
                 return None;
             }
         }
+
+        last_val = Some(self_val);
     }
 
+    println!("Fail in {max_iter} iter (max)");
     None
 }
 

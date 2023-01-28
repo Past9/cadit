@@ -139,10 +139,7 @@ impl<H: HSpace> BezierCurve<H> {
             });
 
             if let Some(zero) = zero {
-                println!("U ZERO {}", zero);
                 params.push(zero);
-            } else {
-                println!("U NOT FOUND");
             }
         }
 
@@ -198,28 +195,25 @@ impl<H: HSpace> BezierCurve<H> {
         let max_u = max_u.unwrap_or(1.0);
 
         let try_point = |u_initial: f64, params: &mut Vec<f64>| {
-            println!("TRY POINT {}", u_initial);
             let zero = newton_f64(u_initial, 100, min_u, max_u, |u| {
                 let ders: Vec<H::ProjectedVector> =
                     rational_bezier_derivatives::<H>(&self.control_points, u, 2);
-
-                println!("DERS {:?}", ders);
 
                 let closest = H::closest_to_point(line, &ders[0]);
                 //let u_minus_p = ders[0] - closest;
                 // If line is in the other direction, this won't converge and needs to be
                 // the other way? WTF?
-                let u_minus_p = closest - ders[0];
+                //let between = (closest - ders[0]).normalize();
+                let between = (closest - ders[0]); //.normalize();
 
-                let num = ders[1].dot(&u_minus_p);
-                let denom = ders[2].dot(&u_minus_p) + ders[1].magnitude2();
+                //let (d1, d2) = (ders[1].normalize(), ders[2].normalize());
+                let (d1, d2) = (ders[1], ders[2]);
 
-                println!("{}: {} / {}", u, num, denom);
+                let num = d1.dot(&between);
+                let denom = d2.dot(&between) + d1.magnitude2();
 
                 (num, denom)
             });
-
-            println!("ZERO {:?}", zero);
 
             if let Some(zero) = zero {
                 params.push(zero);
@@ -239,8 +233,6 @@ impl<H: HSpace> BezierCurve<H> {
             accum_weight += self.control_points[i].homogeneous_component();
             initial_us.push(accum_weight / total_weight);
         }
-
-        println!("INITIAL Us: {:?}", initial_us);
 
         let mut skipped_start = false;
         for u_initial in initial_us.into_iter() {
@@ -399,11 +391,8 @@ impl<H: HSpace> BezierCurve<H> {
 
         let candidates = self.hausdorff_candidates(line, min_u, max_u);
 
-        //println!("hausdorff_to_line");
         for (u, point) in candidates {
             let dist = H::line_dist_to_projected_point(line, &point);
-
-            //println!("POINT DIST {:?} {}", point, dist);
 
             if dist > max {
                 max = dist;

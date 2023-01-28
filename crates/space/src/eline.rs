@@ -42,9 +42,16 @@ impl ELine3 {
             // that contains the line. Select from one of several equations
             // depending on whether the direction vector is zero in each axis,
             // as this can yield an invalid equation.
-            let p1 = if a != 0.0 {
+            let p1 = if a == 0.0 && b == 0.0 {
+                EPlane3::new_general_form(a.signum(), 0.0, 0.0, -x0)
+            } else if a == 0.0 && c == 0.0 {
+                EPlane3::new_general_form(a.signum(), 0.0, 0.0, -x0)
+            } else if b == 0.0 && c == 0.0 {
+                EPlane3::new_general_form(0.0, b.signum(), 0.0, -y0)
+            } else if a != 0.0 {
                 EPlane3::new_general_form(0.0, -a * c, a * b, a * c * y0 - a * b * z0)
             } else if b != 0.0 {
+                println!("USE B, {} {} {}, {} {} {}", a, b, c, x0, y0, z0);
                 EPlane3::new_general_form(-b * c, 0.0, a * b, b * c * x0 - a * b * z0)
             } else if c != 0.0 {
                 EPlane3::new_general_form(-b * c, a * c, 0.0, b * c * x0 - a * c * y0)
@@ -61,6 +68,9 @@ impl ELine3 {
 
             (p1, p2)
         };
+
+        println!("P1 {:#?}", p1);
+        println!("P2 {:#?}", p2);
 
         if !p1.is_valid() {
             panic!("Invalid first plane");
@@ -106,3 +116,20 @@ impl ELine3 {
     }
 }
 impl ELine for ELine3 {}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn closest_to_point() {
+        let line =
+            ELine3::new_from_pos_and_dir(EVec3::new(-2.0, 0.0, -2.0), EVec3::new(0.0, -1.0, 0.0));
+        let point = EVec3::new(-5.5, -3.0, -4.0);
+
+        let closest = line.closest_to_point(&point);
+
+        println!("{:?}", closest);
+    }
+}

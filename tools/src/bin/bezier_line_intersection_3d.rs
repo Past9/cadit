@@ -178,19 +178,13 @@ impl App {
             (curve, curve_edge)
         };
 
-        //let start_u = 1.0;
-        //let end_u = 0.0;
         let start_u = 0.0;
-        let end_u = 0.013175420102170307;
+        let end_u = 1.0;
         let (line, line_edge) = {
-            //let start = EVec3::new(-5.0, 3.5, 0.0);
-            //let end = EVec3::new(5.0, -2.5, 0.0);
             let start_pt = curve.point(start_u);
             let end_pt = curve.point(end_u);
 
             let line = HSpace3::make_line(start_pt, start_pt - end_pt);
-
-            println!("LINE {:#?}", line);
 
             let line_edge = ModelEdge::new(
                 0.into(),

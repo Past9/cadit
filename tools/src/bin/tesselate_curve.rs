@@ -84,7 +84,6 @@ impl App {
         // Create curve
 
         let curve = spline::nurbs_curve::NurbsCurve::<HSpace3>::example_crazy();
-        //let curve = spline::nurbs_curve::NurbsCurve::<HSpace3>::example_circle();
 
         let num_segments = 5000;
         let reference_edge = ModelEdge::new(
@@ -100,7 +99,7 @@ impl App {
             Rgba::BLACK,
         );
 
-        let tolerance = 0.1;
+        let tolerance = 0.00001;
         let beziers = curve.decompose();
 
         let start_time = Instant::now();

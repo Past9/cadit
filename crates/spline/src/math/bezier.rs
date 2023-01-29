@@ -41,7 +41,7 @@ where
     F: Fn(f64) -> (f64, f64),
 {
     let mut u = u_guess;
-    for _ in 0..max_iter {
+    for i in 0..max_iter {
         let (self_val, der_val) = eval(u);
 
         if self_val.abs() <= TOL {

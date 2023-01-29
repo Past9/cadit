@@ -26,7 +26,7 @@ impl EPlane3 {
         let mag = self.norm.magnitude();
         Self {
             norm: self.norm / mag,
-            d: self.d * mag,
+            d: self.d / mag,
         }
     }
 

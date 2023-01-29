@@ -190,6 +190,8 @@ impl App {
 
             let line = HSpace3::make_line(start_pt, start_pt - end_pt);
 
+            println!("LINE {:#?}", line);
+
             let line_edge = ModelEdge::new(
                 0.into(),
                 Edge {

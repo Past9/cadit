@@ -100,7 +100,7 @@ impl App {
             Rgba::BLACK,
         );
 
-        let tolerance = 6.0;
+        let tolerance = 0.01;
         let beziers = curve.decompose();
 
         let start_time = Instant::now();

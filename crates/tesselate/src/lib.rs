@@ -44,7 +44,6 @@ fn iter_tesselate_curve<H: HSpace>(
     tolerance: f64,
     tesselated: &TesselatedCurve<H>,
 ) -> Option<TesselatedCurve<H>> {
-    println!("ITER TESSELATION");
     let mut changed = false;
     let mut new_segments: Vec<CurveSegment<H>> = Vec::new();
 
@@ -55,11 +54,6 @@ fn iter_tesselate_curve<H: HSpace>(
             start = segment.end.clone();
             continue;
         }
-
-        println!(
-            "SPLIT \n\tSTART: {:?} \n\tMID: {:?} \n\tEND: {:?}",
-            start, segment.err, segment.end
-        );
 
         let (seg1, seg2) = split_segment(curve, &start, segment);
 
@@ -86,7 +80,6 @@ fn split_segment<H: HSpace>(
     start: &CurveVertex<H>,
     segment: &CurveSegment<H>,
 ) -> (CurveSegment<H>, CurveSegment<H>) {
-    println!("SEG 1");
     let seg1 = curve
         .hausdorff_to_line(
             &H::make_line_through_points(start.point, segment.err.point),
@@ -103,7 +96,6 @@ fn split_segment<H: HSpace>(
         })
         .expect("Cannot find Hausdorff");
 
-    println!("SEG 2");
     let seg2 = curve
         .hausdorff_to_line(
             &H::make_line_through_points(segment.err.point, segment.end.point),

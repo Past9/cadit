@@ -77,6 +77,10 @@ impl ELine3 {
         }
 
         if !p1.is_perpendicular_to(&p2) {
+            println!("pos {:?}", pos);
+            println!("dir {:?}", dir);
+            println!("P1 {:?}", p1);
+            println!("P2 {:?}", p2);
             panic!("Planes are not perpendicular");
         }
 

@@ -57,7 +57,7 @@ impl GuiViewport {
     }
 }
 
-const ZOOM_SENSITIVITY: f32 = 0.0002;
+const ZOOM_SENSITIVITY: f32 = 0.005;
 const ROTATION_SENSITIVITY: f32 = 0.007;
 const PAN_SENSITIVITY: f32 = 0.01;
 

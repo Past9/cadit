@@ -4,10 +4,7 @@ use render::{
     Rgba,
 };
 use space::{hspace::HSpace, EVector};
-use spline::{
-    bezier_curve::{BezierCurve, HausdorffResult},
-    nurbs_curve::NurbsCurve,
-};
+use spline::bezier_curve::{BezierCurve, HausdorffResult};
 
 pub fn tesselate_bezier_curve<H: HSpace>(
     curve: &BezierCurve<H>,
@@ -21,19 +18,17 @@ pub fn tesselate_bezier_curve<H: HSpace>(
             &H::make_line_through_points(start, end),
             Some(0.0),
             Some(1.0),
+            false,
         )
-        .map(|err| {
-            println!("INITIAL ERR {:?}", err);
-            TesselatedCurve {
-                start: CurveVertex {
-                    u: 0.0,
-                    point: start,
-                },
-                segments: vec![CurveSegment {
-                    err: err,
-                    end: CurveVertex { u: 1.0, point: end },
-                }],
-            }
+        .map(|err| TesselatedCurve {
+            start: CurveVertex {
+                u: 0.0,
+                point: start,
+            },
+            segments: vec![CurveSegment {
+                err: err,
+                end: CurveVertex { u: 1.0, point: end },
+            }],
         })
         .expect("Could not find Hausdorff distance");
 
@@ -49,6 +44,7 @@ fn iter_tesselate_curve<H: HSpace>(
     tolerance: f64,
     tesselated: &TesselatedCurve<H>,
 ) -> Option<TesselatedCurve<H>> {
+    println!("ITER TESSELATION");
     let mut changed = false;
     let mut new_segments: Vec<CurveSegment<H>> = Vec::new();
 
@@ -59,6 +55,11 @@ fn iter_tesselate_curve<H: HSpace>(
             start = segment.end.clone();
             continue;
         }
+
+        println!(
+            "SPLIT \n\tSTART: {:?} \n\tMID: {:?} \n\tEND: {:?}",
+            start, segment.err, segment.end
+        );
 
         let (seg1, seg2) = split_segment(curve, &start, segment);
 
@@ -85,14 +86,13 @@ fn split_segment<H: HSpace>(
     start: &CurveVertex<H>,
     segment: &CurveSegment<H>,
 ) -> (CurveSegment<H>, CurveSegment<H>) {
-    println!("\n\nSPLIT");
-
-    println!("LINE 1 {:?} to {:?}", start.point, segment.err.point);
+    println!("SEG 1");
     let seg1 = curve
         .hausdorff_to_line(
             &H::make_line_through_points(start.point, segment.err.point),
             Some(start.u),
             Some(segment.err.u),
+            false,
         )
         .map(|err| CurveSegment {
             err,
@@ -103,12 +103,13 @@ fn split_segment<H: HSpace>(
         })
         .expect("Cannot find Hausdorff");
 
-    println!("LINE 2 {:?} to {:?}", segment.err.point, segment.end.point);
+    println!("SEG 2");
     let seg2 = curve
         .hausdorff_to_line(
             &H::make_line_through_points(segment.err.point, segment.end.point),
             Some(segment.err.u),
             Some(segment.end.u),
+            false,
         )
         .map(|err| CurveSegment {
             err,
@@ -118,8 +119,6 @@ fn split_segment<H: HSpace>(
             },
         })
         .expect("Cannot find Hausdorff");
-
-    println!("SPLIT {:#?} \n{:#?}", seg1, seg2);
 
     (seg1, seg2)
 }

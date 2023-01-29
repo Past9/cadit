@@ -190,6 +190,7 @@ impl<H: HSpace> BezierCurve<H> {
         line: &H::EuclideanLine,
         min_u: Option<f64>,
         max_u: Option<f64>,
+        include_endpoints: bool,
     ) -> Vec<(f64, H::ProjectedVector)> {
         let (min_u, max_u) = {
             let min_u = min_u.unwrap_or(0.0);
@@ -203,9 +204,8 @@ impl<H: HSpace> BezierCurve<H> {
         };
 
         let try_point = |u_initial: f64, params: &mut Vec<f64>| {
-            println!("TRY POINT {}", u_initial);
-            let zero = newton_f64(u_initial, 10000, min_u, max_u, |u| {
-                //println!("U {}", u);
+            println!("TRY POINT {u_initial}");
+            let zero = newton_f64(u_initial, 1000000, min_u, max_u, |u| {
                 let ders: Vec<H::ProjectedVector> =
                     rational_bezier_derivatives::<H>(&self.control_points, u, 2);
 
@@ -214,6 +214,9 @@ impl<H: HSpace> BezierCurve<H> {
 
                 let num = ders[1].dot(&between);
                 let denom = ders[2].dot(&between) + ders[1].magnitude2();
+
+                let corr = num / denom;
+                println!("{u_initial} {min_u} {max_u} {u} {num} {corr}");
 
                 (num, denom)
             });
@@ -230,121 +233,19 @@ impl<H: HSpace> BezierCurve<H> {
             .map(|pt| pt.homogeneous_component())
             .sum();
 
-        /*
         let mut initial_us = Vec::new();
         let mut accum_weight = 0.0;
         for i in 0..self.degree() {
             accum_weight += self.control_points[i].homogeneous_component();
-            initial_us.push(accum_weight / total_weight);
-        }
-        */
+            let u = accum_weight / total_weight;
 
-        let initial_us = vec![(min_u + max_u) / 2.0];
-
-        //let initial_us: Vec<f64> = (0..=10).into_iter().map(|i| i as f64 / 10 as f64).collect();
-
-        println!("Initial Us {:?}", initial_us);
-        let mut skipped_start = false;
-        for u_initial in initial_us.into_iter() {
-            if u_initial < min_u {
-                skipped_start = true;
-            }
-
-            if skipped_start {
-                try_point(min_u, &mut params);
-                skipped_start = false;
-            }
-
-            if u_initial > max_u {
-                try_point(max_u, &mut params);
-                break;
-            }
-
-            try_point(u_initial, &mut params);
-        }
-
-        // Add the start point because it can also be furthest from the line
-        let mut points = Vec::new();
-        let start_point = self.point(min_u);
-        if !H::line_contains_projected_point(line, &start_point) {
-            points.push((min_u, start_point));
-        }
-
-        // Evaluate the Bezier curve to find the points at each param value
-        points.extend(params.into_iter().map(|u| (u, self.point(u))));
-
-        // Add the end point because it can also be furthest from the line
-        let end_point = self.point(max_u);
-        if !H::line_contains_projected_point(line, &end_point) {
-            points.push((max_u, end_point));
-        }
-
-        // Remove any duplicates if the Newton iteration converged on the same point(s)
-        points.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
-        points.dedup_by(|a, b| (a.1 - b.1).magnitude() <= TOL);
-
-        points
-    }
-
-    /*
-    pub fn hausdorff_to_line_candidates(
-        &self,
-        line: &H::EuclideanLine,
-        min_u: Option<f64>,
-        max_u: Option<f64>,
-    ) -> Vec<(f64, H::ProjectedVector)> {
-        let min_u = min_u.unwrap_or(0.0);
-        let max_u = max_u.unwrap_or(1.0);
-
-        // Get coefficients for an implicit bezier curve oriented so the line is
-        // along the X-axis. Finding the Hausdorff distance requires finding all the
-        // "peaks and valleys" of this curve, which are the same as where its derivative
-        // curve crosses the X-axis. Therefore we need to also create a derivative of
-        // the implicit curve (not the same as the implicit form of the derivative curve
-        // of this Bezier), and then also get the derivative of that for use in Newton
-        // iteration.
-        let implicit = self
-            .control_points
-            .iter()
-            .map(|pt| H::make_point_implicit_by_line(line, pt))
-            .collect::<Vec<_>>();
-
-        let mut ctrl_pts: Vec<Vec<HVec1>> = vec![Vec::new(); H::DIMENSIONS - 1];
-
-        for pt in implicit.into_iter() {
-            let dims = H::split_implicit_vec_dimensions(pt);
-            for d in 0..H::DIMENSIONS - 1 {
-                ctrl_pts[d].push(dims[d]);
+            if u >= min_u && u <= max_u {
+                initial_us.push(accum_weight / total_weight);
             }
         }
 
-        // Find the points where the first derivative in each dimension crosses an origin plane
-        // using Newton's method.
-        let try_point = |u_initial: f64, params: &mut Vec<f64>| {
-            for d in 0..H::DIMENSIONS - 1 {
-                let zero = newton_vec(u_initial, 20, min_u, max_u, |u| {
-                    let ders = rational_bezier_derivatives::<HSpace1>(&ctrl_pts[d], u, 2);
-                    (ders[1], ders[2])
-                });
-
-                if let Some(zero) = zero {
-                    params.push(zero);
-                }
-            }
-        };
-
-        let mut params = Vec::new();
-        let total_weight: f64 = self
-            .control_points
-            .iter()
-            .map(|pt| pt.homogeneous_component())
-            .sum();
-
-        let mut initial_us = Vec::new();
-        let mut accum_weight = 0.0;
-        for i in 0..self.degree() {
-            accum_weight += self.control_points[i].homogeneous_component();
-            initial_us.push(accum_weight / total_weight);
+        if initial_us.len() == 0 {
+            initial_us.push((min_u + max_u) / 2.0)
         }
 
         let mut skipped_start = false;
@@ -366,20 +267,26 @@ impl<H: HSpace> BezierCurve<H> {
             try_point(u_initial, &mut params);
         }
 
-        // Add the start point because it can also be furthest from the line
+        // All candidate points
         let mut points = Vec::new();
-        let start_point = self.point(min_u);
-        if !H::line_contains_projected_point(line, &start_point) {
-            points.push((min_u, start_point));
+
+        if include_endpoints {
+            // Add the start point because it can also be furthest from the line
+            let start_point = self.point(min_u);
+            if !H::line_contains_projected_point(line, &start_point) {
+                points.push((min_u, start_point));
+            }
         }
 
         // Evaluate the Bezier curve to find the points at each param value
         points.extend(params.into_iter().map(|u| (u, self.point(u))));
 
-        // Add the end point because it can also be furthest from the line
-        let end_point = self.point(max_u);
-        if !H::line_contains_projected_point(line, &end_point) {
-            points.push((max_u, end_point));
+        if include_endpoints {
+            // Add the end point because it can also be furthest from the line
+            let end_point = self.point(max_u);
+            if !H::line_contains_projected_point(line, &end_point) {
+                points.push((max_u, end_point));
+            }
         }
 
         // Remove any duplicates if the Newton iteration converged on the same point(s)
@@ -388,22 +295,18 @@ impl<H: HSpace> BezierCurve<H> {
 
         points
     }
-    */
 
     pub fn hausdorff_to_line(
         &self,
         line: &H::EuclideanLine,
         min_u: Option<f64>,
         max_u: Option<f64>,
+        include_endpoints: bool,
     ) -> Option<HausdorffResult<H>> {
-        println!("POINTS {:?}", self.control_points);
-        println!("LINE {:?}", line);
-        println!("MIN MAX U {:?}..{:?}", min_u, max_u);
-
         let mut max = 0.0;
         let mut max_u_and_point: Option<(f64, H::ProjectedVector)> = None;
 
-        let candidates = self.hausdorff_candidates(line, min_u, max_u);
+        let candidates = self.hausdorff_candidates(line, min_u, max_u, include_endpoints);
 
         for (u, point) in candidates {
             let dist = H::line_dist_to_projected_point(line, &point);

@@ -159,7 +159,7 @@ impl App {
                 HVec3::new(0.1, 0.0, 0.1, 1.0),
             ]);
 
-            let curve = BezierCurve::<HSpace3>::example_quarter_circle_xy();
+            //let curve = BezierCurve::<HSpace3>::example_quarter_circle_xy();
 
             let num_segments = 500;
             let curve_edge = ModelEdge::new(
@@ -178,8 +178,10 @@ impl App {
             (curve, curve_edge)
         };
 
-        let start_u = 1.0;
-        let end_u = 0.0;
+        //let start_u = 1.0;
+        //let end_u = 0.0;
+        let start_u = 0.0;
+        let end_u = 0.013175420102170307;
         let (line, line_edge) = {
             //let start = EVec3::new(-5.0, 3.5, 0.0);
             //let end = EVec3::new(5.0, -2.5, 0.0);
@@ -232,11 +234,11 @@ impl App {
         let hausdorff_points = {
             let min_u = Some(start_u);
             let max_u = Some(end_u);
-            let num_times = 1000;
+            let num_times = 1;
             let mut times = vec![0u128; num_times];
             for i in 0..num_times {
                 let start = Instant::now();
-                curve.hausdorff_to_line(&line, min_u, max_u);
+                curve.hausdorff_to_line(&line, min_u, max_u, true);
                 let dur = (Instant::now() - start).as_micros();
                 times[i] = dur;
             }
@@ -245,7 +247,7 @@ impl App {
                 times.into_iter().sum::<u128>() as f64 / num_times as f64
             );
 
-            let hausdorff = curve.hausdorff_to_line(&line, min_u, max_u);
+            let hausdorff = curve.hausdorff_to_line(&line, min_u, max_u, true);
 
             if let Some(ref hausdorff) = hausdorff {
                 println!("Hausdorff distance: {}", hausdorff.distance);
@@ -253,7 +255,7 @@ impl App {
                 println!("Hausdorff U: {}", hausdorff.u);
             }
 
-            let points = curve.hausdorff_candidates(&line, min_u, max_u);
+            let points = curve.hausdorff_candidates(&line, min_u, max_u, true);
             let hausdorff_points = points
                 .into_iter()
                 .map(|p| {
@@ -399,7 +401,6 @@ impl App {
                         ],
                         vec![],
                     ),
-                    /*
                     Camera::create_perspective(
                         [0, 0],
                         point3(0.0, 0.0, -6.0),
@@ -409,7 +410,7 @@ impl App {
                         0.01,
                         5.0,
                     ),
-                    */
+                    /*
                     Camera::create_orthographic(
                         [0, 0],
                         point3(0.0, 0.0, -20.0),
@@ -419,6 +420,7 @@ impl App {
                         0.01,
                         100.0,
                     ),
+                    */
                     vec![Model::new(
                         vec![],
                         vec![

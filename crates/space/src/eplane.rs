@@ -40,17 +40,7 @@ impl EPlane3 {
     }
 
     pub fn is_perpendicular_to(&self, other: &Self) -> bool {
-        println!(
-            "PERP DOT {} {:?} {:?}",
-            self.norm.dot(&other.norm),
-            self.norm,
-            other.norm
-        );
         self.norm.dot(&other.norm).abs() <= TOL
-        /*
-        (self.norm.x * other.norm.x + self.norm.y * other.norm.y + self.norm.z * other.norm.z).abs()
-            <= TOL
-            */
     }
 
     pub fn dist_to_point(&self, point: &EVec3) -> f64 {

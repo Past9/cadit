@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use cgmath::{point3, vec3, Deg, InnerSpace};
 use components::{rgba, scene::SceneViewer, Gui};
 use components::{run_window, Window, WindowDescriptor};
@@ -81,7 +83,8 @@ impl App {
 
         // Create curve
 
-        let curve = spline::nurbs_curve::NurbsCurve::<HSpace3>::example_circle();
+        let curve = spline::nurbs_curve::NurbsCurve::<HSpace3>::example_crazy();
+        //let curve = spline::nurbs_curve::NurbsCurve::<HSpace3>::example_circle();
 
         let num_segments = 5000;
         let reference_edge = ModelEdge::new(
@@ -97,16 +100,21 @@ impl App {
             Rgba::BLACK,
         );
 
-        let tolerance = 0.1;
+        let tolerance = 6.0;
         let beziers = curve.decompose();
+
+        let start_time = Instant::now();
         let tesselated_edges = beziers
             .iter()
             .map(|bezier| {
                 tesselate_bezier_curve(bezier, tolerance).to_model_edge(0.into(), Rgba::GREEN)
             })
             .collect::<Vec<_>>();
-
-        println!("TESSELATED {:?}", tesselated_edges);
+        println!(
+            "Tesselated to {} in {}us",
+            tolerance,
+            (Instant::now() - start_time).as_micros()
+        );
 
         Self {
             viewer: SceneViewer::new(

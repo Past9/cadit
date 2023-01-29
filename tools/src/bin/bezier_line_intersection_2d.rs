@@ -179,7 +179,7 @@ impl App {
             let mut times = vec![0u128; num_times];
             for i in 0..num_times {
                 let start = Instant::now();
-                curve.hausdorff_to_line(&line, None, None);
+                curve.hausdorff_to_line(&line, None, None, true);
                 let dur = (Instant::now() - start).as_micros();
                 times[i] = dur;
             }
@@ -188,13 +188,13 @@ impl App {
                 times.into_iter().sum::<u128>() as f64 / num_times as f64
             );
 
-            if let Some(hausdorff) = curve.hausdorff_to_line(&line, None, None) {
+            if let Some(hausdorff) = curve.hausdorff_to_line(&line, None, None, true) {
                 println!("Hausdorff distance: {}", hausdorff.distance);
                 println!("Hausdorff point: {:?}", hausdorff.point);
                 println!("Hausdorff U: {}", hausdorff.u);
             }
 
-            let points = curve.hausdorff_candidates(&line, None, None);
+            let points = curve.hausdorff_candidates(&line, None, None, true);
             let hausdorff_points = points
                 .into_iter()
                 .map(|p| {

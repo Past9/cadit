@@ -204,15 +204,16 @@ impl<H: HSpace> BezierCurve<H> {
         };
 
         let try_point = |u_initial: f64, params: &mut Vec<f64>| {
-            let zero = newton_f64(u_initial, 10000000, min_u, max_u, |u| {
+            let zero = newton_f64(u_initial, 10000, min_u, max_u, |u| {
                 let ders: Vec<H::ProjectedVector> =
                     rational_bezier_derivatives::<H>(&self.control_points, u, 2);
 
                 let closest = H::closest_to_point(line, &ders[0]);
-                let between = (closest - ders[0]);
+                let between = closest - ders[0];
 
                 let num = ders[1].dot(&between);
-                let denom = ders[2].dot(&between) + ders[1].magnitude2();
+                //let denom = ders[2].dot(&between) + ders[1].magnitude2();
+                let denom = ders[2].dot(&between) + ders[1].normalize().dot(&ders[1].normalize());
 
                 (num, denom)
             });

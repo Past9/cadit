@@ -211,9 +211,10 @@ impl<H: HSpace> BezierCurve<H> {
                 let closest = H::closest_to_point(line, &ders[0]);
                 let between = closest - ders[0];
 
+                let d1_norm = ders[1].normalize();
+
                 let num = ders[1].dot(&between);
-                //let denom = ders[2].dot(&between) + ders[1].magnitude2();
-                let denom = ders[2].dot(&between) + ders[1].normalize().dot(&ders[1].normalize());
+                let denom = ders[2].dot(&between) + d1_norm.dot(&d1_norm);
 
                 (num, denom)
             });

@@ -78,8 +78,9 @@ impl<H: HSpace> NurbsCurve<H> {
                     iterations: i,
                 });
             } else {
+                let d1_norm = ders[1].normalize();
                 let numerator = ders[1].dot(&vec_to_actual);
-                let denominator = ders[2].dot(&vec_to_actual) + ders[1].magnitude2();
+                let denominator = ders[2].dot(&vec_to_actual) + d1_norm.dot(&d1_norm);
                 u -= numerator / denominator;
             }
         }

@@ -11,7 +11,7 @@ use render::{
     Rgb, Rgba,
 };
 use space::hspace::HSpace3;
-use space::{EVector, HVec3};
+use space::EVector;
 use spline::math::FloatRange;
 
 pub fn main() {

@@ -1,6 +1,3 @@
-use std::f32::consts::E;
-use std::time::Instant;
-
 use cgmath::{point3, vec3, Deg, InnerSpace};
 use components::{rgba, scene::SceneViewer, Gui};
 use components::{run_window, Window, WindowDescriptor};
@@ -14,9 +11,10 @@ use render::{
     Rgb, Rgba,
 };
 use space::hspace::{HSpace, HSpace2};
-use space::{ELine, ELine2, EVec2, EVector, HVec2};
+use space::{EVec2, EVector, HVec2};
 use spline::bezier_curve::BezierCurve;
 use spline::math::FloatRange;
+use std::time::Instant;
 
 pub fn main() {
     run_window(

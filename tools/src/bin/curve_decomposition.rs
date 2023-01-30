@@ -11,7 +11,7 @@ use render::{
     Rgb, Rgba,
 };
 use space::hspace::HSpace2;
-use space::{EVector, HVec2};
+use space::EVector;
 use spline::math::FloatRange;
 use spline::nurbs_curve::NurbsCurve;
 

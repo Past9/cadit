@@ -1,6 +1,6 @@
 use space::{
     hspace::{HSpace, HSpace2, HSpace3},
-    EVec2, EVector, HVec2, HVec3, HVector,
+    EVec2, EVector, HVec2, HVec3,
 };
 
 use crate::{

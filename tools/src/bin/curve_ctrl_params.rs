@@ -11,7 +11,7 @@ use render::{
     Rgb, Rgba,
 };
 use space::hspace::{HSpace, HSpace2};
-use space::{EVector, HVec2, HVector};
+use space::{EVector, HVec2};
 use spline::math::FloatRange;
 use spline::{math::knot_vector::KnotVector, nurbs_curve::NurbsCurve};
 

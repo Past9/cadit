@@ -126,8 +126,8 @@ impl HSpace for HUnimplementedSpace {
     }
 
     fn closest_to_point(
-        line: &Self::EuclideanLine,
-        point: &Self::ProjectedVector,
+        _line: &Self::EuclideanLine,
+        _point: &Self::ProjectedVector,
     ) -> Self::ProjectedVector {
         unimplemented!()
     }
@@ -217,8 +217,8 @@ impl HSpace for HSpace1 {
     }
 
     fn closest_to_point(
-        line: &Self::EuclideanLine,
-        point: &Self::ProjectedVector,
+        _line: &Self::EuclideanLine,
+        _point: &Self::ProjectedVector,
     ) -> Self::ProjectedVector {
         unimplemented!()
     }
@@ -337,8 +337,8 @@ impl HSpace for HSpace2 {
     }
 
     fn closest_to_point(
-        line: &Self::EuclideanLine,
-        point: &Self::ProjectedVector,
+        _line: &Self::EuclideanLine,
+        _point: &Self::ProjectedVector,
     ) -> Self::ProjectedVector {
         todo!()
     }
@@ -463,35 +463,5 @@ impl HSpace for HSpace3 {
         vec: Self::ProjectedVector,
     ) -> <Self::Lower as HSpace>::ProjectedVector {
         EVec2 { x: vec.x, y: vec.y }
-    }
-}
-
-fn get_3d_plane_params(pos: EVec2, dir: EVec2) -> (f64, EVec2) {
-    let m = dir.y / dir.x;
-    let b = pos.y - m * pos.x;
-
-    let nearest = EVec2::new((-m * b) / (m.powi(2) + 1.0), b / (m.powi(2) + 1.0));
-    let d = nearest.magnitude();
-    let orth_vec = EVec2::new(-dir.y, dir.x);
-
-    (d, orth_vec)
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{EVec2, EVector, TOL};
-
-    use super::get_3d_plane_params;
-
-    #[test]
-    fn test_get_plane_params() {
-        let sqrt_2_2 = 2.0f64.sqrt() / 2.0;
-
-        let (d, vec) =
-            get_3d_plane_params(EVec2::new(-2.0, 3.0), EVec2::new(1.0, -1.0).normalize());
-
-        assert!((d - sqrt_2_2).abs() < TOL);
-        assert!((vec.x - sqrt_2_2).abs() < TOL);
-        assert!((vec.y - sqrt_2_2).abs() < TOL);
     }
 }

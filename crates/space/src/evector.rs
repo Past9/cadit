@@ -89,7 +89,7 @@ impl EVector for EVec1 {
         self.x * rhs.x
     }
 
-    fn cross(&self, rhs: &Self) -> Self {
+    fn cross(&self, _rhs: &Self) -> Self {
         todo!()
     }
 
@@ -122,7 +122,7 @@ impl EVector for EVec2 {
         self.x * rhs.x + self.y * rhs.y
     }
 
-    fn cross(&self, rhs: &Self) -> Self {
+    fn cross(&self, _rhs: &Self) -> Self {
         todo!()
     }
 
@@ -222,7 +222,7 @@ impl EVector for EVec4 {
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z + self.w * rhs.w
     }
 
-    fn cross(&self, rhs: &Self) -> Self {
+    fn cross(&self, _rhs: &Self) -> Self {
         todo!()
     }
 
@@ -264,7 +264,7 @@ impl EVector for EUnimplementedVector {
         unimplemented!()
     }
 
-    fn cross(&self, rhs: &Self) -> Self {
+    fn cross(&self, _rhs: &Self) -> Self {
         unimplemented!()
     }
 

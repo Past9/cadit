@@ -1,4 +1,3 @@
-use crate::{EVec1, EVec2, EVec3, EVec4, EVector};
 use std::{
     fmt::Debug,
     iter::Sum,
@@ -202,7 +201,7 @@ impl Neg for HUnimplementedVector {
     }
 }
 impl Sum for HUnimplementedVector {
-    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+    fn sum<I: Iterator<Item = Self>>(_iter: I) -> Self {
         unimplemented!()
     }
 }

@@ -7,15 +7,11 @@ use eframe::egui;
 use render::{
     camera::{Camera, CameraAngle},
     lights::DirectionalLight,
-    mesh::{Edge, EdgeVertex, Point},
-    model::{Material, Model, ModelEdge, ModelPoint},
+    model::{Material, Model},
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
 use space::hspace::HSpace3;
-use space::{EVector, HVec3};
-use spline::bezier_curve::BezierCurve;
-use spline::math::FloatRange;
 use tesselate::exact::tesselate_bezier_curve;
 use tesselate::naive;
 use tools::make_grid;

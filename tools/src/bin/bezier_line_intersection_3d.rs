@@ -13,7 +13,7 @@ use render::{
     Rgb, Rgba,
 };
 use space::hspace::{HSpace, HSpace3};
-use space::{ELine, ELine2, ELine3, EVec2, EVec3, EVector, HVec2, HVec3};
+use space::{EVector, HVec3};
 use spline::bezier_curve::BezierCurve;
 use spline::math::FloatRange;
 
@@ -128,22 +128,6 @@ impl App {
         };
 
         let (curve, curve_edge) = {
-            /*
-            let curve = BezierCurve::new(vec![
-                HVec3::new(-4.0, -1.0, -4.0, 1.0),
-                HVec3::new(-2.0, 4.0, -2.0, 10.0),
-                HVec3::new(2.0, -4.0, 2.0, 10.0),
-                HVec3::new(4.0, 1.0, 4.0, 1.0),
-            ]);
-            */
-
-            let curve = BezierCurve::<HSpace3>::new(vec![
-                HVec3::new(-4.0, -1.0, 0.0, 1.0),
-                HVec3::new(-2.0, 4.0, 2.0, 100.0),
-                HVec3::new(2.0, -4.0, 0.0, 10.0),
-                HVec3::new(4.0, 1.0, 0.0, 1.0),
-            ]);
-
             let curve = BezierCurve::<HSpace3>::new(vec![
                 HVec3::new(-4.1, -4.0, -4.0, 1.0),
                 HVec3::new(-7.0, 3.0, -12.0, 20.0),
@@ -158,8 +142,6 @@ impl App {
                 HVec3::new(1.0, 3.0, 10.0, 1.0),
                 HVec3::new(0.1, 0.0, 0.1, 1.0),
             ]);
-
-            //let curve = BezierCurve::<HSpace3>::example_quarter_circle_xy();
 
             let num_segments = 500;
             let curve_edge = ModelEdge::new(

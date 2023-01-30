@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 space = { path = "../space" }
 auto_ops = "0.3.0"
+once_cell = "1.17.0"

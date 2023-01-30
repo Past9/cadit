@@ -1,73 +1,52 @@
+use std::{
+    borrow::{Borrow, BorrowMut},
+    cell::{Cell, RefCell, RefMut},
+    ops::Deref,
+};
+
+use once_cell::unsync::OnceCell;
 use space::{
     hspace::{HSpace, HSpace2, HSpace3},
     EVector, HVec2, HVec3, HVector, TOL,
 };
 
 use crate::math::{
-    b_spline::curve_derivative_control_points,
     bezier::{
         decasteljau, differentiate_coefficients, newton_f64, newton_vec,
         rational_bezier_derivatives,
     },
-    knot_vector::KnotVector,
     FloatRange,
 };
 
 #[derive(Debug)]
 pub struct BezierCurve<H: HSpace> {
     control_points: Vec<H::Vector>,
+    weighted_control_points: OnceCell<Vec<H::WeightedVector>>,
 }
 impl<H: HSpace> BezierCurve<H> {
     pub fn new(control_points: Vec<H::Vector>) -> Self {
-        Self { control_points }
+        Self {
+            control_points,
+            weighted_control_points: OnceCell::new(),
+        }
+    }
+
+    fn weighted_control_points(&self) -> &[H::WeightedVector] {
+        self.weighted_control_points.get_or_init(|| {
+            self.control_points
+                .iter()
+                .map(|p| H::weight_vec(p.clone()))
+                .collect()
+        })
     }
 
     pub fn point(&self, u: f64) -> H::ProjectedVector {
-        let p = decasteljau(
-            &self
-                .control_points
-                .iter()
-                .map(|p| H::weight_vec(p.clone()))
-                .collect::<Vec<_>>(),
-            u,
-        );
-
+        let p = decasteljau(self.weighted_control_points(), u);
         H::project_vec(H::cast_vec_from_weighted(p))
     }
 
     pub fn degree(&self) -> usize {
         self.control_points.len() - 1
-    }
-
-    pub fn hodograph(&self) -> Self {
-        let kv = self
-            .control_points
-            .iter()
-            .map(|_| 0.0)
-            .chain(self.control_points.iter().map(|_| 1.0));
-
-        let cp = curve_derivative_control_points(
-            &self
-                .control_points
-                .iter()
-                .map(|pt| H::weight_vec(pt.clone()))
-                .collect::<Vec<_>>(),
-            self.degree(),
-            &KnotVector::from_iter(kv),
-            0,
-            self.control_points.len() - 1,
-            1,
-        )
-        .swap_remove(1)
-        .into_iter()
-        .take(self.degree())
-        .collect::<Vec<_>>();
-
-        Self::new(
-            cp.into_iter()
-                .map(|pt| H::cast_vec_from_weighted(pt))
-                .collect(),
-        )
     }
 
     pub fn line_intersection_plot(

@@ -12,7 +12,7 @@ use render::{
 use space::hspace::HSpace3;
 use std::time::Instant;
 use tesselate::exact::tesselate_bezier_curve;
-use tesselate::naive;
+use tesselate::naive::{self, tesselate_bezier_surface};
 use tools::make_grid;
 
 pub fn main() {
@@ -32,26 +32,9 @@ pub struct App {
 }
 impl App {
     pub fn new() -> Self {
-        let beziers = spline::nurbs_curve::NurbsCurve::<HSpace3>::example_crazy().decompose();
+        let surface = spline::bezier_surface::BezierSurface::<HSpace3>::example_simple();
 
-        let naive_edges = beziers
-            .iter()
-            .map(|b| naive::tesselate_bezier_curve(b, 5000, 0.into(), Rgba::BLACK))
-            .collect::<Vec<_>>();
-
-        let tolerance = 0.01;
-        let start_time = Instant::now();
-        let exact_edges = beziers
-            .iter()
-            .map(|bezier| {
-                tesselate_bezier_curve(bezier, tolerance).to_model_edge(0.into(), Rgba::GREEN)
-            })
-            .collect::<Vec<_>>();
-        println!(
-            "Tesselated to {} in {}us",
-            tolerance,
-            (Instant::now() - start_time).as_micros()
-        );
+        let model = tesselate_bezier_surface(&surface, 20, 0.into(), 0);
 
         Self {
             viewer: SceneViewer::new(
@@ -84,12 +67,8 @@ impl App {
                         5.0,
                     ),
                     vec![Model::new(
-                        vec![],
-                        make_grid(10, true, true, true)
-                            .into_iter()
-                            .chain(naive_edges)
-                            .chain(exact_edges)
-                            .collect(),
+                        vec![model],
+                        make_grid(10, true, true, true),
                         vec![],
                     )],
                     vec![Material::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],

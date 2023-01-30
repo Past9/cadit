@@ -15,7 +15,7 @@ impl SurfaceVertex {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Surface {
     pub vertices: Vec<SurfaceVertex>,
     pub indices: Vec<u32>,

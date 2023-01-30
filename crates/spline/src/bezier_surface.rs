@@ -1,5 +1,8 @@
 use once_cell::unsync::OnceCell;
-use space::hspace::HSpace;
+use space::{
+    hspace::{HSpace, HSpace3},
+    HVec3,
+};
 
 use crate::math::bezier::decasteljau2;
 
@@ -40,5 +43,26 @@ impl<H: HSpace> BezierSurface<H> {
 
     pub fn degree_v(&self) -> usize {
         self.control_points[0].len() - 1
+    }
+}
+impl BezierSurface<HSpace3> {
+    pub fn example_simple() -> Self {
+        Self::new(Vec::from([
+            Vec::from([
+                HVec3::new(-1.0, 0.0, -1.0, 1.0),
+                HVec3::new(0.0, 0.0, -1.0, 1.0),
+                HVec3::new(1.0, 0.0, -1.0, 1.0),
+            ]),
+            Vec::from([
+                HVec3::new(-1.0, 0.0, 0.0, 1.0),
+                HVec3::new(0.0, -2.0, 0.0, 1.0),
+                HVec3::new(1.0, 0.0, 0.0, 1.0),
+            ]),
+            Vec::from([
+                HVec3::new(-1.0, 0.0, 1.0, 1.0),
+                HVec3::new(0.0, 0.0, 1.0, 1.0),
+                HVec3::new(1.0, 0.0, 1.0, 1.0),
+            ]),
+        ]))
     }
 }

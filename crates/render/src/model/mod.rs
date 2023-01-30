@@ -70,7 +70,7 @@ impl BufferedPointVertex {
 }
 vulkano::impl_vertex!(BufferedPointVertex, position, expand, color);
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ModelSurface {
     id: ModelObjectId,
     surface: Surface,

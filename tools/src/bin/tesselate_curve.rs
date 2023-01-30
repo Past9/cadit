@@ -16,7 +16,9 @@ use space::hspace::HSpace3;
 use space::{EVector, HVec3};
 use spline::bezier_curve::BezierCurve;
 use spline::math::FloatRange;
-use tesselate::tesselate_bezier_curve;
+use tesselate::exact::tesselate_bezier_curve;
+use tesselate::naive;
+use tools::make_grid;
 
 pub fn main() {
     run_window(
@@ -35,75 +37,16 @@ pub struct App {
 }
 impl App {
     pub fn new() -> Self {
-        // Create grid
-        let grid_lines = {
-            let gs = 5;
-            let color = rgba(0.0, 0.075, 0.15, 1.0);
-            let grid_lines = (-gs..=gs)
-                .map(|x| {
-                    ModelEdge::new(
-                        0.into(),
-                        Edge {
-                            vertices: vec![
-                                EdgeVertex {
-                                    position: [x as f32, gs as f32, 0.0],
-                                    expand: [0.0, 0.0, 0.0],
-                                },
-                                EdgeVertex {
-                                    position: [x as f32, -gs as f32, 0.0],
-                                    expand: [0.0, 0.0, 0.0],
-                                },
-                            ],
-                        },
-                        color,
-                    )
-                })
-                .chain((-gs..=gs).map(|y| {
-                    ModelEdge::new(
-                        0.into(),
-                        Edge {
-                            vertices: vec![
-                                EdgeVertex {
-                                    position: [gs as f32, y as f32, 0.0],
-                                    expand: [0.0, 0.0, 0.0],
-                                },
-                                EdgeVertex {
-                                    position: [-gs as f32, y as f32, 0.0],
-                                    expand: [0.0, 0.0, 0.0],
-                                },
-                            ],
-                        },
-                        color,
-                    )
-                }))
-                .collect::<Vec<_>>();
+        let beziers = spline::nurbs_curve::NurbsCurve::<HSpace3>::example_circle().decompose();
 
-            grid_lines
-        };
+        let naive_edges = beziers
+            .iter()
+            .map(|b| naive::tesselate_bezier_curve(b, 5000, 0.into(), Rgba::BLACK))
+            .collect::<Vec<_>>();
 
-        // Create curve
-
-        let curve = spline::nurbs_curve::NurbsCurve::<HSpace3>::example_crazy();
-
-        let num_segments = 5000;
-        let reference_edge = ModelEdge::new(
-            0.into(),
-            Edge {
-                vertices: FloatRange::new(curve.min_u(), curve.max_u(), num_segments)
-                    .map(|u| EdgeVertex {
-                        position: curve.point(u).f32s(),
-                        expand: [0.0, 0.0, 0.0],
-                    })
-                    .collect::<Vec<_>>(),
-            },
-            Rgba::BLACK,
-        );
-
-        let tolerance = 0.00001;
-        let beziers = curve.decompose();
-
+        let tolerance = 0.01;
         let start_time = Instant::now();
-        let tesselated_edges = beziers
+        let exact_edges = beziers
             .iter()
             .map(|bezier| {
                 tesselate_bezier_curve(bezier, tolerance).to_model_edge(0.into(), Rgba::GREEN)
@@ -147,10 +90,10 @@ impl App {
                     ),
                     vec![Model::new(
                         vec![],
-                        vec![reference_edge]
+                        make_grid(5, true, true, true)
                             .into_iter()
-                            .chain(grid_lines.into_iter())
-                            .chain(tesselated_edges)
+                            .chain(naive_edges)
+                            .chain(exact_edges)
                             .collect(),
                         vec![],
                     )],

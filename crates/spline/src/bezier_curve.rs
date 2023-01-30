@@ -12,8 +12,7 @@ use space::{
 
 use crate::math::{
     bezier::{
-        decasteljau, differentiate_coefficients, newton_f64, newton_vec,
-        rational_bezier_derivatives,
+        decasteljau, differentiate_coefficients, newton_f64, newton_vec, rational_curve_derivatives,
     },
     FloatRange,
 };
@@ -148,6 +147,7 @@ impl<H: HSpace> BezierCurve<H> {
             .control_points
             .iter()
             .map(|pt| H::make_point_implicit_by_line(line, pt))
+            .map(|pt| <H::Lower as HSpace>::weight_vec(pt))
             .collect::<Vec<_>>();
 
         let mut self_points = Vec::new();
@@ -155,7 +155,7 @@ impl<H: HSpace> BezierCurve<H> {
         let mut der2_points = Vec::new();
 
         for u in FloatRange::new(0.0, 1.0, segments) {
-            let ders = rational_bezier_derivatives::<H::Lower>(&ctrl_pts, u, 2);
+            let ders = rational_curve_derivatives::<H::Lower>(&ctrl_pts, u, 2);
             self_points.push((u, ders[0]));
             der1_points.push((u, ders[1]));
             der2_points.push((u, ders[2]));
@@ -185,7 +185,7 @@ impl<H: HSpace> BezierCurve<H> {
         let try_point = |u_initial: f64, params: &mut Vec<f64>| {
             let zero = newton_f64(u_initial, 10000, min_u, max_u, |u| {
                 let ders: Vec<H::ProjectedVector> =
-                    rational_bezier_derivatives::<H>(&self.control_points, u, 2);
+                    rational_curve_derivatives::<H>(&self.weighted_control_points(), u, 2);
 
                 let closest = H::closest_to_point(line, &ders[0]);
                 let between = closest - ders[0];

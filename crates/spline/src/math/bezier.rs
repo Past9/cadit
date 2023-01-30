@@ -110,22 +110,125 @@ pub fn differentiate_coefficients<C: EVector>(coefficients: &[C]) -> Vec<C> {
     derivative
 }
 
-pub fn rational_bezier_derivatives<H: HSpace>(
-    control_points: &[H::Vector],
+pub fn rational_surface_derivatives<H: HSpace>(
+    control_points: &[Vec<H::WeightedVector>],
+    num_ders: usize,
+    u: f64,
+    v: f64,
+) -> Vec<Vec<H::ProjectedVector>> {
+    let ders = surface_derivatives_1(control_points, num_ders, u, v)
+        .into_iter()
+        .map(|row| {
+            row.into_iter()
+                .map(H::cast_vec_from_weighted)
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
+    surface_derivatives::<H>(&ders, num_ders)
+}
+
+pub fn surface_derivatives<H: HSpace>(
+    weighted_derivatives: &[Vec<H::Vector>],
+    num_derivatives: usize,
+) -> Vec<Vec<H::ProjectedVector>> {
+    let mut derivatives =
+        vec![vec![H::ProjectedVector::zero(); num_derivatives + 1]; num_derivatives + 1];
+
+    for k in 0..=num_derivatives {
+        for l in 0..=(num_derivatives - k) {
+            let mut v = H::euclidean_vec_components(weighted_derivatives[k][l]);
+            for j in 1..=l {
+                v = v - derivatives[k][l - j]
+                    * binomial_coefficient(l, j)
+                    * weighted_derivatives[0][j].homogeneous_component();
+            }
+
+            for i in 1..=k {
+                v = v - derivatives[k - i][l]
+                    * binomial_coefficient(k, i)
+                    * weighted_derivatives[i][0].homogeneous_component();
+
+                let mut v2 = H::ProjectedVector::zero();
+                for j in 1..=l {
+                    v2 = v2
+                        + derivatives[k - i][l - j]
+                            * binomial_coefficient(l, j)
+                            * weighted_derivatives[i][j].homogeneous_component();
+                }
+
+                v = v - v2 * binomial_coefficient(k, i);
+            }
+
+            derivatives[k][l] = v / weighted_derivatives[0][0].homogeneous_component();
+        }
+    }
+
+    derivatives
+}
+
+fn surface_derivatives_1<E: EVector>(
+    control_points: &[Vec<E>],
+    num_derivatives: usize,
+    u: f64,
+    v: f64,
+) -> Vec<Vec<E>> {
+    let num_points_u = control_points.len();
+    let num_points_v = control_points[0].len();
+
+    let degree_u = num_points_u - 1;
+    let degree_v = num_points_v - 1;
+
+    let du = usize::min(num_derivatives, degree_u);
+    let dv = usize::min(num_derivatives, degree_v);
+    let mut derivatives = vec![vec![E::zero(); dv + 1]; du + 1];
+
+    for k in (degree_u + 1)..=num_derivatives {
+        for l in 0..=(num_derivatives - k) {
+            println!("K L {k} {l}");
+            derivatives[k][l] = E::zero();
+        }
+    }
+
+    for l in (degree_v + 1)..=num_derivatives {
+        for k in 0..=(num_derivatives - l) {
+            derivatives[k][l] = E::zero();
+        }
+    }
+
+    let basis_derivative_values_u = eval_basis_function_derivatives(degree_u, num_derivatives, u);
+    let basis_derivative_values_v = eval_basis_function_derivatives(degree_v, num_derivatives, v);
+
+    let mut temp = vec![E::zero(); degree_v + 1];
+
+    for k in 0..=du {
+        for s in 0..=degree_v {
+            temp[s] = E::zero();
+            for r in 0..=degree_u {
+                temp[s] = temp[s] + control_points[r][s] * basis_derivative_values_u[k][r];
+            }
+        }
+        let dd = usize::min(num_derivatives - k, dv);
+        for l in 0..=dd {
+            derivatives[k][l] = E::zero();
+            for s in 0..=degree_v {
+                derivatives[k][l] = derivatives[k][l] + temp[s] * basis_derivative_values_v[l][s];
+            }
+        }
+    }
+
+    derivatives
+}
+
+pub fn rational_curve_derivatives<H: HSpace>(
+    control_points: &[H::WeightedVector],
     u: f64,
     num_ders: usize,
 ) -> Vec<H::ProjectedVector> {
-    let ders = curve_derivatives_1(
-        &control_points
-            .iter()
-            .map(|p| H::weight_vec(*p))
-            .collect::<Vec<_>>(),
-        num_ders,
-        u,
-    )
-    .into_iter()
-    .map(H::cast_vec_from_weighted)
-    .collect::<Vec<_>>();
+    let ders = curve_derivatives_1(&control_points, num_ders, u)
+        .into_iter()
+        .map(H::cast_vec_from_weighted)
+        .collect::<Vec<_>>();
 
     curve_derivatives::<H>(&ders, num_ders)
 }
@@ -147,22 +250,22 @@ fn curve_derivatives_1<E: EVector>(control_points: &[E], num_derivatives: usize,
 }
 
 pub fn curve_derivatives<H: HSpace>(
-    weighted_derivatives: &[H::Vector],
+    ders: &[H::Vector],
     num_derivatives: usize,
 ) -> Vec<H::ProjectedVector> {
-    let mut derivatives = vec![H::ProjectedVector::zero(); num_derivatives + 1];
+    let mut projected_ders = vec![H::ProjectedVector::zero(); num_derivatives + 1];
 
     for k in 0..=num_derivatives {
-        let mut v = H::euclidean_vec_components(weighted_derivatives[k]);
+        let mut v = H::euclidean_vec_components(ders[k]);
         for i in 1..=k {
-            v = v - derivatives[k - i]
+            v = v - projected_ders[k - i]
                 * binomial_coefficient(k, i)
-                * weighted_derivatives[i].homogeneous_component();
+                * ders[i].homogeneous_component();
         }
-        derivatives[k] = v / weighted_derivatives[0].homogeneous_component();
+        projected_ders[k] = v / ders[0].homogeneous_component();
     }
 
-    derivatives
+    projected_ders
 }
 
 pub fn eval_basis_function_derivatives(degree: usize, num_ders: usize, u: f64) -> Vec<Vec<f64>> {

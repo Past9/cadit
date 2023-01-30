@@ -14,16 +14,19 @@ pub fn tesselate_bezier_surface<H: HSpace>(
     let mut vertices: Vec<SurfaceVertex> = Vec::with_capacity(segments.pow(2));
     for v in FloatRange::new(0.0, 1.0, segments) {
         for u in FloatRange::new(0.0, 1.0, segments) {
+            let ders = surface.derivatives(u, v, 1);
+            let point = ders[0][0];
+            let normal = ders[0][1].cross(&ders[1][0]).normalize();
             vertices.push(SurfaceVertex {
-                position: surface.point(u, v).f32s(),
-                normal: [0.0, -1.0, 0.0],
+                position: point.f32s(),
+                normal: normal.f32s(),
             });
         }
     }
 
     let mut indices = Vec::new();
-    for v in 1..=segments as u32 {
-        for u in 1..=segments as u32 {
+    for u in 1..=segments as u32 {
+        for v in 1..=segments as u32 {
             // Quad corners
             let bl = index(u - 1, v - 1, segments as u32); // Bottom left
             let br = index(u, v - 1, segments as u32); // Bottom right
@@ -46,5 +49,5 @@ pub fn tesselate_bezier_surface<H: HSpace>(
 }
 
 fn index(u: u32, v: u32, segments: u32) -> u32 {
-    v * (segments + 1) + u
+    u * (segments + 1) + v
 }

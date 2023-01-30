@@ -1,6 +1,6 @@
 use cgmath::{point3, vec3, Deg, InnerSpace};
+use components::{rgb, run_window, Window, WindowDescriptor};
 use components::{rgba, scene::SceneViewer, Gui};
-use components::{run_window, Window, WindowDescriptor};
 use eframe::egui;
 use render::{
     camera::{Camera, CameraAngle},
@@ -48,10 +48,14 @@ impl App {
                     SceneLights::new(
                         vec![],
                         vec![
-                            DirectionalLight::new(vec3(1.0, 0.0, 1.0).normalize(), Rgb::BLUE, 1.0),
+                            DirectionalLight::new(
+                                vec3(1.0, 0.0, 1.0).normalize(),
+                                rgb(0.3, 0.3, 0.5),
+                                1.0,
+                            ),
                             DirectionalLight::new(
                                 vec3(-1.0, 0.0, 1.0).normalize(),
-                                Rgb::YELLOW,
+                                rgb(0.5, 0.5, 0.3),
                                 1.0,
                             ),
                         ],
@@ -59,7 +63,7 @@ impl App {
                     ),
                     Camera::create_perspective(
                         [0, 0],
-                        point3(0.0, 0.0, -1.0),
+                        point3(0.0, 0.0, -3.0),
                         vec3(0.0, 0.0, 1.0),
                         vec3(0.0, -1.0, 0.0).normalize(),
                         Deg(70.0).into(),
@@ -71,7 +75,7 @@ impl App {
                         make_grid(10, true, true, true),
                         vec![],
                     )],
-                    vec![Material::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],
+                    vec![Material::new(rgba(0.8, 0.8, 0.8, 1.0), 0.5)],
                 ),
             ),
         }

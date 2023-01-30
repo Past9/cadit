@@ -4,7 +4,7 @@ use space::{
     HVec3,
 };
 
-use crate::math::bezier::decasteljau2;
+use crate::math::bezier::{decasteljau2, rational_surface_derivatives};
 
 pub struct BezierSurface<H: HSpace> {
     control_points: Vec<Vec<H::Vector>>,
@@ -37,6 +37,10 @@ impl<H: HSpace> BezierSurface<H> {
         H::project_vec(H::cast_vec_from_weighted(p))
     }
 
+    pub fn derivatives(&self, u: f64, v: f64, num_ders: usize) -> Vec<Vec<H::ProjectedVector>> {
+        rational_surface_derivatives::<H>(&self.weighted_control_points(), num_ders, u, v)
+    }
+
     pub fn degree_u(&self) -> usize {
         self.control_points.len() - 1
     }
@@ -55,7 +59,7 @@ impl BezierSurface<HSpace3> {
             ]),
             Vec::from([
                 HVec3::new(-1.0, 0.0, 0.0, 1.0),
-                HVec3::new(0.0, -2.0, 0.0, 1.0),
+                HVec3::new(0.0, -2.0, 0.0, 2.0),
                 HVec3::new(1.0, 0.0, 0.0, 1.0),
             ]),
             Vec::from([

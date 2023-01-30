@@ -37,7 +37,7 @@ pub struct App {
 }
 impl App {
     pub fn new() -> Self {
-        let beziers = spline::nurbs_curve::NurbsCurve::<HSpace3>::example_circle().decompose();
+        let beziers = spline::nurbs_curve::NurbsCurve::<HSpace3>::example_crazy().decompose();
 
         let naive_edges = beziers
             .iter()
@@ -81,7 +81,7 @@ impl App {
                     ),
                     Camera::create_perspective(
                         [0, 0],
-                        point3(-0.25, -0.5, -1.0),
+                        point3(0.0, 0.0, -1.0),
                         vec3(0.0, 0.0, 1.0),
                         vec3(0.0, -1.0, 0.0).normalize(),
                         Deg(70.0).into(),
@@ -90,7 +90,7 @@ impl App {
                     ),
                     vec![Model::new(
                         vec![],
-                        make_grid(5, true, true, true)
+                        make_grid(10, true, true, true)
                             .into_iter()
                             .chain(naive_edges)
                             .chain(exact_edges)

@@ -1,4 +1,4 @@
-use components::rgba;
+use components::{rgba, Rgba};
 use render::{
     mesh::{Edge, EdgeVertex},
     model::ModelEdge,
@@ -25,7 +25,10 @@ pub fn make_grid(size: usize, xy: bool, xz: bool, yz: bool) -> Vec<ModelEdge> {
                             },
                         ],
                     },
-                    color,
+                    match x == 0 {
+                        true => Rgba::DARK_GREEN,
+                        false => color,
+                    },
                 )
             })
             .chain((-gs..=gs).map(|y| {
@@ -43,7 +46,10 @@ pub fn make_grid(size: usize, xy: bool, xz: bool, yz: bool) -> Vec<ModelEdge> {
                             },
                         ],
                     },
-                    color,
+                    match y == 0 {
+                        true => Rgba::DARK_RED,
+                        false => color,
+                    },
                 )
             }))
             .collect()
@@ -68,7 +74,10 @@ pub fn make_grid(size: usize, xy: bool, xz: bool, yz: bool) -> Vec<ModelEdge> {
                             },
                         ],
                     },
-                    color,
+                    match x == 0 {
+                        true => Rgba::DARK_BLUE,
+                        false => color,
+                    },
                 )
             })
             .chain((-gs..=gs).map(|z| {
@@ -86,7 +95,10 @@ pub fn make_grid(size: usize, xy: bool, xz: bool, yz: bool) -> Vec<ModelEdge> {
                             },
                         ],
                     },
-                    color,
+                    match z == 0 {
+                        true => Rgba::DARK_RED,
+                        false => color,
+                    },
                 )
             }))
             .collect()
@@ -111,7 +123,10 @@ pub fn make_grid(size: usize, xy: bool, xz: bool, yz: bool) -> Vec<ModelEdge> {
                             },
                         ],
                     },
-                    color,
+                    match y == 0 {
+                        true => Rgba::DARK_BLUE,
+                        false => color,
+                    },
                 )
             })
             .chain((-gs..=gs).map(|z| {
@@ -129,7 +144,10 @@ pub fn make_grid(size: usize, xy: bool, xz: bool, yz: bool) -> Vec<ModelEdge> {
                             },
                         ],
                     },
-                    color,
+                    match z == 0 {
+                        true => Rgba::DARK_GREEN,
+                        false => color,
+                    },
                 )
             }))
             .collect()

@@ -63,9 +63,9 @@ impl EguiTransfer {
             let subpass = resources.subpass.clone();
 
             let egui_vs =
-                egui_vs::load(queue.device().clone()).expect("failed to create shader module");
+                egui_vs::load(queue.device().clone()).expect("failed to create vertex shader");
             let egui_fs =
-                egui_fs::load(queue.device().clone()).expect("failed to create shader module");
+                egui_fs::load(queue.device().clone()).expect("failed to create fragment shader");
 
             GraphicsPipeline::start()
                 .input_assembly_state(InputAssemblyState::new())

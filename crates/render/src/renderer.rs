@@ -20,6 +20,7 @@ use vulkano::{
     memory::allocator::StandardMemoryAllocator,
     pipeline::{
         graphics::{
+            color_blend::{ColorBlendAttachmentState, ColorBlendState, ColorComponents},
             depth_stencil::{CompareOp, DepthState, DepthStencilState},
             input_assembly::{InputAssemblyState, PrimitiveTopology},
             multisample::MultisampleState,
@@ -88,9 +89,9 @@ impl Renderer {
             render_pass,
             images,
             opaque_surface_pipeline,
-            translucent_surface_pipeline,
             edge_pipeline,
             point_pipeline,
+            translucent_surface_pipeline,
         ) = Self::create_pipelines(msaa_samples, &scissor, memory_allocator, queue);
 
         let (opaque_surface_vertex_buffer, opaque_surface_index_buffer) =
@@ -139,6 +140,8 @@ impl Renderer {
                 WriteDescriptorSet::buffer(1, ambient_light_buffer),
                 WriteDescriptorSet::buffer(2, directional_light_buffer),
                 WriteDescriptorSet::buffer(3, translucent_material_buffer),
+                WriteDescriptorSet::image_view(4, images.opaque.clone()),
+                WriteDescriptorSet::image_view(5, images.depth.clone()),
             ],
         )
         .unwrap();
@@ -200,83 +203,66 @@ impl Renderer {
         Arc<GraphicsPipeline>,
     ) {
         let device = queue.device();
-        let render_pass = {
-            if msaa_samples == SampleCount::Sample1 {
-                vulkano::single_pass_renderpass!(
-                    device.clone(),
-                    attachments: {
-                        depth: {
-                            load: Clear,
-                            store: DontCare,
-                            format: Format::D32_SFLOAT,
-                            samples: 1,
-                        },
-                        color: {
-                            load: Clear,
-                            store: Store,
-                            format: IMAGE_FORMAT,
-                            samples: 1,
-                        }
-                    },
-                    pass: {
-                        color: [color],
-                        depth_stencil: {depth}
-                    }
-                )
-                .unwrap()
-            } else {
-                vulkano::ordered_passes_renderpass!(
-                    device.clone(),
-                    attachments: {
-                        intermediary: {
-                            load: Clear,
-                            store: DontCare,
-                            format: IMAGE_FORMAT,
-                            samples: msaa_samples,
-                        },
-                        depth: {
-                            load: Clear,
-                            store: DontCare,
-                            format: Format::D32_SFLOAT,
-                            samples: msaa_samples,
-                        },
-                        color: {
-                            load: DontCare,
-                            store: Store,
-                            format: IMAGE_FORMAT,
-                            samples: 1,
-                        }
-                    },
-                    passes: [
-                        {
-                            color: [intermediary],
-                            depth_stencil: {depth},
-                            input: [],
-                            resolve: [color]
-                        },
-                        {
-                            color: [intermediary],
-                            depth_stencil: {depth},
-                            input: [],
-                            resolve: [color]
-                        },
-                        {
-                            color: [intermediary],
-                            depth_stencil: {depth},
-                            input: [],
-                            resolve: [color]
-                        },
-                        {
-                            color: [intermediary],
-                            depth_stencil: {depth},
-                            input: [],
-                            resolve: [color]
-                        }
-                    ]
-                )
-                .unwrap()
-            }
-        };
+        let render_pass = vulkano::ordered_passes_renderpass!(
+            device.clone(),
+            attachments: {
+                opaque: {
+                    load: Clear,
+                    store: Store,
+                    format: IMAGE_FORMAT,
+                    samples: msaa_samples,
+                },
+                translucent: {
+                    load: Clear,
+                    store: Store,
+                    format: IMAGE_FORMAT,
+                    samples: msaa_samples,
+                },
+                depth: {
+                    load: Clear,
+                    store: Store,
+                    format: Format::D32_SFLOAT,
+                    samples: msaa_samples,
+                },
+                color: {
+                    load: Clear,
+                    store: Store,
+                    format: IMAGE_FORMAT,
+                    samples: 1,
+                }
+            },
+            passes: [
+                // Opaque surfaces
+                {
+                    color: [opaque],
+                    depth_stencil: {depth},
+                    input: [],
+                    resolve: [color],
+                },
+                // Edges
+                {
+                    color: [opaque],
+                    depth_stencil: {depth},
+                    input: [],
+                    resolve: [color],
+                },
+                // Points
+                {
+                    color: [opaque],
+                    depth_stencil: {depth},
+                    input: [],
+                    resolve: [color],
+                },
+                // Translucent surfaces
+                {
+                    color: [translucent],
+                    depth_stencil: {},
+                    input: [opaque, depth]
+                    resolve: [color],
+                }
+            ]
+        )
+        .unwrap();
 
         let images = RendererImages::new(
             render_pass.clone(),
@@ -329,48 +315,6 @@ impl Renderer {
             .build(device.clone())
             .unwrap();
 
-        let translucent_surface_pipeline = GraphicsPipeline::start()
-            .vertex_input_state(BuffersDefinition::new().vertex::<BufferedSurfaceVertex>())
-            .vertex_shader(
-                surface_vs::load(device.clone())
-                    .unwrap()
-                    .entry_point("main")
-                    .unwrap(),
-                (),
-            )
-            .input_assembly_state(
-                InputAssemblyState::new().topology(PrimitiveTopology::TriangleList),
-            )
-            .rasterization_state(RasterizationState {
-                front_face: StateMode::Fixed(FrontFace::CounterClockwise),
-                cull_mode: StateMode::Fixed(CullMode::Back),
-                ..RasterizationState::default()
-            })
-            .multisample_state(MultisampleState {
-                rasterization_samples: msaa_samples,
-                sample_shading: Some(0.5),
-                ..Default::default()
-            })
-            .depth_stencil_state(DepthStencilState {
-                depth: Some(DepthState {
-                    enable_dynamic: false,
-                    write_enable: StateMode::Fixed(true),
-                    compare_op: StateMode::Fixed(CompareOp::Always),
-                }),
-                ..DepthStencilState::default()
-            })
-            .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
-            .fragment_shader(
-                translucent_surface_fs::load(device.clone())
-                    .unwrap()
-                    .entry_point("main")
-                    .unwrap(),
-                (),
-            )
-            .render_pass(Subpass::from(render_pass.clone(), 1).unwrap())
-            .build(device.clone())
-            .unwrap();
-
         let edge_pipeline = GraphicsPipeline::start()
             .vertex_input_state(BuffersDefinition::new().vertex::<BufferedEdgeVertex>())
             .vertex_shader(
@@ -413,7 +357,7 @@ impl Renderer {
                     .unwrap(),
                 (),
             )
-            .render_pass(Subpass::from(render_pass.clone(), 2).unwrap())
+            .render_pass(Subpass::from(render_pass.clone(), 1).unwrap())
             .build(device.clone())
             .unwrap();
 
@@ -453,6 +397,61 @@ impl Renderer {
                     .unwrap(),
                 (),
             )
+            .render_pass(Subpass::from(render_pass.clone(), 2).unwrap())
+            .build(device.clone())
+            .unwrap();
+
+        let translucent_surface_pipeline = GraphicsPipeline::start()
+            .vertex_input_state(BuffersDefinition::new().vertex::<BufferedSurfaceVertex>())
+            .vertex_shader(
+                surface_vs::load(device.clone())
+                    .unwrap()
+                    .entry_point("main")
+                    .unwrap(),
+                (),
+            )
+            .input_assembly_state(
+                InputAssemblyState::new().topology(PrimitiveTopology::TriangleList),
+            )
+            .rasterization_state(RasterizationState {
+                front_face: StateMode::Fixed(FrontFace::CounterClockwise),
+                cull_mode: StateMode::Fixed(CullMode::Back),
+                ..RasterizationState::default()
+            })
+            .multisample_state(MultisampleState {
+                rasterization_samples: msaa_samples,
+                sample_shading: Some(0.5),
+                ..Default::default()
+            })
+            .depth_stencil_state(DepthStencilState {
+                depth: Some(DepthState {
+                    enable_dynamic: false,
+                    write_enable: StateMode::Fixed(true),
+                    compare_op: StateMode::Fixed(CompareOp::Always),
+                }),
+                ..DepthStencilState::default()
+            })
+            .color_blend_state(
+                ColorBlendState::new(1), /*ColorBlendState {
+                                             // TODO: Disable color blending?
+                                             attachments: (0..1)
+                                                 .map(|_| ColorBlendAttachmentState {
+                                                     blend: None,
+                                                     color_write_mask: ColorComponents::all(),
+                                                     color_write_enable: StateMode::Fixed(true),
+                                                 })
+                                                 .collect(),
+                                             ..ColorBlendState::default()
+                                         }*/
+            )
+            .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
+            .fragment_shader(
+                translucent_surface_fs::load(device.clone())
+                    .unwrap()
+                    .entry_point("main")
+                    .unwrap(),
+                (),
+            )
             .render_pass(Subpass::from(render_pass.clone(), 3).unwrap())
             .build(device.clone())
             .unwrap();
@@ -461,9 +460,9 @@ impl Renderer {
             render_pass,
             images,
             opaque_surface_pipeline,
-            translucent_surface_pipeline,
             edge_pipeline,
             point_pipeline,
+            translucent_surface_pipeline,
         )
     }
 
@@ -520,6 +519,8 @@ impl Renderer {
             let mut clear_values: Vec<Option<ClearValue>> = Vec::new();
             if self.msaa_samples != SampleCount::Sample1 {
                 clear_values.push(Some(bg_color.into()));
+                //clear_values.push(Some(bg_color.into()));
+                clear_values.push(Some([0.3, 0.2, 0.1, 0.0].into()))
             }
 
             clear_values.push(Some(1.0.into()));
@@ -552,9 +553,9 @@ impl Renderer {
             );
 
         self.add_opaque_surface_commands(&mut command_buffer_builder);
-        self.add_translucent_surface_commands(&mut command_buffer_builder);
         self.add_edge_commands(&mut command_buffer_builder);
         self.add_point_commands(&mut command_buffer_builder);
+        self.add_translucent_surface_commands(&mut command_buffer_builder);
 
         command_buffer_builder.end_render_pass().unwrap();
 
@@ -680,6 +681,8 @@ impl Renderer {
 
 struct RendererImages {
     framebuffer: Arc<Framebuffer>,
+    opaque: Arc<ImageView<AttachmentImage>>,
+    depth: Arc<ImageView<AttachmentImage>>,
     view: Arc<ImageView<StorageImage>>,
 }
 impl RendererImages {
@@ -710,15 +713,29 @@ impl RendererImages {
 
         let mut attachments: Vec<Arc<dyn ImageViewAbstract>> = Vec::new();
 
-        if samples != SampleCount::Sample1 {
-            let intermediary = ImageView::new_default(
-                AttachmentImage::multisampled(memory_allocator, dimensions, samples, format)
-                    .unwrap(),
+        let opaque = ImageView::new_default(
+            AttachmentImage::multisampled_with_usage(
+                memory_allocator,
+                dimensions,
+                samples,
+                format,
+                ImageUsage {
+                    transient_attachment: true,
+                    input_attachment: true,
+                    ..ImageUsage::empty()
+                },
             )
-            .unwrap();
+            .unwrap(),
+        )
+        .unwrap();
 
-            attachments.push(intermediary);
-        }
+        let translucent = ImageView::new_default(
+            AttachmentImage::multisampled(memory_allocator, dimensions, samples, format).unwrap(),
+        )
+        .unwrap();
+
+        attachments.push(opaque.clone());
+        attachments.push(translucent);
 
         let depth = ImageView::new_default(
             AttachmentImage::multisampled_with_usage(
@@ -729,6 +746,7 @@ impl RendererImages {
                 ImageUsage {
                     depth_stencil_attachment: true,
                     transient_attachment: true,
+                    input_attachment: true,
                     ..ImageUsage::empty()
                 },
             )
@@ -736,7 +754,7 @@ impl RendererImages {
         )
         .unwrap();
 
-        attachments.push(depth);
+        attachments.push(depth.clone());
 
         let color = StorageImage::new(
             memory_allocator,
@@ -763,7 +781,12 @@ impl RendererImages {
         )
         .unwrap();
 
-        Self { framebuffer, view }
+        Self {
+            framebuffer,
+            opaque,
+            depth,
+            view,
+        }
     }
 }
 

@@ -43,12 +43,22 @@ layout(std140, set = 0, binding = 3) readonly buffer MaterialBuffer {
     Material data[];
 } materials;
 
+layout(input_attachment_index = 0, set = 0, binding = 4) uniform subpassInputMS u_color;
+layout(input_attachment_index = 1, set = 0, binding = 5) uniform subpassInputMS u_depth;
+
 layout(location = 0) out vec4 f_color;
 
 void main() {
+    float in_depth = subpassLoad(u_depth, gl_SampleID).x;
+
+    if (in_depth >= 1.0) {
+        //discard;
+    }
 
     Material material = materials.data[material_idx];
-    f_color = material.diffuse;
+    f_color = vec4(subpassLoad(u_color, gl_SampleID).rgb, 1.0);
+    //f_color = vec4(1.0, 0.0, 0.0, 0.1);
+    //f_color = texture(TEXTURE, UV) + vec3(0.5, 0.0, 0.0, 0.0);
 
     vec3 final_light = vec3(0.0, 0.0, 0.0);
 
@@ -58,7 +68,7 @@ void main() {
         AmbientLight light = ambient_lights.data[i];
         ambient += light.color * light.intensity;
     }
-    final_light += ambient;
+    //final_light += ambient;
 
     // Directional lights
     vec3 directional = vec3(0, 0, 0);
@@ -67,7 +77,7 @@ void main() {
         
         directional += light.color * dot(normal, -light.direction) * light.intensity;
     }
-    final_light += directional;
+    //final_light += directional;
 
     // Point lights
     vec3 point = vec3(0, 0, 0);
@@ -79,8 +89,11 @@ void main() {
 
         point += light.color * dot(normal, normalize(dir_to_light)) * light.intensity / pow(dist_to_light, 2);
     }
-    final_light += point;
+    //final_light += point;
 
-    f_color.rgb *= final_light;
+    //f_color.rgb *= final_light;
 
+    //f_color *= 1.0 - material.diffuse.a + material.diffuse.a * material.diffuse.rgb;
+
+    //f_color = material.diffuse;
 }

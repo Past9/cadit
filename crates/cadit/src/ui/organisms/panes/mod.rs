@@ -1,16 +1,16 @@
 use cgmath::{point3, vec3, Deg, InnerSpace};
+use components::editors::{assembly::AssemblyEditor, part::PartEditor, Editor};
 use eframe::egui::{self, Ui};
 use egui_dock::NodeIndex;
 use render::{
     camera::Camera,
     lights::DirectionalLight,
     mesh::{Edge, EdgeVertex, Point, Surface, SurfaceVertex},
-    model::{Material, Model, ModelEdge, ModelPoint, ModelSurface},
+    model::{Model, ModelEdge, ModelPoint, ModelSurface, OpaqueMaterial},
     rgba,
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
-use components::editors::{assembly::AssemblyEditor, part::PartEditor, Editor};
 
 use crate::ui::MessageBus;
 
@@ -155,8 +155,10 @@ impl EditorPane {
                             Rgba::WHITE,
                         ),
                     ],
+                    vec![],
                 )],
-                vec![Material::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],
+                vec![OpaqueMaterial::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],
+                vec![],
             ))),
         }
     }

@@ -136,25 +136,32 @@ impl ModelPoint {
 
 #[derive(Clone)]
 pub struct Model {
-    surfaces: Vec<ModelSurface>,
+    opaque_surfaces: Vec<ModelSurface>,
+    translucent_surfaces: Vec<ModelSurface>,
     edges: Vec<ModelEdge>,
     points: Vec<ModelPoint>,
 }
 impl Model {
     pub fn new(
-        surfaces: Vec<ModelSurface>,
+        opaque_surfaces: Vec<ModelSurface>,
+        translucent_surfaces: Vec<ModelSurface>,
         edges: Vec<ModelEdge>,
         points: Vec<ModelPoint>,
     ) -> Self {
         Self {
-            surfaces,
+            opaque_surfaces,
+            translucent_surfaces,
             edges,
             points,
         }
     }
 
-    pub fn surfaces(&self) -> &[ModelSurface] {
-        &self.surfaces
+    pub fn opaque_surfaces(&self) -> &[ModelSurface] {
+        &self.opaque_surfaces
+    }
+
+    pub fn translucent_surfaces(&self) -> &[ModelSurface] {
+        &self.translucent_surfaces
     }
 
     pub fn edges(&self) -> &[ModelEdge] {

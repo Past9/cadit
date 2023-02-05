@@ -5,7 +5,7 @@ use eframe::egui;
 use render::{
     camera::{Camera, CameraAngle},
     lights::DirectionalLight,
-    model::{Material, Model},
+    model::{Model, OpaqueMaterial},
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
@@ -92,7 +92,7 @@ impl App {
                             .collect(),
                         vec![],
                     )],
-                    vec![Material::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],
+                    vec![OpaqueMaterial::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],
                 ),
             ),
         }

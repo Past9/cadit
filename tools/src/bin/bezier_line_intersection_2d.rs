@@ -6,7 +6,7 @@ use render::{
     camera::{Camera, CameraAngle},
     lights::DirectionalLight,
     mesh::{Edge, EdgeVertex, Point},
-    model::{Material, Model, ModelEdge, ModelPoint},
+    model::{Model, ModelEdge, ModelPoint, OpaqueMaterial},
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
@@ -350,7 +350,7 @@ impl App {
                             .chain(hausdorff_points.into_iter())
                             .collect(),
                     )],
-                    vec![Material::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],
+                    vec![OpaqueMaterial::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],
                 ),
             ),
         }

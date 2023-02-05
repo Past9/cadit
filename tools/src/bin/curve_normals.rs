@@ -6,7 +6,7 @@ use render::{
     camera::{Camera, CameraAngle},
     lights::DirectionalLight,
     mesh::{Edge, EdgeVertex, Point},
-    model::{Material, Model, ModelEdge, ModelPoint},
+    model::{Model, ModelEdge, ModelPoint, OpaqueMaterial},
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
@@ -155,7 +155,7 @@ demo indicates that curve normals, tangents, and first derivatives are correctly
                             .collect(),
                         grid_points.into_iter().collect(),
                     )],
-                    vec![Material::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],
+                    vec![OpaqueMaterial::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],
                 ),
             ),
         }

@@ -48,6 +48,19 @@ impl<H: HSpace> BezierSurface<H> {
     pub fn degree_v(&self) -> usize {
         self.control_points[0].len() - 1
     }
+
+    pub fn translate(&mut self, vec: H::Vector) {
+        // TODO: Use transformation matrices
+        let mut new_pts = Vec::new();
+        for row in self.control_points.iter_mut() {
+            let mut new_row = Vec::new();
+            for point in row.iter_mut() {
+                new_row.push(*point + vec);
+            }
+            new_pts.push(new_row);
+        }
+        self.control_points = new_pts;
+    }
 }
 impl BezierSurface<HSpace3> {
     pub fn example_simple() -> Self {

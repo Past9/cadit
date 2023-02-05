@@ -148,6 +148,7 @@ impl InternalGuiRenderer {
             },
             &ctx.resources.memory_allocator,
             &ctx.resources.command_buffer_allocator,
+            &ctx.resources.descriptor_set_allocator,
             ctx.resources.queue.clone(),
         );
         self.transfer.transfer(self.scene_renderer.view(), ctx);

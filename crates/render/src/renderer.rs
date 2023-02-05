@@ -9,13 +9,14 @@ use vulkano::{
         SubpassContents,
     },
     descriptor_set::{
-        allocator::StandardDescriptorSetAllocator, PersistentDescriptorSet, WriteDescriptorSet,
+        allocator::{StandardDescriptorSetAlloc, StandardDescriptorSetAllocator},
+        PersistentDescriptorSet, WriteDescriptorSet,
     },
     device::Queue,
     format::{ClearValue, Format},
     image::{
-        view::ImageView, AttachmentImage, ImageDimensions, ImageUsage, ImageViewAbstract,
-        SampleCount, StorageImage,
+        view::ImageView, AttachmentImage, ImageDimensions, ImageLayout, ImageUsage,
+        ImageViewAbstract, SampleCount, StorageImage,
     },
     memory::allocator::StandardMemoryAllocator,
     pipeline::{
@@ -34,6 +35,8 @@ use vulkano::{
     sync::GpuFuture,
 };
 
+use crate::lights::{Std140AmbientLight, Std140DirectionalLight, Std140PointLight};
+use crate::model::{Std140OpaqueMaterial, Std140TranslucentMaterial};
 use crate::PixelViewport;
 
 use super::{
@@ -42,6 +45,11 @@ use super::{
 };
 
 const IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
+
+struct DescriptorSets {
+    opaque_surface_descriptor_set: Arc<PersistentDescriptorSet<StandardDescriptorSetAlloc>>,
+    translucent_surface_descriptor_set: Arc<PersistentDescriptorSet<StandardDescriptorSetAlloc>>,
+}
 
 pub struct Renderer {
     scene: Scene,
@@ -55,15 +63,20 @@ pub struct Renderer {
     scissor: Scissor,
     framebuffers_rebuilt: bool,
 
+    // Scene buffers
+    ambient_light_buffer: Arc<CpuAccessibleBuffer<[Std140AmbientLight]>>,
+    directional_light_buffer: Arc<CpuAccessibleBuffer<[Std140DirectionalLight]>>,
+    point_light_buffer: Arc<CpuAccessibleBuffer<[Std140PointLight]>>,
+    opaque_material_buffer: Arc<CpuAccessibleBuffer<[Std140OpaqueMaterial]>>,
+    translucent_material_buffer: Arc<CpuAccessibleBuffer<[Std140TranslucentMaterial]>>,
+
     // Opaque surface buffers
     opaque_surface_vertex_buffer: Option<Arc<CpuAccessibleBuffer<[BufferedSurfaceVertex]>>>,
     opaque_surface_index_buffer: Option<Arc<CpuAccessibleBuffer<[u32]>>>,
-    opaque_surface_descriptor_set: Arc<PersistentDescriptorSet>,
 
     // Translucent surface buffers
     translucent_surface_vertex_buffer: Option<Arc<CpuAccessibleBuffer<[BufferedSurfaceVertex]>>>,
     translucent_surface_index_buffer: Option<Arc<CpuAccessibleBuffer<[u32]>>>,
-    translucent_surface_descriptor_set: Arc<PersistentDescriptorSet>,
 
     // Edge buffers
     edge_vertex_buffer: Option<Arc<CpuAccessibleBuffer<[BufferedEdgeVertex]>>>,
@@ -110,42 +123,6 @@ impl Renderer {
         let (opaque_material_buffer, translucent_material_buffer) =
             scene.material_buffers(memory_allocator);
 
-        let opaque_surface_descriptor_set = PersistentDescriptorSet::new(
-            descriptor_set_allocator,
-            opaque_surface_pipeline
-                .layout()
-                .set_layouts()
-                .get(0)
-                .unwrap()
-                .clone(),
-            [
-                WriteDescriptorSet::buffer(0, point_light_buffer.clone()),
-                WriteDescriptorSet::buffer(1, ambient_light_buffer.clone()),
-                WriteDescriptorSet::buffer(2, directional_light_buffer.clone()),
-                WriteDescriptorSet::buffer(3, opaque_material_buffer),
-            ],
-        )
-        .unwrap();
-
-        let translucent_surface_descriptor_set = PersistentDescriptorSet::new(
-            descriptor_set_allocator,
-            translucent_surface_pipeline
-                .layout()
-                .set_layouts()
-                .get(0)
-                .unwrap()
-                .clone(),
-            [
-                WriteDescriptorSet::buffer(0, point_light_buffer),
-                WriteDescriptorSet::buffer(1, ambient_light_buffer),
-                WriteDescriptorSet::buffer(2, directional_light_buffer),
-                WriteDescriptorSet::buffer(3, translucent_material_buffer),
-                WriteDescriptorSet::image_view(4, images.opaque.clone()),
-                WriteDescriptorSet::image_view(5, images.depth.clone()),
-            ],
-        )
-        .unwrap();
-
         Self {
             scene,
             render_pass,
@@ -158,15 +135,20 @@ impl Renderer {
             scissor,
             framebuffers_rebuilt: true,
 
+            // Scene buffers
+            ambient_light_buffer,
+            directional_light_buffer,
+            point_light_buffer,
+            opaque_material_buffer,
+            translucent_material_buffer,
+
             // Opaque surface buffers
             opaque_surface_vertex_buffer,
             opaque_surface_index_buffer,
-            opaque_surface_descriptor_set,
 
             // Translucent surface buffers
             translucent_surface_vertex_buffer,
             translucent_surface_index_buffer,
-            translucent_surface_descriptor_set,
 
             // Edge buffers
             edge_vertex_buffer,
@@ -208,27 +190,35 @@ impl Renderer {
             attachments: {
                 opaque: {
                     load: Clear,
-                    store: Store,
+                    store: DontCare,
                     format: IMAGE_FORMAT,
                     samples: msaa_samples,
+                    initial_layout: ImageLayout::ColorAttachmentOptimal,
+                    final_layout: ImageLayout::ColorAttachmentOptimal,
                 },
                 translucent: {
                     load: Clear,
-                    store: Store,
+                    store: DontCare,
                     format: IMAGE_FORMAT,
                     samples: msaa_samples,
+                    initial_layout: ImageLayout::ColorAttachmentOptimal,
+                    final_layout: ImageLayout::ColorAttachmentOptimal,
+                },
+                view: {
+                    load: Clear,
+                    store: DontCare,
+                    format: IMAGE_FORMAT,
+                    samples: 1,
+                    initial_layout: ImageLayout::ColorAttachmentOptimal,
+                    final_layout: ImageLayout::ColorAttachmentOptimal,
                 },
                 depth: {
                     load: Clear,
-                    store: Store,
+                    store: DontCare,
                     format: Format::D32_SFLOAT,
                     samples: msaa_samples,
-                },
-                color: {
-                    load: Clear,
-                    store: Store,
-                    format: IMAGE_FORMAT,
-                    samples: 1,
+                    initial_layout: ImageLayout::DepthStencilAttachmentOptimal,
+                    final_layout: ImageLayout::DepthStencilAttachmentOptimal,
                 }
             },
             passes: [
@@ -236,29 +226,28 @@ impl Renderer {
                 {
                     color: [opaque],
                     depth_stencil: {depth},
-                    input: [],
-                    resolve: [color],
+                    input: []
                 },
                 // Edges
                 {
                     color: [opaque],
                     depth_stencil: {depth},
                     input: [],
-                    resolve: [color],
+                    resolve: []
                 },
                 // Points
                 {
                     color: [opaque],
                     depth_stencil: {depth},
                     input: [],
-                    resolve: [color],
+                    resolve: []
                 },
                 // Translucent surfaces
                 {
                     color: [translucent],
                     depth_stencil: {},
                     input: [opaque, depth]
-                    resolve: [color],
+                    resolve: [view],
                 }
             ]
         )
@@ -423,6 +412,7 @@ impl Renderer {
                 sample_shading: Some(0.5),
                 ..Default::default()
             })
+            /*
             .depth_stencil_state(DepthStencilState {
                 depth: Some(DepthState {
                     enable_dynamic: false,
@@ -431,6 +421,7 @@ impl Renderer {
                 }),
                 ..DepthStencilState::default()
             })
+            */
             .color_blend_state(
                 ColorBlendState::new(1), /*ColorBlendState {
                                              // TODO: Disable color blending?
@@ -478,10 +469,12 @@ impl Renderer {
         };
 
         if new_scissor != self.scissor {
+            println!("UPDATE VIEWPORT");
             self.scissor = new_scissor;
             self.scene
                 .camera_mut()
                 .set_viewport_in_pixels(self.scissor.dimensions);
+
             self.images = RendererImages::new(
                 self.render_pass.clone(),
                 &self.scissor,
@@ -502,6 +495,7 @@ impl Renderer {
         pixel_viewport: &PixelViewport,
         memory_allocator: &StandardMemoryAllocator,
         command_buffer_allocator: &StandardCommandBufferAllocator,
+        descriptor_set_allocator: &StandardDescriptorSetAllocator,
         queue: Arc<Queue>,
     ) {
         self.update_viewport(pixel_viewport, memory_allocator, queue.clone());
@@ -516,15 +510,12 @@ impl Renderer {
         let clear_values = {
             let bg_color = self.scene.bg_color().to_floats();
 
-            let mut clear_values: Vec<Option<ClearValue>> = Vec::new();
-            if self.msaa_samples != SampleCount::Sample1 {
-                clear_values.push(Some(bg_color.into()));
-                //clear_values.push(Some(bg_color.into()));
-                clear_values.push(Some([0.3, 0.2, 0.1, 0.0].into()))
-            }
-
-            clear_values.push(Some(1.0.into()));
-            clear_values.push(Some(bg_color.into()));
+            let clear_values = vec![
+                Some([0.0, 0.0, 0.0, 0.0].into()),
+                Some([0.0, 0.0, 0.0, 0.0].into()),
+                Some([0.0, 0.0, 0.0, 0.0].into()),
+                Some(1.0.into()),
+            ];
 
             clear_values
         };
@@ -552,10 +543,13 @@ impl Renderer {
                 }],
             );
 
-        self.add_opaque_surface_commands(&mut command_buffer_builder);
+        self.add_opaque_surface_commands(&mut command_buffer_builder, descriptor_set_allocator);
         self.add_edge_commands(&mut command_buffer_builder);
         self.add_point_commands(&mut command_buffer_builder);
-        self.add_translucent_surface_commands(&mut command_buffer_builder);
+        self.add_translucent_surface_commands(
+            &mut command_buffer_builder,
+            descriptor_set_allocator,
+        );
 
         command_buffer_builder.end_render_pass().unwrap();
 
@@ -572,6 +566,7 @@ impl Renderer {
     fn add_opaque_surface_commands(
         &self,
         builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
+        descriptor_set_allocator: &StandardDescriptorSetAllocator,
     ) {
         let push_constants = surface_vs::ty::PushConstants {
             model_matrix: self.scene.orientation().matrix().into(),
@@ -588,6 +583,23 @@ impl Renderer {
 
         if let Some(ref surface_vertex_buffer) = self.opaque_surface_vertex_buffer {
             if let Some(ref surface_index_buffer) = self.opaque_surface_index_buffer {
+                let opaque_surface_descriptor_set = PersistentDescriptorSet::new(
+                    descriptor_set_allocator,
+                    self.opaque_surface_pipeline
+                        .layout()
+                        .set_layouts()
+                        .get(0)
+                        .unwrap()
+                        .clone(),
+                    [
+                        WriteDescriptorSet::buffer(0, self.point_light_buffer.clone()),
+                        WriteDescriptorSet::buffer(1, self.ambient_light_buffer.clone()),
+                        WriteDescriptorSet::buffer(2, self.directional_light_buffer.clone()),
+                        WriteDescriptorSet::buffer(3, self.opaque_material_buffer.clone()),
+                    ],
+                )
+                .unwrap();
+
                 builder
                     .bind_vertex_buffers(0, surface_vertex_buffer.clone())
                     .bind_index_buffer(surface_index_buffer.clone())
@@ -595,43 +607,7 @@ impl Renderer {
                         PipelineBindPoint::Graphics,
                         self.opaque_surface_pipeline.layout().clone(),
                         0,
-                        self.opaque_surface_descriptor_set.clone(),
-                    )
-                    .draw_indexed(surface_index_buffer.len() as u32, 1, 0, 0, 0)
-                    .unwrap();
-            }
-        }
-    }
-
-    fn add_translucent_surface_commands(
-        &self,
-        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
-    ) {
-        let push_constants = surface_vs::ty::PushConstants {
-            model_matrix: self.scene.orientation().matrix().into(),
-            projection_matrix: self.scene.camera().projection_matrix().into(),
-        };
-
-        builder
-            .next_subpass(SubpassContents::Inline)
-            .unwrap()
-            .bind_pipeline_graphics(self.translucent_surface_pipeline.clone())
-            .push_constants(
-                self.translucent_surface_pipeline.layout().clone(),
-                0,
-                push_constants,
-            );
-
-        if let Some(ref surface_vertex_buffer) = self.translucent_surface_vertex_buffer {
-            if let Some(ref surface_index_buffer) = self.translucent_surface_index_buffer {
-                builder
-                    .bind_vertex_buffers(0, surface_vertex_buffer.clone())
-                    .bind_index_buffer(surface_index_buffer.clone())
-                    .bind_descriptor_sets(
-                        PipelineBindPoint::Graphics,
-                        self.translucent_surface_pipeline.layout().clone(),
-                        0,
-                        self.translucent_surface_descriptor_set.clone(),
+                        opaque_surface_descriptor_set.clone(),
                     )
                     .draw_indexed(surface_index_buffer.len() as u32, 1, 0, 0, 0)
                     .unwrap();
@@ -670,6 +646,62 @@ impl Renderer {
         }
     }
 
+    fn add_translucent_surface_commands(
+        &self,
+        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
+        descriptor_set_allocator: &StandardDescriptorSetAllocator,
+    ) {
+        let push_constants = surface_vs::ty::PushConstants {
+            model_matrix: self.scene.orientation().matrix().into(),
+            projection_matrix: self.scene.camera().projection_matrix().into(),
+        };
+
+        builder
+            .next_subpass(SubpassContents::Inline)
+            .unwrap()
+            .bind_pipeline_graphics(self.translucent_surface_pipeline.clone())
+            .push_constants(
+                self.translucent_surface_pipeline.layout().clone(),
+                0,
+                push_constants,
+            );
+
+        if let Some(ref surface_vertex_buffer) = self.translucent_surface_vertex_buffer {
+            if let Some(ref surface_index_buffer) = self.translucent_surface_index_buffer {
+                let translucent_surface_descriptor_set = PersistentDescriptorSet::new(
+                    descriptor_set_allocator,
+                    self.translucent_surface_pipeline
+                        .layout()
+                        .set_layouts()
+                        .get(0)
+                        .unwrap()
+                        .clone(),
+                    [
+                        WriteDescriptorSet::buffer(0, self.point_light_buffer.clone()),
+                        WriteDescriptorSet::buffer(1, self.ambient_light_buffer.clone()),
+                        WriteDescriptorSet::buffer(2, self.directional_light_buffer.clone()),
+                        WriteDescriptorSet::buffer(3, self.translucent_material_buffer.clone()),
+                        WriteDescriptorSet::image_view(4, self.images.opaque.clone()),
+                        WriteDescriptorSet::image_view(5, self.images.depth.clone()),
+                    ],
+                )
+                .unwrap();
+
+                builder
+                    .bind_vertex_buffers(0, surface_vertex_buffer.clone())
+                    .bind_index_buffer(surface_index_buffer.clone())
+                    .bind_descriptor_sets(
+                        PipelineBindPoint::Graphics,
+                        self.translucent_surface_pipeline.layout().clone(),
+                        0,
+                        translucent_surface_descriptor_set.clone(),
+                    )
+                    .draw_indexed(surface_index_buffer.len() as u32, 1, 0, 0, 0)
+                    .unwrap();
+            }
+        }
+    }
+
     pub fn view(&self) -> Arc<dyn ImageViewAbstract> {
         self.images.view.clone()
     }
@@ -694,6 +726,7 @@ impl RendererImages {
         memory_allocator: &StandardMemoryAllocator,
         queue: Arc<Queue>,
     ) -> Self {
+        println!("NEW IMAGES");
         // Make sure the images are at least 1 pixel in each dimension or Vulkan will
         // throw an error. Also make the images cover the offset area so they line up
         // with the egui area that we're painting. We'll only render to the area that
@@ -713,64 +746,83 @@ impl RendererImages {
 
         let mut attachments: Vec<Arc<dyn ImageViewAbstract>> = Vec::new();
 
-        let opaque = ImageView::new_default(
-            AttachmentImage::multisampled_with_usage(
-                memory_allocator,
-                dimensions,
-                samples,
-                format,
-                ImageUsage {
-                    transient_attachment: true,
-                    input_attachment: true,
-                    ..ImageUsage::empty()
-                },
+        let opaque = {
+            let opaque = ImageView::new_default(
+                AttachmentImage::multisampled_with_usage(
+                    memory_allocator,
+                    dimensions,
+                    samples,
+                    format,
+                    ImageUsage {
+                        transient_attachment: true,
+                        input_attachment: true,
+                        ..ImageUsage::empty()
+                    },
+                )
+                .unwrap(),
             )
-            .unwrap(),
-        )
-        .unwrap();
+            .unwrap();
 
-        let translucent = ImageView::new_default(
-            AttachmentImage::multisampled(memory_allocator, dimensions, samples, format).unwrap(),
-        )
-        .unwrap();
+            attachments.push(opaque.clone());
 
-        attachments.push(opaque.clone());
-        attachments.push(translucent);
+            opaque
+        };
 
-        let depth = ImageView::new_default(
-            AttachmentImage::multisampled_with_usage(
-                memory_allocator,
-                dimensions,
-                samples,
-                Format::D32_SFLOAT,
-                ImageUsage {
-                    depth_stencil_attachment: true,
-                    transient_attachment: true,
-                    input_attachment: true,
-                    ..ImageUsage::empty()
-                },
+        let _translucent = {
+            let translucent = ImageView::new_default(
+                AttachmentImage::multisampled(memory_allocator, dimensions, samples, format)
+                    .unwrap(),
             )
-            .unwrap(),
-        )
-        .unwrap();
+            .unwrap();
 
-        attachments.push(depth.clone());
+            attachments.push(translucent.clone());
 
-        let color = StorageImage::new(
-            memory_allocator,
-            ImageDimensions::Dim2d {
-                width: dimensions[0],
-                height: dimensions[1],
-                array_layers: 1,
-            },
-            format,
-            Some(queue.queue_family_index()),
-        )
-        .unwrap();
+            translucent
+        };
 
-        let view = ImageView::new_default(color.clone()).unwrap();
+        let view = {
+            let view = ImageView::new_default(
+                StorageImage::new(
+                    memory_allocator,
+                    ImageDimensions::Dim2d {
+                        width: dimensions[0],
+                        height: dimensions[1],
+                        array_layers: 1,
+                    },
+                    format,
+                    Some(queue.queue_family_index()),
+                )
+                .unwrap(),
+            )
+            .unwrap();
 
-        attachments.push(view.clone());
+            attachments.push(view.clone());
+
+            view
+        };
+
+        let depth = {
+            let depth = ImageView::new_default(
+                AttachmentImage::multisampled_with_usage(
+                    memory_allocator,
+                    dimensions,
+                    samples,
+                    Format::D32_SFLOAT,
+                    ImageUsage {
+                        depth_stencil_attachment: true,
+                        transient_attachment: true,
+                        input_attachment: true,
+                        ..ImageUsage::empty()
+                    },
+                )
+                .unwrap(),
+            )
+            .unwrap();
+
+            attachments.push(depth.clone());
+
+            depth
+        };
 
         let framebuffer = Framebuffer::new(
             render_pass,

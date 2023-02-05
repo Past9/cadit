@@ -57,8 +57,8 @@ void main() {
 
     Material material = materials.data[material_idx];
     f_color = vec4(subpassLoad(u_color, gl_SampleID).rgb, 1.0);
-    //f_color = vec4(1.0, 0.0, 0.0, 0.1);
     //f_color = texture(TEXTURE, UV) + vec3(0.5, 0.0, 0.0, 0.0);
+    //f_color = vec4(material.diffuse);
 
     vec3 final_light = vec3(0.0, 0.0, 0.0);
 

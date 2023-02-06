@@ -10,7 +10,23 @@ layout(location = 2) flat in uint material_idx;
 //layout(input_attachment_index = 0, set = 0, binding = 4) uniform subpassInputMS u_color;
 layout(input_attachment_index = 1, set = 0, binding = 4) uniform subpassInputMS u_depth;
 
-layout(location = 0) out vec4 color;
+layout(location = 0) out vec4 A;
+layout(location = 1) out vec3 beta;
+
+void computeOutput(
+    vec3 L_r, // Radiance
+    float alpha, // Alpha factor?
+    vec3 t, // Transmission
+    out vec4 A, // Accumulated reflected light
+    out vec3 beta // Transmission
+) {
+    float netCoverage = alpha * (1.0 - dot(t, vec3(1.0 / 3.0)));
+    float tmp = (1.0 - gl_FragCoord.z * 0.99) * netCoverage * 10.0;
+    float w = clamp(tmp * tmp * tmp, 0.01, 30.0);
+
+    A = vec4(L_r * alpha, netCoverage) * w;
+    beta = alpha * (vec3(1.0) - t) * (1.0 / 3.0);
+}
 
 void main() {
     float self_depth = gl_FragCoord.z;
@@ -21,9 +37,17 @@ void main() {
     }
 
     Material material = materials.data[material_idx];
-    color = vec4(material.diffuse);
+    vec3 reflected = material.diffuse.rgb;
 
     #include "surface_lighting.frag"
 
-    color.rgb *= lighting;
+    reflected *= lighting;
+
+    computeOutput(
+        reflected,
+        material.diffuse.a,
+        material.diffuse.rgb, // * (1.0 - material.diffuse.a),
+        A,
+        beta
+    );
 }

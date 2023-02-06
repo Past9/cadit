@@ -52,12 +52,14 @@ pub fn run_window<W: Window + 'static>(mut window: W, desc: &WindowDescriptor) -
             sample_rate_shading: true,
             wide_lines: true,
             rectangular_lines: true,
+            independent_blend: true,
             ..Default::default()
         },
         device_extensions: DeviceExtensions {
             khr_push_descriptor: true,
             khr_swapchain: true,
             ext_line_rasterization: true,
+            ext_blend_operation_advanced: true,
             ..Default::default()
         },
         ..Default::default()

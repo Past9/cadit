@@ -121,8 +121,8 @@ impl App {
                     )],
                     vec![OpaqueMaterial::new(rgb(0.8, 0.8, 0.8), 0.5)],
                     vec![
-                        TranslucentMaterial::new(rgba(0.8, 0.2, 0.2, 0.75), 0.5),
-                        TranslucentMaterial::new(rgba(0.2, 0.8, 0.2, 0.75), 0.5),
+                        TranslucentMaterial::new(rgba(0.8, 0.2, 0.2, 0.3), 0.5),
+                        TranslucentMaterial::new(rgba(0.2, 0.8, 0.2, 0.3), 0.5),
                     ],
                 ),
             ),

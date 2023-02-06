@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
+use bytemuck::{Pod, Zeroable};
 use cgmath::{Point3, Vector2, Vector3};
 use vulkano::{
-    buffer::{CpuAccessibleBuffer, TypedBufferAccess},
+    buffer::{BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
     command_buffer::{
         allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder, CommandBufferUsage,
         CopyBufferInfo, CopyImageInfo, CopyImageToBufferInfo, PrimaryAutoCommandBuffer,
@@ -22,7 +23,8 @@ use vulkano::{
     pipeline::{
         graphics::{
             color_blend::{
-                AttachmentBlend, ColorBlendAttachmentState, ColorBlendState, ColorComponents,
+                AttachmentBlend, BlendFactor, BlendOp, ColorBlendAttachmentState, ColorBlendState,
+                ColorComponents,
             },
             depth_stencil::{CompareOp, DepthState, DepthStencilState},
             input_assembly::{InputAssemblyState, PrimitiveTopology},
@@ -34,6 +36,7 @@ use vulkano::{
         GraphicsPipeline, Pipeline, PipelineBindPoint, StateMode,
     },
     render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass},
+    shader::spirv::ImageFormat,
     sync::GpuFuture,
 };
 
@@ -46,7 +49,9 @@ use super::{
     scene::Scene,
 };
 
-const IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
+const FINAL_IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
+const TRANSLUCENT_ACCUM_FORMAT: Format = Format::R16G16B16A16_SFLOAT;
+const TRANSLUCENT_TRANSMISSION_FORMAT: Format = Format::R8G8B8A8_UNORM;
 
 struct DescriptorSets {
     opaque_surface_descriptor_set: Arc<PersistentDescriptorSet<StandardDescriptorSetAlloc>>,
@@ -56,10 +61,14 @@ struct DescriptorSets {
 pub struct Renderer {
     scene: Scene,
     render_pass: Arc<RenderPass>,
+
+    // Pipelines
     opaque_surface_pipeline: Arc<GraphicsPipeline>,
-    translucent_surface_pipeline: Arc<GraphicsPipeline>,
     edge_pipeline: Arc<GraphicsPipeline>,
     point_pipeline: Arc<GraphicsPipeline>,
+    translucent_surface_pipeline: Arc<GraphicsPipeline>,
+    compositing_pipeline: Arc<GraphicsPipeline>,
+
     images: RendererImages,
     msaa_samples: SampleCount,
     scissor: Scissor,
@@ -86,6 +95,10 @@ pub struct Renderer {
 
     // Point buffers
     point_vertex_buffer: Option<Arc<CpuAccessibleBuffer<[BufferedPointVertex]>>>,
+
+    // Image quad buffers
+    full_quad_vertex_buffer: Arc<CpuAccessibleBuffer<[ScreenSpaceVertex]>>,
+    full_quad_index_buffer: Arc<CpuAccessibleBuffer<[u32]>>,
 }
 impl Renderer {
     pub fn new<'a>(
@@ -107,6 +120,7 @@ impl Renderer {
             edge_pipeline,
             point_pipeline,
             translucent_surface_pipeline,
+            compositing_pipeline,
         ) = Self::create_pipelines(msaa_samples, &scissor, memory_allocator, queue);
 
         let (opaque_surface_vertex_buffer, opaque_surface_index_buffer) =
@@ -125,13 +139,52 @@ impl Renderer {
         let (opaque_material_buffer, translucent_material_buffer) =
             scene.material_buffers(memory_allocator);
 
+        let full_quad_vertex_buffer = CpuAccessibleBuffer::from_iter(
+            memory_allocator,
+            BufferUsage {
+                vertex_buffer: true,
+                ..Default::default()
+            },
+            false,
+            [
+                ScreenSpaceVertex {
+                    position: [-1.0, -1.0],
+                },
+                ScreenSpaceVertex {
+                    position: [1.0, -1.0],
+                },
+                ScreenSpaceVertex {
+                    position: [1.0, 1.0],
+                },
+                ScreenSpaceVertex {
+                    position: [-1.0, 1.0],
+                },
+            ],
+        )
+        .unwrap();
+
+        let full_quad_index_buffer = CpuAccessibleBuffer::from_iter(
+            memory_allocator,
+            BufferUsage {
+                index_buffer: true,
+                ..Default::default()
+            },
+            false,
+            [0, 1, 2, 0, 2, 3],
+        )
+        .unwrap();
+
         Self {
             scene,
             render_pass,
+
+            // Pipelines
             opaque_surface_pipeline,
-            translucent_surface_pipeline,
             edge_pipeline,
             point_pipeline,
+            translucent_surface_pipeline,
+            compositing_pipeline,
+
             images,
             msaa_samples,
             scissor,
@@ -158,6 +211,10 @@ impl Renderer {
 
             // Point buffers
             point_vertex_buffer,
+
+            // Image quad buffers
+            full_quad_vertex_buffer,
+            full_quad_index_buffer,
         }
     }
 
@@ -185,6 +242,7 @@ impl Renderer {
         Arc<GraphicsPipeline>,
         Arc<GraphicsPipeline>,
         Arc<GraphicsPipeline>,
+        Arc<GraphicsPipeline>,
     ) {
         let device = queue.device();
         let render_pass = vulkano::ordered_passes_renderpass!(
@@ -193,15 +251,27 @@ impl Renderer {
                 opaque: {
                     load: Clear,
                     store: Store,
-                    format: IMAGE_FORMAT,
+                    format: FINAL_IMAGE_FORMAT,
                     samples: msaa_samples,
                     initial_layout: ImageLayout::ColorAttachmentOptimal,
                     final_layout: ImageLayout::ColorAttachmentOptimal,
                 },
-                translucent: {
+                translucent_accum: {
+                    load: Clear,
+                    store: Store,
+                    format: TRANSLUCENT_ACCUM_FORMAT,
+                    samples: msaa_samples,
+                },
+                translucent_transmit: {
+                    load: Clear,
+                    store: Store,
+                    format: TRANSLUCENT_TRANSMISSION_FORMAT,
+                    samples: msaa_samples,
+                },
+                composite: {
                     load: Clear,
                     store: DontCare,
-                    format: IMAGE_FORMAT,
+                    format: FINAL_IMAGE_FORMAT,
                     samples: msaa_samples,
                     initial_layout: ImageLayout::ColorAttachmentOptimal,
                     final_layout: ImageLayout::ColorAttachmentOptimal,
@@ -209,7 +279,7 @@ impl Renderer {
                 view: {
                     load: Clear,
                     store: DontCare,
-                    format: IMAGE_FORMAT,
+                    format: FINAL_IMAGE_FORMAT,
                     samples: 1,
                     initial_layout: ImageLayout::ColorAttachmentOptimal,
                     final_layout: ImageLayout::ColorAttachmentOptimal,
@@ -247,10 +317,17 @@ impl Renderer {
                 },
                 // Translucent surfaces
                 {
-                    color: [translucent],
+                    color: [translucent_accum, translucent_transmit],
                     depth_stencil: {},
                     input: [opaque, depth]
-                    resolve: [view],
+                    resolve: [],
+                },
+                // Composite
+                {
+                    color: [composite],
+                    depth_stencil: {},
+                    input: [opaque, translucent_accum, translucent_transmit],
+                    resolve: [view]
                 }
             ]
         )
@@ -260,7 +337,6 @@ impl Renderer {
             render_pass.clone(),
             &scissor,
             msaa_samples,
-            IMAGE_FORMAT,
             memory_allocator,
             queue.clone(),
         );
@@ -424,13 +500,32 @@ impl Renderer {
                 ..DepthStencilState::default()
             })
             .color_blend_state(ColorBlendState {
-                attachments: (0..1)
-                    .map(|_| ColorBlendAttachmentState {
-                        blend: None,
+                attachments: vec![
+                    ColorBlendAttachmentState {
+                        blend: Some(AttachmentBlend {
+                            color_op: BlendOp::Add,
+                            color_source: BlendFactor::One,
+                            color_destination: BlendFactor::One,
+                            alpha_op: BlendOp::Add,
+                            alpha_source: BlendFactor::One,
+                            alpha_destination: BlendFactor::One,
+                        }),
                         color_write_mask: ColorComponents::all(),
                         color_write_enable: StateMode::Fixed(true),
-                    })
-                    .collect(),
+                    },
+                    ColorBlendAttachmentState {
+                        blend: Some(AttachmentBlend {
+                            color_op: BlendOp::Add,
+                            color_source: BlendFactor::Zero,
+                            color_destination: BlendFactor::OneMinusSrcColor,
+                            alpha_op: BlendOp::Add,
+                            alpha_source: BlendFactor::One,
+                            alpha_destination: BlendFactor::One,
+                        }),
+                        color_write_mask: ColorComponents::all(),
+                        color_write_enable: StateMode::Fixed(true),
+                    },
+                ],
                 ..ColorBlendState::default()
             })
             .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
@@ -445,6 +540,40 @@ impl Renderer {
             .build(device.clone())
             .unwrap();
 
+        let compositing_pipeline = GraphicsPipeline::start()
+            .vertex_input_state(BuffersDefinition::new().vertex::<ScreenSpaceVertex>())
+            .vertex_shader(
+                compositing_vs::load(device.clone())
+                    .unwrap()
+                    .entry_point("main")
+                    .unwrap(),
+                (),
+            )
+            .input_assembly_state(
+                InputAssemblyState::new().topology(PrimitiveTopology::TriangleList),
+            )
+            .rasterization_state(RasterizationState {
+                front_face: StateMode::Fixed(FrontFace::CounterClockwise),
+                cull_mode: StateMode::Fixed(CullMode::None),
+                ..RasterizationState::default()
+            })
+            .multisample_state(MultisampleState {
+                rasterization_samples: msaa_samples,
+                sample_shading: Some(0.5),
+                ..Default::default()
+            })
+            .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
+            .fragment_shader(
+                compositing_fs::load(device.clone())
+                    .unwrap()
+                    .entry_point("main")
+                    .unwrap(),
+                (),
+            )
+            .render_pass(Subpass::from(render_pass.clone(), 4).unwrap())
+            .build(device.clone())
+            .unwrap();
+
         (
             render_pass,
             images,
@@ -452,6 +581,7 @@ impl Renderer {
             edge_pipeline,
             point_pipeline,
             translucent_surface_pipeline,
+            compositing_pipeline,
         )
     }
 
@@ -477,7 +607,6 @@ impl Renderer {
                 self.render_pass.clone(),
                 &self.scissor,
                 self.msaa_samples,
-                IMAGE_FORMAT,
                 memory_allocator,
                 queue,
             );
@@ -510,6 +639,8 @@ impl Renderer {
 
             let clear_values = vec![
                 Some(bg_color.into()),
+                Some([0.0, 0.0, 0.0, 0.0].into()), // RT0
+                Some([1.0, 1.0, 1.0, 0.0].into()), // RT1
                 Some([0.0, 0.0, 0.0, 0.0].into()),
                 Some(bg_color.into()),
                 Some(1.0.into()),
@@ -548,6 +679,7 @@ impl Renderer {
             &mut command_buffer_builder,
             descriptor_set_allocator,
         );
+        self.add_compositing_commands(&mut command_buffer_builder, descriptor_set_allocator);
 
         command_buffer_builder.end_render_pass().unwrap();
 
@@ -679,7 +811,6 @@ impl Renderer {
                         WriteDescriptorSet::buffer(1, self.ambient_light_buffer.clone()),
                         WriteDescriptorSet::buffer(2, self.directional_light_buffer.clone()),
                         WriteDescriptorSet::buffer(3, self.translucent_material_buffer.clone()),
-                        //WriteDescriptorSet::image_view(4, self.images.opaque.clone()),
                         WriteDescriptorSet::image_view(4, self.images.depth.clone()),
                     ],
                 )
@@ -700,6 +831,45 @@ impl Renderer {
         }
     }
 
+    fn add_compositing_commands(
+        &self,
+        builder: &mut AutoCommandBufferBuilder<PrimaryAutoCommandBuffer>,
+        descriptor_set_allocator: &StandardDescriptorSetAllocator,
+    ) {
+        builder
+            .next_subpass(SubpassContents::Inline)
+            .unwrap()
+            .bind_pipeline_graphics(self.compositing_pipeline.clone());
+
+        let compositing_descriptor_set = PersistentDescriptorSet::new(
+            descriptor_set_allocator,
+            self.compositing_pipeline
+                .layout()
+                .set_layouts()
+                .get(0)
+                .unwrap()
+                .clone(),
+            [
+                WriteDescriptorSet::image_view(0, self.images.opaque.clone()),
+                WriteDescriptorSet::image_view(1, self.images.translucent_accum.clone()),
+                WriteDescriptorSet::image_view(2, self.images.translucent_transmit.clone()),
+            ],
+        )
+        .unwrap();
+
+        builder
+            .bind_vertex_buffers(0, self.full_quad_vertex_buffer.clone())
+            .bind_index_buffer(self.full_quad_index_buffer.clone())
+            .bind_descriptor_sets(
+                PipelineBindPoint::Graphics,
+                self.compositing_pipeline.layout().clone(),
+                0,
+                compositing_descriptor_set.clone(),
+            )
+            .draw_indexed(self.full_quad_index_buffer.len() as u32, 1, 0, 0, 0)
+            .unwrap();
+    }
+
     pub fn view(&self) -> Arc<dyn ImageViewAbstract> {
         self.images.view.clone()
     }
@@ -712,7 +882,9 @@ impl Renderer {
 struct RendererImages {
     framebuffer: Arc<Framebuffer>,
     opaque: Arc<ImageView<AttachmentImage>>,
-    translucent: Arc<ImageView<AttachmentImage>>,
+    translucent_accum: Arc<ImageView<AttachmentImage>>,
+    translucent_transmit: Arc<ImageView<AttachmentImage>>,
+    composite: Arc<ImageView<AttachmentImage>>,
     depth: Arc<ImageView<AttachmentImage>>,
     view: Arc<ImageView<StorageImage>>,
 }
@@ -721,7 +893,6 @@ impl RendererImages {
         render_pass: Arc<RenderPass>,
         scissor: &Scissor,
         samples: SampleCount,
-        format: Format,
         memory_allocator: &StandardMemoryAllocator,
         queue: Arc<Queue>,
     ) -> Self {
@@ -751,7 +922,7 @@ impl RendererImages {
                     memory_allocator,
                     dimensions,
                     samples,
-                    format,
+                    FINAL_IMAGE_FORMAT,
                     ImageUsage {
                         transient_attachment: true,
                         input_attachment: true,
@@ -767,16 +938,65 @@ impl RendererImages {
             opaque
         };
 
-        let translucent = {
-            let translucent = ImageView::new_default(
-                AttachmentImage::multisampled(memory_allocator, dimensions, samples, format)
-                    .unwrap(),
+        let translucent_accum = {
+            let translucent_accum = ImageView::new_default(
+                AttachmentImage::multisampled_with_usage(
+                    memory_allocator,
+                    dimensions,
+                    samples,
+                    TRANSLUCENT_ACCUM_FORMAT,
+                    ImageUsage {
+                        transient_attachment: true,
+                        input_attachment: true,
+                        ..ImageUsage::empty()
+                    },
+                )
+                .unwrap(),
             )
             .unwrap();
 
-            attachments.push(translucent.clone());
+            attachments.push(translucent_accum.clone());
 
-            translucent
+            translucent_accum
+        };
+
+        let translucent_transmit = {
+            let translucent_transmit = ImageView::new_default(
+                AttachmentImage::multisampled_with_usage(
+                    memory_allocator,
+                    dimensions,
+                    samples,
+                    TRANSLUCENT_TRANSMISSION_FORMAT,
+                    ImageUsage {
+                        transient_attachment: true,
+                        input_attachment: true,
+                        ..ImageUsage::empty()
+                    },
+                )
+                .unwrap(),
+            )
+            .unwrap();
+
+            attachments.push(translucent_transmit.clone());
+
+            translucent_transmit
+        };
+
+        let composite = {
+            let composite = ImageView::new_default(
+                AttachmentImage::multisampled(
+                    memory_allocator,
+                    dimensions,
+                    samples,
+                    FINAL_IMAGE_FORMAT,
+                )
+                .unwrap(),
+            )
+            .unwrap();
+
+            attachments.push(composite.clone());
+
+            composite
         };
 
         let view = {
@@ -788,7 +1008,7 @@ impl RendererImages {
                         height: dimensions[1],
                         array_layers: 1,
                     },
-                    format,
+                    FINAL_IMAGE_FORMAT,
                     Some(queue.queue_family_index()),
                 )
                 .unwrap(),
@@ -835,12 +1055,21 @@ impl RendererImages {
         Self {
             framebuffer,
             opaque,
-            translucent,
+            translucent_accum,
+            translucent_transmit,
+            composite,
             depth,
             view,
         }
     }
 }
+
+#[repr(C)]
+#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
+struct ScreenSpaceVertex {
+    position: [f32; 2],
+}
+vulkano::impl_vertex!(ScreenSpaceVertex, position);
 
 mod surface_vs {
     vulkano_shaders::shader! {
@@ -893,5 +1122,29 @@ mod point_fs {
     vulkano_shaders::shader! {
         ty: "fragment",
         path: "src/shaders/point.frag",
+    }
+}
+
+mod compositing_vs {
+    vulkano_shaders::shader! {
+        ty: "vertex",
+        src: "
+#version 450
+
+layout(location = 0) in vec2 position;
+
+void main() {
+    gl_Position = vec4(position, 0.0, 1.0);
+}"
+    }
+}
+
+mod compositing_fs {
+    vulkano_shaders::shader! {
+        ty: "fragment",
+        path: "src/shaders/compositing.frag",
+        types_meta: {
+            #[derive(Clone, Copy, Zeroable, Pod)]
+        },
     }
 }

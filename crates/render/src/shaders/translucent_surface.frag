@@ -47,6 +47,7 @@ void main() {
         reflected,
         material.diffuse.a,
         material.diffuse.rgb, // * (1.0 - material.diffuse.a),
+        //material.diffuse.rgb * (1.0 - material.diffuse.a),
         A,
         beta
     );

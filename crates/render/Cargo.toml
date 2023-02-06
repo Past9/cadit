@@ -11,3 +11,4 @@ crevice = { version = "0.12.0", features = ["cgmath"] }
 vulkano = "0.32.3"
 cgmath = { version = "0.18.0" }
 vulkano-shaders = "0.32"
+regex = "1.7.1"

@@ -1827,6 +1827,7 @@ dependencies = [
  "bytemuck",
  "cgmath",
  "crevice",
+ "regex",
  "vulkano",
  "vulkano-shaders",
 ]

@@ -5,8 +5,8 @@ use vulkano::{
     buffer::{CpuAccessibleBuffer, TypedBufferAccess},
     command_buffer::{
         allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder, CommandBufferUsage,
-        PrimaryAutoCommandBuffer, PrimaryCommandBufferAbstract, RenderPassBeginInfo,
-        SubpassContents,
+        CopyBufferInfo, CopyImageInfo, CopyImageToBufferInfo, PrimaryAutoCommandBuffer,
+        PrimaryCommandBufferAbstract, RenderPassBeginInfo, SubpassContents,
     },
     descriptor_set::{
         allocator::{StandardDescriptorSetAlloc, StandardDescriptorSetAllocator},
@@ -21,7 +21,9 @@ use vulkano::{
     memory::allocator::StandardMemoryAllocator,
     pipeline::{
         graphics::{
-            color_blend::{ColorBlendAttachmentState, ColorBlendState, ColorComponents},
+            color_blend::{
+                AttachmentBlend, ColorBlendAttachmentState, ColorBlendState, ColorComponents,
+            },
             depth_stencil::{CompareOp, DepthState, DepthStencilState},
             input_assembly::{InputAssemblyState, PrimitiveTopology},
             multisample::MultisampleState,
@@ -190,7 +192,7 @@ impl Renderer {
             attachments: {
                 opaque: {
                     load: Clear,
-                    store: DontCare,
+                    store: Store,
                     format: IMAGE_FORMAT,
                     samples: msaa_samples,
                     initial_layout: ImageLayout::ColorAttachmentOptimal,
@@ -226,7 +228,8 @@ impl Renderer {
                 {
                     color: [opaque],
                     depth_stencil: {depth},
-                    input: []
+                    input: [],
+                    resolve: []
                 },
                 // Edges
                 {
@@ -412,7 +415,6 @@ impl Renderer {
                 sample_shading: Some(0.5),
                 ..Default::default()
             })
-            /*
             .depth_stencil_state(DepthStencilState {
                 depth: Some(DepthState {
                     enable_dynamic: false,
@@ -421,20 +423,16 @@ impl Renderer {
                 }),
                 ..DepthStencilState::default()
             })
-            */
-            .color_blend_state(
-                ColorBlendState::new(1), /*ColorBlendState {
-                                             // TODO: Disable color blending?
-                                             attachments: (0..1)
-                                                 .map(|_| ColorBlendAttachmentState {
-                                                     blend: None,
-                                                     color_write_mask: ColorComponents::all(),
-                                                     color_write_enable: StateMode::Fixed(true),
-                                                 })
-                                                 .collect(),
-                                             ..ColorBlendState::default()
-                                         }*/
-            )
+            .color_blend_state(ColorBlendState {
+                attachments: (0..1)
+                    .map(|_| ColorBlendAttachmentState {
+                        blend: None,
+                        color_write_mask: ColorComponents::all(),
+                        color_write_enable: StateMode::Fixed(true),
+                    })
+                    .collect(),
+                ..ColorBlendState::default()
+            })
             .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
             .fragment_shader(
                 translucent_surface_fs::load(device.clone())
@@ -511,9 +509,9 @@ impl Renderer {
             let bg_color = self.scene.bg_color().to_floats();
 
             let clear_values = vec![
+                Some(bg_color.into()),
                 Some([0.0, 0.0, 0.0, 0.0].into()),
-                Some([0.0, 0.0, 0.0, 0.0].into()),
-                Some([0.0, 0.0, 0.0, 0.0].into()),
+                Some(bg_color.into()),
                 Some(1.0.into()),
             ];
 
@@ -681,8 +679,8 @@ impl Renderer {
                         WriteDescriptorSet::buffer(1, self.ambient_light_buffer.clone()),
                         WriteDescriptorSet::buffer(2, self.directional_light_buffer.clone()),
                         WriteDescriptorSet::buffer(3, self.translucent_material_buffer.clone()),
-                        WriteDescriptorSet::image_view(4, self.images.opaque.clone()),
-                        WriteDescriptorSet::image_view(5, self.images.depth.clone()),
+                        //WriteDescriptorSet::image_view(4, self.images.opaque.clone()),
+                        WriteDescriptorSet::image_view(4, self.images.depth.clone()),
                     ],
                 )
                 .unwrap();
@@ -714,6 +712,7 @@ impl Renderer {
 struct RendererImages {
     framebuffer: Arc<Framebuffer>,
     opaque: Arc<ImageView<AttachmentImage>>,
+    translucent: Arc<ImageView<AttachmentImage>>,
     depth: Arc<ImageView<AttachmentImage>>,
     view: Arc<ImageView<StorageImage>>,
 }
@@ -768,7 +767,7 @@ impl RendererImages {
             opaque
         };
 
-        let _translucent = {
+        let translucent = {
             let translucent = ImageView::new_default(
                 AttachmentImage::multisampled(memory_allocator, dimensions, samples, format)
                     .unwrap(),
@@ -836,6 +835,7 @@ impl RendererImages {
         Self {
             framebuffer,
             opaque,
+            translucent,
             depth,
             view,
         }
@@ -854,6 +854,7 @@ mod surface_vs {
 
 mod opaque_surface_fs {
     vulkano_shaders::shader! {
+        include: ["src/shaders/includes"],
         ty: "fragment",
         path: "src/shaders/opaque_surface.frag",
     }
@@ -861,6 +862,7 @@ mod opaque_surface_fs {
 
 mod translucent_surface_fs {
     vulkano_shaders::shader! {
+        include: ["src/shaders/includes"],
         ty: "fragment",
         path: "src/shaders/translucent_surface.frag",
     }

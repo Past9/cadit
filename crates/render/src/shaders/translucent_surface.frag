@@ -4,96 +4,26 @@ layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 normal;
 layout(location = 2) flat in uint material_idx;
 
-struct PointLight {
-    vec3 position;
-    vec3 color;
-    float intensity;
-};
+#include "surface_lighting_buffers.frag"
+#include "translucent_material_buffer.frag"
 
-struct AmbientLight {
-    vec3 color;
-    float intensity;
-};
+//layout(input_attachment_index = 0, set = 0, binding = 4) uniform subpassInputMS u_color;
+layout(input_attachment_index = 1, set = 0, binding = 4) uniform subpassInputMS u_depth;
 
-struct DirectionalLight {
-    vec3 direction;
-    vec3 color;
-    float intensity;
-};
-
-struct Material {
-    vec4 diffuse;
-    float roughness;
-};
-
-
-layout(std140, set = 0, binding = 0) readonly buffer PointLightBuffer {
-    PointLight data[];
-} point_lights;
-
-layout(std140, set = 0, binding = 1) readonly buffer AmbientLightBuffer {
-    AmbientLight data[];
-} ambient_lights;
-
-layout(std140, set = 0, binding = 2) readonly buffer DirectionalLightBuffer {
-    DirectionalLight data[];
-} directional_lights;
-
-layout(std140, set = 0, binding = 3) readonly buffer MaterialBuffer {
-    Material data[];
-} materials;
-
-layout(input_attachment_index = 0, set = 0, binding = 4) uniform subpassInputMS u_color;
-layout(input_attachment_index = 1, set = 0, binding = 5) uniform subpassInputMS u_depth;
-
-layout(location = 0) out vec4 f_color;
+layout(location = 0) out vec4 color;
 
 void main() {
+    float self_depth = gl_FragCoord.z;
     float in_depth = subpassLoad(u_depth, gl_SampleID).x;
 
-    if (in_depth >= 1.0) {
-        //discard;
+    if (in_depth < self_depth) {
+        discard;
     }
 
     Material material = materials.data[material_idx];
-    f_color = vec4(subpassLoad(u_color, gl_SampleID).rgb, 1.0);
-    //f_color = texture(TEXTURE, UV) + vec3(0.5, 0.0, 0.0, 0.0);
-    //f_color = vec4(material.diffuse);
+    color = vec4(material.diffuse);
 
-    vec3 final_light = vec3(0.0, 0.0, 0.0);
+    #include "surface_lighting.frag"
 
-    // Ambient lights
-    vec3 ambient = vec3(0, 0, 0);
-    for (int i = 0; i < ambient_lights.data.length(); i++) {
-        AmbientLight light = ambient_lights.data[i];
-        ambient += light.color * light.intensity;
-    }
-    //final_light += ambient;
-
-    // Directional lights
-    vec3 directional = vec3(0, 0, 0);
-    for (int i = 0; i < directional_lights.data.length(); i++) {
-        DirectionalLight light = directional_lights.data[i];
-        
-        directional += light.color * dot(normal, -light.direction) * light.intensity;
-    }
-    //final_light += directional;
-
-    // Point lights
-    vec3 point = vec3(0, 0, 0);
-    for (int i = 0; i < point_lights.data.length(); i++) {
-        PointLight light = point_lights.data[i];
-
-        vec3 dir_to_light = light.position - position;        
-        float dist_to_light = length(dir_to_light);
-
-        point += light.color * dot(normal, normalize(dir_to_light)) * light.intensity / pow(dist_to_light, 2);
-    }
-    //final_light += point;
-
-    //f_color.rgb *= final_light;
-
-    //f_color *= 1.0 - material.diffuse.a + material.diffuse.a * material.diffuse.rgb;
-
-    //f_color = material.diffuse;
+    color.rgb *= lighting;
 }

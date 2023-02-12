@@ -2,6 +2,7 @@ use cgmath::{point3, vec3, vec4, Deg, InnerSpace, Vector3, Vector4, VectorSpace}
 use components::{rgb, run_window, Window, WindowDescriptor};
 use components::{rgba, scene::SceneViewer, Gui};
 use eframe::egui;
+use render::lights::AmbientLight;
 use render::model::TranslucentMaterial;
 use render::{
     camera::{Camera, CameraAngle},
@@ -49,20 +50,6 @@ pub struct App {
 }
 impl App {
     pub fn new() -> Self {
-        /*
-        let color = blend(
-            vec3(1.0, 1.0, 1.0),
-            vec![
-                vec4(1.0, 0.0, 0.0, 1.0),
-                //vec4(0.5, 1.0, 0.5, 0.5)
-            ],
-        );
-
-        println!("{:?}", color);
-
-        panic!();
-        */
-
         let surface1 = spline::bezier_surface::BezierSurface::<HSpace3>::example_simple();
 
         let mut surface2 = spline::bezier_surface::BezierSurface::<HSpace3>::example_simple();
@@ -89,17 +76,17 @@ impl App {
                 Scene::new(
                     rgba(0.05, 0.1, 0.15, 1.0),
                     SceneLights::new(
-                        vec![],
+                        vec![AmbientLight::new(Rgb::WHITE, 0.2)],
                         vec![
                             DirectionalLight::new(
                                 vec3(1.0, 0.0, 1.0).normalize(),
-                                rgb(0.3, 0.3, 0.5),
-                                1.0,
+                                rgb(0.0, 0.0, 1.0),
+                                0.3,
                             ),
                             DirectionalLight::new(
                                 vec3(-1.0, 0.0, 1.0).normalize(),
-                                rgb(0.5, 0.5, 0.3),
-                                1.0,
+                                rgb(1.0, 1.0, 0.0),
+                                0.3,
                             ),
                         ],
                         vec![],
@@ -121,8 +108,8 @@ impl App {
                     )],
                     vec![OpaqueMaterial::new(rgb(0.8, 0.8, 0.8), 0.5)],
                     vec![
-                        TranslucentMaterial::new(rgba(1.0, 0.0, 0.0, 1.0), 0.5),
-                        TranslucentMaterial::new(rgba(0.0, 1.0, 0.0, 1.0), 0.5),
+                        TranslucentMaterial::new(rgba(0.8, 0.4, 0.2, 0.5), 0.5),
+                        TranslucentMaterial::new(rgba(0.2, 0.4, 0.8, 0.5), 0.5),
                     ],
                 ),
             ),

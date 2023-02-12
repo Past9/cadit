@@ -31,9 +31,6 @@ void main() {
 
     //color = vec4(opaque.rgb * transmit.rgb + (vec3(1) - transmit.rgb) * accum.rgb / max(accum.a, 0.00001), 1.0);
 
-    color = vec4(transmit.rgb, 1.0);
-    return;
-
     vec3 B = subpassLoad(u_transmit, gl_SampleID).rgb;
 
     if (minComponent(B) == 1.0) {

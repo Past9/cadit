@@ -1,6 +1,6 @@
 use cgmath::{point3, vec3, Deg, InnerSpace};
+use components::{rgb, run_window, Window, WindowDescriptor};
 use components::{rgba, scene::SceneViewer, Gui};
-use components::{run_window, Window, WindowDescriptor};
 use eframe::egui;
 use render::{
     camera::{Camera, CameraAngle},
@@ -128,13 +128,15 @@ impl App {
                     ),
                     vec![Model::new(
                         vec![],
+                        vec![],
                         bezier_edges
                             .into_iter()
                             .chain([curve_edge].into_iter())
                             .collect(),
                         grid_points.into_iter().collect(),
                     )],
-                    vec![OpaqueMaterial::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],
+                    vec![OpaqueMaterial::new(rgb(1.0, 1.0, 1.0), 0.5)],
+                    vec![],
                 ),
             ),
         }

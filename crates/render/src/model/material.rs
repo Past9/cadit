@@ -21,17 +21,31 @@ impl OpaqueMaterial {
     pub fn buffer(
         allocator: &(impl MemoryAllocator + ?Sized),
         materials: &[OpaqueMaterial],
-    ) -> Arc<CpuAccessibleBuffer<[Std140OpaqueMaterial]>> {
-        CpuAccessibleBuffer::from_iter(
-            allocator,
-            BufferUsage {
-                storage_buffer: true,
-                ..BufferUsage::empty()
-            },
-            false,
-            materials.iter().map(|material| material.as_std140()),
-        )
-        .unwrap()
+    ) -> Option<Arc<CpuAccessibleBuffer<[Std140OpaqueMaterial]>>> {
+        if !materials.is_empty() {
+            Some(
+                CpuAccessibleBuffer::from_iter(
+                    allocator,
+                    BufferUsage {
+                        storage_buffer: true,
+                        ..BufferUsage::empty()
+                    },
+                    false,
+                    materials.iter().map(|material| material.as_std140()),
+                )
+                .unwrap(),
+            )
+        } else {
+            None
+        }
+    }
+}
+impl Default for OpaqueMaterial {
+    fn default() -> Self {
+        Self {
+            diffuse: Rgb::BLACK,
+            roughness: 0.0,
+        }
     }
 }
 
@@ -48,16 +62,30 @@ impl TranslucentMaterial {
     pub fn buffer(
         allocator: &(impl MemoryAllocator + ?Sized),
         materials: &[TranslucentMaterial],
-    ) -> Arc<CpuAccessibleBuffer<[Std140TranslucentMaterial]>> {
-        CpuAccessibleBuffer::from_iter(
-            allocator,
-            BufferUsage {
-                storage_buffer: true,
-                ..BufferUsage::empty()
-            },
-            false,
-            materials.iter().map(|material| material.as_std140()),
-        )
-        .unwrap()
+    ) -> Option<Arc<CpuAccessibleBuffer<[Std140TranslucentMaterial]>>> {
+        if !materials.is_empty() {
+            Some(
+                CpuAccessibleBuffer::from_iter(
+                    allocator,
+                    BufferUsage {
+                        storage_buffer: true,
+                        ..BufferUsage::empty()
+                    },
+                    false,
+                    materials.iter().map(|material| material.as_std140()),
+                )
+                .unwrap(),
+            )
+        } else {
+            None
+        }
+    }
+}
+impl Default for TranslucentMaterial {
+    fn default() -> Self {
+        Self {
+            diffuse: Rgba::BLACK,
+            roughness: 0.0,
+        }
     }
 }

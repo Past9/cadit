@@ -259,13 +259,7 @@ impl HSpace for HSpace2 {
     }
 
     fn make_line(pos: Self::ProjectedVector, dir: Self::ProjectedVector) -> Self::EuclideanLine {
-        let dir = dir.normalize();
-
-        let a = dir.y;
-        let b = -dir.x;
-        let c = dir.x * pos.y - dir.y * pos.x;
-
-        Self::EuclideanLine { a, b, c }
+        ELine2::new_from_pos_and_dir(pos, dir)
     }
 
     fn line_dist_to_projected_point(
@@ -337,10 +331,10 @@ impl HSpace for HSpace2 {
     }
 
     fn closest_to_point(
-        _line: &Self::EuclideanLine,
-        _point: &Self::ProjectedVector,
+        line: &Self::EuclideanLine,
+        point: &Self::ProjectedVector,
     ) -> Self::ProjectedVector {
-        todo!()
+        line.closest_to_point(point)
     }
 }
 

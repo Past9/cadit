@@ -6,15 +6,14 @@ use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
     command_buffer::{
         allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder, CommandBufferUsage,
-        CopyBufferInfo, CopyImageInfo, CopyImageToBufferInfo, PrimaryAutoCommandBuffer,
-        PrimaryCommandBufferAbstract, RenderPassBeginInfo, SubpassContents,
+        PrimaryAutoCommandBuffer, PrimaryCommandBufferAbstract, RenderPassBeginInfo,
+        SubpassContents,
     },
     descriptor_set::{
-        allocator::{StandardDescriptorSetAlloc, StandardDescriptorSetAllocator},
-        PersistentDescriptorSet, WriteDescriptorSet,
+        allocator::StandardDescriptorSetAllocator, PersistentDescriptorSet, WriteDescriptorSet,
     },
     device::Queue,
-    format::{ClearValue, Format},
+    format::Format,
     image::{
         view::ImageView, AttachmentImage, ImageDimensions, ImageLayout, ImageUsage,
         ImageViewAbstract, SampleCount, StorageImage,
@@ -36,7 +35,6 @@ use vulkano::{
         GraphicsPipeline, Pipeline, PipelineBindPoint, StateMode,
     },
     render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass},
-    shader::spirv::ImageFormat,
     sync::GpuFuture,
 };
 
@@ -50,15 +48,8 @@ use super::{
 };
 
 const FINAL_IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
-//const TRANSLUCENT_ACCUM_FORMAT: Format = Format::B8G8R8A8_UNORM;
-//const TRANSLUCENT_TRANSMISSION_FORMAT: Format = Format::B8G8R8A8_UNORM;
 const TRANSLUCENT_ACCUM_FORMAT: Format = Format::R16G16B16A16_SFLOAT;
 const TRANSLUCENT_TRANSMISSION_FORMAT: Format = Format::R8G8B8A8_UNORM;
-
-struct DescriptorSets {
-    opaque_surface_descriptor_set: Arc<PersistentDescriptorSet<StandardDescriptorSetAlloc>>,
-    translucent_surface_descriptor_set: Arc<PersistentDescriptorSet<StandardDescriptorSetAlloc>>,
-}
 
 pub struct Renderer {
     scene: Scene,
@@ -80,8 +71,8 @@ pub struct Renderer {
     ambient_light_buffer: Arc<CpuAccessibleBuffer<[Std140AmbientLight]>>,
     directional_light_buffer: Arc<CpuAccessibleBuffer<[Std140DirectionalLight]>>,
     point_light_buffer: Arc<CpuAccessibleBuffer<[Std140PointLight]>>,
-    opaque_material_buffer: Arc<CpuAccessibleBuffer<[Std140OpaqueMaterial]>>,
-    translucent_material_buffer: Arc<CpuAccessibleBuffer<[Std140TranslucentMaterial]>>,
+    opaque_material_buffer: Option<Arc<CpuAccessibleBuffer<[Std140OpaqueMaterial]>>>,
+    translucent_material_buffer: Option<Arc<CpuAccessibleBuffer<[Std140TranslucentMaterial]>>>,
 
     // Opaque surface buffers
     opaque_surface_vertex_buffer: Option<Arc<CpuAccessibleBuffer<[BufferedSurfaceVertex]>>>,
@@ -107,7 +98,6 @@ impl Renderer {
         scene: Scene,
         msaa_samples: SampleCount,
         memory_allocator: &StandardMemoryAllocator,
-        descriptor_set_allocator: &StandardDescriptorSetAllocator,
         queue: Arc<Queue>,
     ) -> Self {
         let scissor = Scissor {
@@ -175,6 +165,30 @@ impl Renderer {
             [0, 1, 2, 0, 2, 3],
         )
         .unwrap();
+
+        println!("opaque_material_buffer {:#?}", opaque_material_buffer);
+        println!(
+            "translucent_material_buffer {:#?}",
+            translucent_material_buffer
+        );
+
+        println!(
+            "opaque_surface_vertex_buffer {:#?}",
+            opaque_surface_vertex_buffer
+        );
+        println!(
+            "opaque_surface_index_buffer {:#?}",
+            opaque_surface_index_buffer
+        );
+
+        println!(
+            "translucent_surface_vertex_buffer {:#?}",
+            translucent_surface_vertex_buffer
+        );
+        println!(
+            "translucent_surface_index_buffer {:#?}",
+            translucent_surface_index_buffer
+        );
 
         Self {
             scene,
@@ -713,37 +727,43 @@ impl Renderer {
                 push_constants,
             );
 
-        if let Some(ref surface_vertex_buffer) = self.opaque_surface_vertex_buffer {
-            if let Some(ref surface_index_buffer) = self.opaque_surface_index_buffer {
-                let opaque_surface_descriptor_set = PersistentDescriptorSet::new(
-                    descriptor_set_allocator,
-                    self.opaque_surface_pipeline
-                        .layout()
-                        .set_layouts()
-                        .get(0)
-                        .unwrap()
-                        .clone(),
-                    [
-                        WriteDescriptorSet::buffer(0, self.point_light_buffer.clone()),
-                        WriteDescriptorSet::buffer(1, self.ambient_light_buffer.clone()),
-                        WriteDescriptorSet::buffer(2, self.directional_light_buffer.clone()),
-                        WriteDescriptorSet::buffer(3, self.opaque_material_buffer.clone()),
-                    ],
-                )
-                .unwrap();
+        if let (
+            Some(ref surface_vertex_buffer),
+            Some(ref surface_index_buffer),
+            Some(ref material_buffer),
+        ) = (
+            &self.opaque_surface_vertex_buffer,
+            &self.opaque_surface_index_buffer,
+            &self.opaque_material_buffer,
+        ) {
+            let opaque_surface_descriptor_set = PersistentDescriptorSet::new(
+                descriptor_set_allocator,
+                self.opaque_surface_pipeline
+                    .layout()
+                    .set_layouts()
+                    .get(0)
+                    .unwrap()
+                    .clone(),
+                [
+                    WriteDescriptorSet::buffer(0, self.point_light_buffer.clone()),
+                    WriteDescriptorSet::buffer(1, self.ambient_light_buffer.clone()),
+                    WriteDescriptorSet::buffer(2, self.directional_light_buffer.clone()),
+                    WriteDescriptorSet::buffer(3, material_buffer.clone()),
+                ],
+            )
+            .unwrap();
 
-                builder
-                    .bind_vertex_buffers(0, surface_vertex_buffer.clone())
-                    .bind_index_buffer(surface_index_buffer.clone())
-                    .bind_descriptor_sets(
-                        PipelineBindPoint::Graphics,
-                        self.opaque_surface_pipeline.layout().clone(),
-                        0,
-                        opaque_surface_descriptor_set.clone(),
-                    )
-                    .draw_indexed(surface_index_buffer.len() as u32, 1, 0, 0, 0)
-                    .unwrap();
-            }
+            builder
+                .bind_vertex_buffers(0, surface_vertex_buffer.clone())
+                .bind_index_buffer(surface_index_buffer.clone())
+                .bind_descriptor_sets(
+                    PipelineBindPoint::Graphics,
+                    self.opaque_surface_pipeline.layout().clone(),
+                    0,
+                    opaque_surface_descriptor_set.clone(),
+                )
+                .draw_indexed(surface_index_buffer.len() as u32, 1, 0, 0, 0)
+                .unwrap();
         }
     }
 
@@ -798,38 +818,44 @@ impl Renderer {
                 push_constants,
             );
 
-        if let Some(ref surface_vertex_buffer) = self.translucent_surface_vertex_buffer {
-            if let Some(ref surface_index_buffer) = self.translucent_surface_index_buffer {
-                let translucent_surface_descriptor_set = PersistentDescriptorSet::new(
-                    descriptor_set_allocator,
-                    self.translucent_surface_pipeline
-                        .layout()
-                        .set_layouts()
-                        .get(0)
-                        .unwrap()
-                        .clone(),
-                    [
-                        WriteDescriptorSet::buffer(0, self.point_light_buffer.clone()),
-                        WriteDescriptorSet::buffer(1, self.ambient_light_buffer.clone()),
-                        WriteDescriptorSet::buffer(2, self.directional_light_buffer.clone()),
-                        WriteDescriptorSet::buffer(3, self.translucent_material_buffer.clone()),
-                        WriteDescriptorSet::image_view(4, self.images.depth.clone()),
-                    ],
-                )
-                .unwrap();
+        if let (
+            Some(ref surface_vertex_buffer),
+            Some(ref surface_index_buffer),
+            Some(ref material_buffer),
+        ) = (
+            &self.translucent_surface_vertex_buffer,
+            &self.translucent_surface_index_buffer,
+            &self.translucent_material_buffer,
+        ) {
+            let translucent_surface_descriptor_set = PersistentDescriptorSet::new(
+                descriptor_set_allocator,
+                self.translucent_surface_pipeline
+                    .layout()
+                    .set_layouts()
+                    .get(0)
+                    .unwrap()
+                    .clone(),
+                [
+                    WriteDescriptorSet::buffer(0, self.point_light_buffer.clone()),
+                    WriteDescriptorSet::buffer(1, self.ambient_light_buffer.clone()),
+                    WriteDescriptorSet::buffer(2, self.directional_light_buffer.clone()),
+                    WriteDescriptorSet::buffer(3, material_buffer.clone()),
+                    WriteDescriptorSet::image_view(4, self.images.depth.clone()),
+                ],
+            )
+            .unwrap();
 
-                builder
-                    .bind_vertex_buffers(0, surface_vertex_buffer.clone())
-                    .bind_index_buffer(surface_index_buffer.clone())
-                    .bind_descriptor_sets(
-                        PipelineBindPoint::Graphics,
-                        self.translucent_surface_pipeline.layout().clone(),
-                        0,
-                        translucent_surface_descriptor_set.clone(),
-                    )
-                    .draw_indexed(surface_index_buffer.len() as u32, 1, 0, 0, 0)
-                    .unwrap();
-            }
+            builder
+                .bind_vertex_buffers(0, surface_vertex_buffer.clone())
+                .bind_index_buffer(surface_index_buffer.clone())
+                .bind_descriptor_sets(
+                    PipelineBindPoint::Graphics,
+                    self.translucent_surface_pipeline.layout().clone(),
+                    0,
+                    translucent_surface_descriptor_set.clone(),
+                )
+                .draw_indexed(surface_index_buffer.len() as u32, 1, 0, 0, 0)
+                .unwrap();
         }
     }
 
@@ -886,7 +912,7 @@ struct RendererImages {
     opaque: Arc<ImageView<AttachmentImage>>,
     translucent_accum: Arc<ImageView<AttachmentImage>>,
     translucent_transmit: Arc<ImageView<AttachmentImage>>,
-    composite: Arc<ImageView<AttachmentImage>>,
+    _composite: Arc<ImageView<AttachmentImage>>,
     depth: Arc<ImageView<AttachmentImage>>,
     view: Arc<ImageView<StorageImage>>,
 }
@@ -1059,7 +1085,7 @@ impl RendererImages {
             opaque,
             translucent_accum,
             translucent_transmit,
-            composite,
+            _composite: composite,
             depth,
             view,
         }

@@ -5,7 +5,7 @@ use eframe::egui;
 use render::{
     camera::{Camera, CameraAngle},
     lights::DirectionalLight,
-    model::{Model, OpaqueMaterial},
+    model::Model,
     scene::{Scene, SceneLights},
     Rgb, Rgba,
 };
@@ -85,6 +85,7 @@ impl App {
                     ),
                     vec![Model::new(
                         vec![],
+                        vec![],
                         make_grid(10, true, true, true)
                             .into_iter()
                             .chain(naive_edges)
@@ -92,7 +93,9 @@ impl App {
                             .collect(),
                         vec![],
                     )],
-                    vec![OpaqueMaterial::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],
+                    //vec![OpaqueMaterial::new(rgb(1.0, 1.0, 1.0), 0.5)],
+                    vec![],
+                    vec![],
                 ),
             ),
         }

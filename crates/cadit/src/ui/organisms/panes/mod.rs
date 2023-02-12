@@ -1,5 +1,8 @@
 use cgmath::{point3, vec3, Deg, InnerSpace};
-use components::editors::{assembly::AssemblyEditor, part::PartEditor, Editor};
+use components::{
+    editors::{assembly::AssemblyEditor, part::PartEditor, Editor},
+    rgb,
+};
 use eframe::egui::{self, Ui};
 use egui_dock::NodeIndex;
 use render::{
@@ -123,6 +126,7 @@ impl EditorPane {
                         ),
                         0,
                     )],
+                    vec![],
                     vec![ModelEdge::new(
                         0.into(),
                         Edge::new([
@@ -155,9 +159,8 @@ impl EditorPane {
                             Rgba::WHITE,
                         ),
                     ],
-                    vec![],
                 )],
-                vec![OpaqueMaterial::new(rgba(1.0, 1.0, 1.0, 1.0), 0.5)],
+                vec![OpaqueMaterial::new(rgb(1.0, 1.0, 1.0), 0.5)],
                 vec![],
             ))),
         }

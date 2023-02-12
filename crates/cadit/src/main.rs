@@ -1,9 +1,5 @@
-#![allow(dead_code)]
-use std::ops::Add;
-
-use cgmath::vec4;
-use ui::CaditUi;
 use components::{run_window, WindowDescriptor};
+use ui::CaditUi;
 
 mod error;
 mod ui;

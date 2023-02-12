@@ -117,7 +117,6 @@ impl InternalGuiRenderer {
             scene,
             SampleCount::Sample8,
             &resources.memory_allocator,
-            &resources.descriptor_set_allocator,
             resources.queue.clone(),
         );
         let transfer = EguiTransfer::new(resources);

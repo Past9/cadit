@@ -11,9 +11,26 @@ impl ELine for EUnimplementedLine {}
 /// An infinite line in 2D Euclidean space
 #[derive(Debug, Clone)]
 pub struct ELine2 {
+    pos: EVec2,
+    dir: EVec2,
     pub a: f64,
     pub b: f64,
     pub c: f64,
+}
+impl ELine2 {
+    pub fn new_from_pos_and_dir(pos: EVec2, dir: EVec2) -> Self {
+        let dir = dir.normalize();
+
+        let a = dir.y;
+        let b = -dir.x;
+        let c = dir.x * pos.y - dir.y * pos.x;
+
+        Self { pos, dir, a, b, c }
+    }
+
+    pub fn closest_to_point(&self, point: &EVec2) -> EVec2 {
+        self.pos + self.dir * ((point - self.pos).dot(&self.dir))
+    }
 }
 impl ELine for ELine2 {}
 

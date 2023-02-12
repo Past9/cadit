@@ -139,8 +139,8 @@ impl Scene {
         &self,
         allocator: &impl MemoryAllocator,
     ) -> (
-        Arc<CpuAccessibleBuffer<[Std140OpaqueMaterial]>>,
-        Arc<CpuAccessibleBuffer<[Std140TranslucentMaterial]>>,
+        Option<Arc<CpuAccessibleBuffer<[Std140OpaqueMaterial]>>>,
+        Option<Arc<CpuAccessibleBuffer<[Std140TranslucentMaterial]>>>,
     ) {
         let opaque_buffer = OpaqueMaterial::buffer(allocator, &self.opaque_materials);
         let translucent_buffer =

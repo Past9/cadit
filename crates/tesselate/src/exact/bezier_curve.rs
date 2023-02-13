@@ -1,5 +1,5 @@
 use render::{
-    mesh::{Edge, EdgeVertex},
+    model::EdgeVertex,
     model::{ModelEdge, ModelObjectId},
     Rgba,
 };
@@ -24,7 +24,7 @@ impl<H: HSpace> TesselatedCurve<H> {
         }))
         .collect::<Vec<EdgeVertex>>();
 
-        ModelEdge::new(object_id, Edge { vertices }, color)
+        ModelEdge::new(object_id, vertices, color)
     }
 }
 

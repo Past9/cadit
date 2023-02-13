@@ -1,5 +1,5 @@
 use render::{
-    mesh::{Edge, EdgeVertex},
+    model::EdgeVertex,
     model::{ModelEdge, ModelObjectId},
     Rgba,
 };
@@ -14,14 +14,12 @@ pub fn tesselate_bezier_curve<H: HSpace>(
 ) -> ModelEdge {
     ModelEdge::new(
         object_id,
-        Edge {
-            vertices: FloatRange::new(0.0, 1.0, segments)
-                .map(|u| EdgeVertex {
-                    position: curve.point(u).f32s(),
-                    expand: [0.0, 0.0, 0.0],
-                })
-                .collect::<Vec<_>>(),
-        },
+        FloatRange::new(0.0, 1.0, segments)
+            .map(|u| EdgeVertex {
+                position: curve.point(u).f32s(),
+                expand: [0.0, 0.0, 0.0],
+            })
+            .collect::<Vec<_>>(),
         color,
     )
 }

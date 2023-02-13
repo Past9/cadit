@@ -1,6 +1,6 @@
 use render::{
-    mesh::{Surface, SurfaceVertex},
-    model::{ModelObjectId, ModelSurface},
+    model::SurfaceVertex,
+    model::{MaterialId, ModelObjectId, ModelSurface},
 };
 use space::{hspace::HSpace, EVector};
 use spline::{bezier_surface::BezierSurface, math::FloatRange};
@@ -9,7 +9,7 @@ pub fn tesselate_bezier_surface<H: HSpace>(
     surface: &BezierSurface<H>,
     segments: usize,
     object_id: ModelObjectId,
-    material_idx: u32,
+    material_id: MaterialId,
 ) -> ModelSurface {
     let mut vertices: Vec<SurfaceVertex> = Vec::with_capacity(segments.pow(2));
     for v in FloatRange::new(0.0, 1.0, segments) {
@@ -45,7 +45,7 @@ pub fn tesselate_bezier_surface<H: HSpace>(
         }
     }
 
-    ModelSurface::new(object_id, Surface { vertices, indices }, material_idx)
+    ModelSurface::new(object_id, vertices, indices, material_id)
 }
 
 fn index(u: u32, v: u32, segments: u32) -> u32 {

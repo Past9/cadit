@@ -38,9 +38,15 @@ use vulkano::{
     sync::GpuFuture,
 };
 
-use crate::lights::{Std140AmbientLight, Std140DirectionalLight, Std140PointLight};
-use crate::model::{Std140OpaqueMaterial, Std140TranslucentMaterial};
 use crate::PixelViewport;
+use crate::{
+    lights::LightBuffers,
+    model::{Std140OpaqueMaterial, Std140TranslucentMaterial},
+};
+use crate::{
+    lights::{Std140AmbientLight, Std140DirectionalLight, Std140PointLight},
+    model::GeometryBuffers,
+};
 
 use super::{
     model::{BufferedEdgeVertex, BufferedPointVertex, BufferedSurfaceVertex},
@@ -67,27 +73,8 @@ pub struct Renderer {
     scissor: Scissor,
     framebuffers_rebuilt: bool,
 
-    // Scene buffers
-    ambient_light_buffer: Arc<CpuAccessibleBuffer<[Std140AmbientLight]>>,
-    directional_light_buffer: Arc<CpuAccessibleBuffer<[Std140DirectionalLight]>>,
-    point_light_buffer: Arc<CpuAccessibleBuffer<[Std140PointLight]>>,
-    opaque_material_buffer: Option<Arc<CpuAccessibleBuffer<[Std140OpaqueMaterial]>>>,
-    translucent_material_buffer: Option<Arc<CpuAccessibleBuffer<[Std140TranslucentMaterial]>>>,
-
-    // Opaque surface buffers
-    opaque_surface_vertex_buffer: Option<Arc<CpuAccessibleBuffer<[BufferedSurfaceVertex]>>>,
-    opaque_surface_index_buffer: Option<Arc<CpuAccessibleBuffer<[u32]>>>,
-
-    // Translucent surface buffers
-    translucent_surface_vertex_buffer: Option<Arc<CpuAccessibleBuffer<[BufferedSurfaceVertex]>>>,
-    translucent_surface_index_buffer: Option<Arc<CpuAccessibleBuffer<[u32]>>>,
-
-    // Edge buffers
-    edge_vertex_buffer: Option<Arc<CpuAccessibleBuffer<[BufferedEdgeVertex]>>>,
-    edge_index_buffer: Option<Arc<CpuAccessibleBuffer<[u32]>>>,
-
-    // Point buffers
-    point_vertex_buffer: Option<Arc<CpuAccessibleBuffer<[BufferedPointVertex]>>>,
+    light_buffers: LightBuffers,
+    geometry_buffers: GeometryBuffers,
 
     // Image quad buffers
     full_quad_vertex_buffer: Arc<CpuAccessibleBuffer<[ScreenSpaceVertex]>>,
@@ -115,21 +102,8 @@ impl Renderer {
             compositing_pipeline,
         ) = Self::create_pipelines(msaa_samples, &scissor, memory_allocator, queue);
 
-        let (opaque_surface_vertex_buffer, opaque_surface_index_buffer) =
-            scene.opaque_surface_geometry_buffers(memory_allocator);
-
-        let (translucent_surface_vertex_buffer, translucent_surface_index_buffer) =
-            scene.translucent_surface_geometry_buffers(memory_allocator);
-
-        let (edge_vertex_buffer, edge_index_buffer) = scene.edge_geometry_buffers(memory_allocator);
-
-        let point_vertex_buffer = scene.point_geometry_buffer(memory_allocator);
-
-        let (ambient_light_buffer, directional_light_buffer, point_light_buffer) =
-            scene.lights().light_buffers(memory_allocator);
-
-        let (opaque_material_buffer, translucent_material_buffer) =
-            scene.material_buffers(memory_allocator);
+        let geometry_buffers = scene.geometry_buffers(memory_allocator);
+        let light_buffers = scene.light_buffers(memory_allocator);
 
         let full_quad_vertex_buffer = CpuAccessibleBuffer::from_iter(
             memory_allocator,
@@ -166,30 +140,6 @@ impl Renderer {
         )
         .unwrap();
 
-        println!("opaque_material_buffer {:#?}", opaque_material_buffer);
-        println!(
-            "translucent_material_buffer {:#?}",
-            translucent_material_buffer
-        );
-
-        println!(
-            "opaque_surface_vertex_buffer {:#?}",
-            opaque_surface_vertex_buffer
-        );
-        println!(
-            "opaque_surface_index_buffer {:#?}",
-            opaque_surface_index_buffer
-        );
-
-        println!(
-            "translucent_surface_vertex_buffer {:#?}",
-            translucent_surface_vertex_buffer
-        );
-        println!(
-            "translucent_surface_index_buffer {:#?}",
-            translucent_surface_index_buffer
-        );
-
         Self {
             scene,
             render_pass,
@@ -206,27 +156,8 @@ impl Renderer {
             scissor,
             framebuffers_rebuilt: true,
 
-            // Scene buffers
-            ambient_light_buffer,
-            directional_light_buffer,
-            point_light_buffer,
-            opaque_material_buffer,
-            translucent_material_buffer,
-
-            // Opaque surface buffers
-            opaque_surface_vertex_buffer,
-            opaque_surface_index_buffer,
-
-            // Translucent surface buffers
-            translucent_surface_vertex_buffer,
-            translucent_surface_index_buffer,
-
-            // Edge buffers
-            edge_vertex_buffer,
-            edge_index_buffer,
-
-            // Point buffers
-            point_vertex_buffer,
+            geometry_buffers,
+            light_buffers,
 
             // Image quad buffers
             full_quad_vertex_buffer,
@@ -613,7 +544,6 @@ impl Renderer {
         };
 
         if new_scissor != self.scissor {
-            println!("UPDATE VIEWPORT");
             self.scissor = new_scissor;
             self.scene
                 .camera_mut()
@@ -651,7 +581,7 @@ impl Renderer {
         .unwrap();
 
         let clear_values = {
-            let bg_color = self.scene.bg_color().to_floats();
+            let bg_color = self.scene.background().to_floats();
 
             let clear_values = vec![
                 Some(bg_color.into()),
@@ -732,10 +662,16 @@ impl Renderer {
             Some(ref surface_index_buffer),
             Some(ref material_buffer),
         ) = (
-            &self.opaque_surface_vertex_buffer,
-            &self.opaque_surface_index_buffer,
-            &self.opaque_material_buffer,
+            &self.geometry_buffers.opaque_surface_vertices,
+            &self.geometry_buffers.opaque_surface_indices,
+            &self.geometry_buffers.opaque_materials,
         ) {
+            let (ambient_light_buffer, directional_light_buffer, point_light_buffer) = (
+                &self.light_buffers.ambient,
+                &self.light_buffers.directional,
+                &self.light_buffers.point,
+            );
+
             let opaque_surface_descriptor_set = PersistentDescriptorSet::new(
                 descriptor_set_allocator,
                 self.opaque_surface_pipeline
@@ -745,9 +681,9 @@ impl Renderer {
                     .unwrap()
                     .clone(),
                 [
-                    WriteDescriptorSet::buffer(0, self.point_light_buffer.clone()),
-                    WriteDescriptorSet::buffer(1, self.ambient_light_buffer.clone()),
-                    WriteDescriptorSet::buffer(2, self.directional_light_buffer.clone()),
+                    WriteDescriptorSet::buffer(0, point_light_buffer.clone()),
+                    WriteDescriptorSet::buffer(1, ambient_light_buffer.clone()),
+                    WriteDescriptorSet::buffer(2, directional_light_buffer.clone()),
                     WriteDescriptorSet::buffer(3, material_buffer.clone()),
                 ],
             )
@@ -773,14 +709,15 @@ impl Renderer {
             .unwrap()
             .bind_pipeline_graphics(self.edge_pipeline.clone());
 
-        if let Some(ref edge_vertex_buffer) = self.edge_vertex_buffer {
-            if let Some(ref edge_index_buffer) = self.edge_index_buffer {
-                builder
-                    .bind_vertex_buffers(0, edge_vertex_buffer.clone())
-                    .bind_index_buffer(edge_index_buffer.clone())
-                    .draw_indexed(edge_index_buffer.len() as u32, 1, 0, 0, 0)
-                    .unwrap();
-            }
+        if let (Some(ref edge_vertex_buffer), Some(ref edge_index_buffer)) = (
+            &self.geometry_buffers.edge_vertices,
+            &self.geometry_buffers.edge_indices,
+        ) {
+            builder
+                .bind_vertex_buffers(0, edge_vertex_buffer.clone())
+                .bind_index_buffer(edge_index_buffer.clone())
+                .draw_indexed(edge_index_buffer.len() as u32, 1, 0, 0, 0)
+                .unwrap();
         }
     }
 
@@ -790,7 +727,7 @@ impl Renderer {
             .unwrap()
             .bind_pipeline_graphics(self.point_pipeline.clone());
 
-        if let Some(ref point_vertex_buffer) = self.point_vertex_buffer {
+        if let Some(ref point_vertex_buffer) = &self.geometry_buffers.point_vertices {
             builder
                 .bind_vertex_buffers(0, point_vertex_buffer.clone())
                 .draw(point_vertex_buffer.len() as u32, 1, 0, 0)
@@ -823,10 +760,16 @@ impl Renderer {
             Some(ref surface_index_buffer),
             Some(ref material_buffer),
         ) = (
-            &self.translucent_surface_vertex_buffer,
-            &self.translucent_surface_index_buffer,
-            &self.translucent_material_buffer,
+            &self.geometry_buffers.translucent_surface_vertices,
+            &self.geometry_buffers.translucent_surface_indices,
+            &self.geometry_buffers.translucent_materials,
         ) {
+            let (ambient_light_buffer, directional_light_buffer, point_light_buffer) = (
+                &self.light_buffers.ambient,
+                &self.light_buffers.directional,
+                &self.light_buffers.point,
+            );
+
             let translucent_surface_descriptor_set = PersistentDescriptorSet::new(
                 descriptor_set_allocator,
                 self.translucent_surface_pipeline
@@ -836,9 +779,9 @@ impl Renderer {
                     .unwrap()
                     .clone(),
                 [
-                    WriteDescriptorSet::buffer(0, self.point_light_buffer.clone()),
-                    WriteDescriptorSet::buffer(1, self.ambient_light_buffer.clone()),
-                    WriteDescriptorSet::buffer(2, self.directional_light_buffer.clone()),
+                    WriteDescriptorSet::buffer(0, point_light_buffer.clone()),
+                    WriteDescriptorSet::buffer(1, ambient_light_buffer.clone()),
+                    WriteDescriptorSet::buffer(2, directional_light_buffer.clone()),
                     WriteDescriptorSet::buffer(3, material_buffer.clone()),
                     WriteDescriptorSet::image_view(4, self.images.depth.clone()),
                 ],
@@ -924,7 +867,6 @@ impl RendererImages {
         memory_allocator: &StandardMemoryAllocator,
         queue: Arc<Queue>,
     ) -> Self {
-        println!("NEW IMAGES");
         // Make sure the images are at least 1 pixel in each dimension or Vulkan will
         // throw an error. Also make the images cover the offset area so they line up
         // with the egui area that we're painting. We'll only render to the area that

@@ -51,6 +51,7 @@ impl<H: HSpace> BezierSurface<H> {
 
     pub fn translate(&mut self, vec: H::Vector) {
         // TODO: Use transformation matrices
+
         let mut new_pts = Vec::new();
         for row in self.control_points.iter_mut() {
             let mut new_row = Vec::new();

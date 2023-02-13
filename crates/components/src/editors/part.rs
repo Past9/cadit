@@ -11,12 +11,15 @@ pub struct PartEditor {
 }
 impl PartEditor {
     pub fn new(scene: Scene) -> Self {
+        /*
         let mut gizmo = Gizmo::new(scene.clone());
         let rotation = gizmo.rotation();
         Self {
             gizmo,
             viewer: SceneViewer::new(rotation, vec3(0.0, 0.0, 0.0), true, true, true, scene),
         }
+        */
+        todo!()
     }
 }
 impl Editor for PartEditor {

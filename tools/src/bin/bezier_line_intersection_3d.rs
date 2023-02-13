@@ -7,7 +7,7 @@ use eframe::egui;
 use render::{
     camera::{Camera, CameraAngle},
     lights::DirectionalLight,
-    mesh::{Edge, EdgeVertex, Point},
+    model::{Edge, EdgeVertex, Point},
     model::{Model, ModelEdge, ModelPoint, OpaqueMaterial},
     scene::{Scene, SceneLights},
     Rgb, Rgba,

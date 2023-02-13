@@ -1,21 +1,20 @@
-use cgmath::{point3, vec3, vec4, Deg, InnerSpace, Vector3, Vector4, VectorSpace};
+use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Vector4};
 use components::{rgb, run_window, Window, WindowDescriptor};
 use components::{rgba, scene::SceneViewer, Gui};
 use eframe::egui;
-use render::lights::AmbientLight;
-use render::model::TranslucentMaterial;
+use render::lights::{AmbientLight, Lights};
+use render::model::{Geometry, TranslucentMaterial};
+use render::scene::SceneBuilder;
 use render::{
     camera::{Camera, CameraAngle},
     lights::DirectionalLight,
     model::{Model, OpaqueMaterial},
-    scene::{Scene, SceneLights},
-    Rgb, Rgba,
+    scene::Scene,
+    Rgb,
 };
 use space::hspace::HSpace3;
 use space::HVec3;
-use std::time::Instant;
-use tesselate::exact::tesselate_bezier_curve;
-use tesselate::naive::{self, tesselate_bezier_surface};
+use tesselate::naive;
 use tools::make_grid;
 
 pub fn main() {
@@ -50,21 +49,51 @@ pub struct App {
 }
 impl App {
     pub fn new() -> Self {
-        let surface1 = spline::bezier_surface::BezierSurface::<HSpace3>::example_simple();
+        let mut surface1 = spline::bezier_surface::BezierSurface::<HSpace3>::example_simple();
+        surface1.translate(HVec3::new(0.0, 1.0, 0.0, 0.0));
 
         let mut surface2 = spline::bezier_surface::BezierSurface::<HSpace3>::example_simple();
-        surface2.translate(HVec3::new(0.0, 1.0, 0.0, 0.0));
+        surface2.translate(HVec3::new(0.0, -1.0, 0.0, 0.0));
 
-        let mut surface3 = spline::bezier_surface::BezierSurface::<HSpace3>::example_simple();
-        surface3.translate(HVec3::new(0.0, 3.0, 0.0, 0.0));
+        let mut geometry = Geometry::new();
+        let opaque_gray = geometry.insert_material(rgba(0.8, 0.8, 0.8, 1.0), 0.5);
 
-        let mut surface4 = spline::bezier_surface::BezierSurface::<HSpace3>::example_simple();
-        surface4.translate(HVec3::new(0.0, -1.0, 0.0, 0.0));
+        geometry.insert_model(
+            Model::empty()
+                .surface(naive::tesselate_bezier_surface(
+                    &surface1,
+                    20,
+                    0.into(),
+                    opaque_gray,
+                ))
+                .surface(naive::tesselate_bezier_surface(
+                    &surface2,
+                    20,
+                    0.into(),
+                    opaque_gray,
+                ))
+                .edges(make_grid(5, true, true, true)),
+        );
 
-        let model1 = tesselate_bezier_surface(&surface1, 20, 0.into(), 0);
-        let model2 = tesselate_bezier_surface(&surface2, 20, 0.into(), 1);
-        let model3 = tesselate_bezier_surface(&surface3, 20, 0.into(), 0);
-        let model4 = tesselate_bezier_surface(&surface4, 20, 0.into(), 0);
+        let mut scene = SceneBuilder::empty();
+        scene
+            .background(rgba(0.05, 0.1, 0.15, 1.0))
+            .camera(Camera::create_perspective(
+                [0, 0],
+                point3(0.0, 0.0, -3.0),
+                vec3(0.0, 0.0, 1.0),
+                vec3(0.0, -1.0, 0.0).normalize(),
+                Deg(70.0).into(),
+                0.01,
+                5.0,
+            ))
+            .lights(
+                Lights::empty()
+                    .ambient(Rgb::WHITE, 0.2)
+                    .directional(vec3(1.0, 0.0, 1.0).normalize(), rgb(0.0, 0.0, 1.0), 0.3)
+                    .directional(vec3(-1.0, 0.0, 1.0).normalize(), rgb(1.0, 1.0, 0.0), 0.3),
+            )
+            .geometry(geometry);
 
         Self {
             viewer: SceneViewer::new(
@@ -73,45 +102,7 @@ impl App {
                 true,
                 true,
                 true,
-                Scene::new(
-                    rgba(0.05, 0.1, 0.15, 1.0),
-                    SceneLights::new(
-                        vec![AmbientLight::new(Rgb::WHITE, 0.2)],
-                        vec![
-                            DirectionalLight::new(
-                                vec3(1.0, 0.0, 1.0).normalize(),
-                                rgb(0.0, 0.0, 1.0),
-                                0.3,
-                            ),
-                            DirectionalLight::new(
-                                vec3(-1.0, 0.0, 1.0).normalize(),
-                                rgb(1.0, 1.0, 0.0),
-                                0.3,
-                            ),
-                        ],
-                        vec![],
-                    ),
-                    Camera::create_perspective(
-                        [0, 0],
-                        point3(0.0, 0.0, -3.0),
-                        vec3(0.0, 0.0, 1.0),
-                        vec3(0.0, -1.0, 0.0).normalize(),
-                        Deg(70.0).into(),
-                        0.01,
-                        5.0,
-                    ),
-                    vec![Model::new(
-                        vec![model4, model3],
-                        vec![model1, model2],
-                        make_grid(10, true, true, true),
-                        vec![],
-                    )],
-                    vec![OpaqueMaterial::new(rgb(0.8, 0.8, 0.8), 0.5)],
-                    vec![
-                        TranslucentMaterial::new(rgba(0.8, 0.4, 0.2, 0.5), 0.5),
-                        TranslucentMaterial::new(rgba(0.2, 0.4, 0.8, 0.5), 0.5),
-                    ],
-                ),
+                scene.build(),
             ),
         }
     }

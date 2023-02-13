@@ -1,174 +1,344 @@
-use super::{
-    mesh::{Edge, EdgeVertex, Point, Surface, SurfaceVertex},
-    Rgba,
-};
-use bytemuck::{Pod, Zeroable};
+use crate::Rgba;
+use std::sync::Arc;
+use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
+use vulkano::memory::allocator::MemoryAllocator;
 
+mod edge;
 mod material;
+mod point;
+mod surface;
 
+pub use edge::*;
 pub use material::*;
+pub use point::*;
+pub use surface::*;
+
+pub struct GeometryBuffers {
+    pub opaque_materials: Option<Arc<CpuAccessibleBuffer<[Std140OpaqueMaterial]>>>,
+    pub opaque_surface_vertices: Option<Arc<CpuAccessibleBuffer<[BufferedSurfaceVertex]>>>,
+    pub opaque_surface_indices: Option<Arc<CpuAccessibleBuffer<[u32]>>>,
+
+    pub translucent_materials: Option<Arc<CpuAccessibleBuffer<[Std140TranslucentMaterial]>>>,
+    pub translucent_surface_vertices: Option<Arc<CpuAccessibleBuffer<[BufferedSurfaceVertex]>>>,
+    pub translucent_surface_indices: Option<Arc<CpuAccessibleBuffer<[u32]>>>,
+
+    pub edge_vertices: Option<Arc<CpuAccessibleBuffer<[BufferedEdgeVertex]>>>,
+    pub edge_indices: Option<Arc<CpuAccessibleBuffer<[u32]>>>,
+
+    pub point_vertices: Option<Arc<CpuAccessibleBuffer<[BufferedPointVertex]>>>,
+}
+
+#[derive(Debug)]
+pub struct Geometry {
+    models: Vec<Model>,
+    materials: MaterialSet,
+}
+impl Geometry {
+    pub fn new() -> Self {
+        Self {
+            models: vec![],
+            materials: MaterialSet::new(),
+        }
+    }
+
+    pub fn insert_material(&mut self, reflect: Rgba, roughness: f32) -> MaterialId {
+        self.materials.insert(reflect, roughness)
+    }
+
+    pub fn insert_model(&mut self, model: Model) {
+        self.models.push(model)
+    }
+
+    pub fn build_buffers(&self, allocator: &(impl MemoryAllocator + ?Sized)) -> GeometryBuffers {
+        let (opaque_surface_vertices, opaque_surface_indices) = self.buffer_surfaces(
+            allocator,
+            self.models
+                .iter()
+                .flat_map(|model| model.surfaces.iter())
+                .filter(|surface| surface.is_opaque()),
+        );
+
+        let (translucent_surface_vertices, translucent_surface_indices) = self.buffer_surfaces(
+            allocator,
+            self.models
+                .iter()
+                .flat_map(|model| model.surfaces.iter())
+                .filter(|surface| surface.is_translucent()),
+        );
+
+        let (edge_vertices, edge_indices) = self.buffer_edges(allocator);
+
+        let point_vertices = self.buffer_points(allocator);
+
+        GeometryBuffers {
+            opaque_materials: self.materials.buffer_opaque(allocator),
+            opaque_surface_vertices,
+            opaque_surface_indices,
+
+            translucent_materials: self.materials.buffer_translucent(allocator),
+            translucent_surface_vertices,
+            translucent_surface_indices,
+
+            edge_vertices,
+            edge_indices,
+
+            point_vertices,
+        }
+    }
+
+    fn buffer_surfaces<'a>(
+        &self,
+        allocator: &(impl MemoryAllocator + ?Sized),
+        surfaces: impl Iterator<Item = &'a ModelSurface>,
+    ) -> (
+        Option<Arc<CpuAccessibleBuffer<[BufferedSurfaceVertex]>>>,
+        Option<Arc<CpuAccessibleBuffer<[u32]>>>,
+    ) {
+        let mut vertices: Vec<BufferedSurfaceVertex> = Vec::new();
+        let mut indices: Vec<u32> = Vec::new();
+
+        let mut index_offset = 0;
+        for surface in surfaces {
+            vertices.extend(
+                surface
+                    .vertices()
+                    .iter()
+                    .map(|vert| BufferedSurfaceVertex::new(vert, surface.material_id())),
+            );
+
+            indices.extend(surface.indices().iter().map(|i| i + index_offset));
+            index_offset += surface.vertices().len() as u32;
+        }
+
+        if vertices.len() > 0 && indices.len() > 0 {
+            let vertex_buffer = CpuAccessibleBuffer::from_iter(
+                allocator,
+                BufferUsage {
+                    vertex_buffer: true,
+                    ..BufferUsage::empty()
+                },
+                false,
+                vertices,
+            )
+            .unwrap();
+
+            let index_buffer = CpuAccessibleBuffer::from_iter(
+                allocator,
+                BufferUsage {
+                    index_buffer: true,
+                    ..BufferUsage::empty()
+                },
+                false,
+                indices,
+            )
+            .unwrap();
+
+            (Some(vertex_buffer), Some(index_buffer))
+        } else {
+            (None, None)
+        }
+    }
+
+    pub fn buffer_edges(
+        &self,
+        allocator: &(impl MemoryAllocator + ?Sized),
+    ) -> (
+        Option<Arc<CpuAccessibleBuffer<[BufferedEdgeVertex]>>>,
+        Option<Arc<CpuAccessibleBuffer<[u32]>>>,
+    ) {
+        let mut vertices: Vec<BufferedEdgeVertex> = Vec::new();
+        let mut indices: Vec<u32> = Vec::new();
+
+        let mut index = 0;
+        for model in self.models.iter() {
+            for edge in model.edges.iter() {
+                let color = edge.color();
+                for vertex in edge.vertices().iter() {
+                    vertices.push(BufferedEdgeVertex::new(vertex, color));
+
+                    indices.push(index);
+                    index += 1;
+                }
+                indices.push(u32::MAX);
+            }
+        }
+
+        if vertices.len() > 0 && indices.len() > 0 {
+            let vertex_buffer = CpuAccessibleBuffer::from_iter(
+                allocator,
+                BufferUsage {
+                    vertex_buffer: true,
+                    ..BufferUsage::empty()
+                },
+                false,
+                vertices,
+            )
+            .unwrap();
+
+            let index_buffer = CpuAccessibleBuffer::from_iter(
+                allocator,
+                BufferUsage {
+                    index_buffer: true,
+                    ..BufferUsage::empty()
+                },
+                false,
+                indices,
+            )
+            .unwrap();
+
+            (Some(vertex_buffer), Some(index_buffer))
+        } else {
+            (None, None)
+        }
+    }
+
+    pub fn buffer_points(
+        &self,
+        allocator: &(impl MemoryAllocator + ?Sized),
+    ) -> Option<Arc<CpuAccessibleBuffer<[BufferedPointVertex]>>> {
+        let mut vertices: Vec<BufferedPointVertex> = Vec::new();
+
+        for model in self.models.iter() {
+            for point in model.points.iter() {
+                vertices.push(BufferedPointVertex::new(point));
+            }
+        }
+
+        if vertices.len() > 0 {
+            let vertex_buffer = CpuAccessibleBuffer::from_iter(
+                allocator,
+                BufferUsage {
+                    vertex_buffer: true,
+                    ..BufferUsage::empty()
+                },
+                false,
+                vertices,
+            )
+            .unwrap();
+
+            Some(vertex_buffer)
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Model {
+    surfaces: Vec<ModelSurface>,
+    edges: Vec<ModelEdge>,
+    points: Vec<ModelPoint>,
+}
+impl Model {
+    pub fn empty() -> Self {
+        Self {
+            surfaces: vec![],
+            edges: vec![],
+            points: vec![],
+        }
+    }
+
+    pub fn surface(self, surface: ModelSurface) -> Self {
+        let Self {
+            mut surfaces,
+            edges,
+            points,
+        } = self;
+
+        surfaces.push(surface);
+
+        Self {
+            surfaces,
+            edges,
+            points,
+        }
+    }
+
+    pub fn surfaces(self, new_surfaces: Vec<ModelSurface>) -> Self {
+        let Self {
+            mut surfaces,
+            edges,
+            points,
+        } = self;
+
+        surfaces.extend(new_surfaces);
+
+        Self {
+            surfaces,
+            edges,
+            points,
+        }
+    }
+
+    pub fn edge(self, edge: ModelEdge) -> Self {
+        let Self {
+            surfaces,
+            mut edges,
+            points,
+        } = self;
+
+        edges.push(edge);
+
+        Self {
+            surfaces,
+            edges,
+            points,
+        }
+    }
+
+    pub fn edges(self, new_edges: Vec<ModelEdge>) -> Self {
+        let Self {
+            surfaces,
+            mut edges,
+            points,
+        } = self;
+
+        edges.extend(new_edges);
+
+        Self {
+            surfaces,
+            edges,
+            points,
+        }
+    }
+
+    pub fn point(self, point: ModelPoint) -> Self {
+        let Self {
+            surfaces,
+            edges,
+            mut points,
+        } = self;
+
+        points.push(point);
+
+        Self {
+            surfaces,
+            edges,
+            points,
+        }
+    }
+
+    pub fn points(self, new_points: Vec<ModelPoint>) -> Self {
+        let Self {
+            surfaces,
+            edges,
+            mut points,
+        } = self;
+
+        points.extend(new_points);
+
+        Self {
+            surfaces,
+            edges,
+            points,
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct ModelObjectId(u32);
 impl From<u32> for ModelObjectId {
     fn from(value: u32) -> Self {
         Self(value)
-    }
-}
-
-#[repr(C)]
-#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
-pub struct BufferedSurfaceVertex {
-    position: [f32; 3],
-    normal: [f32; 3],
-    material_idx: u32,
-}
-impl BufferedSurfaceVertex {
-    pub fn new(vertex: &SurfaceVertex, material_idx: u32) -> Self {
-        Self {
-            position: vertex.position.clone(),
-            normal: vertex.normal.clone(),
-            material_idx,
-        }
-    }
-}
-vulkano::impl_vertex!(BufferedSurfaceVertex, position, normal, material_idx);
-
-#[repr(C)]
-#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
-pub struct BufferedEdgeVertex {
-    position: [f32; 3],
-    expand: [f32; 3],
-    color: [f32; 4],
-}
-impl BufferedEdgeVertex {
-    pub fn new(vertex: &EdgeVertex, color: Rgba) -> Self {
-        Self {
-            position: vertex.position.clone(),
-            expand: vertex.expand.clone(),
-            color: color.to_floats(),
-        }
-    }
-}
-vulkano::impl_vertex!(BufferedEdgeVertex, position, expand, color);
-
-#[repr(C)]
-#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
-pub struct BufferedPointVertex {
-    position: [f32; 3],
-    expand: [f32; 3],
-    color: [f32; 4],
-}
-impl BufferedPointVertex {
-    pub fn new(vertex: &Point, color: Rgba) -> Self {
-        Self {
-            position: vertex.position.clone(),
-            expand: vertex.expand.clone(),
-            color: color.to_floats(),
-        }
-    }
-}
-vulkano::impl_vertex!(BufferedPointVertex, position, expand, color);
-
-#[derive(Clone, Debug)]
-pub struct ModelSurface {
-    id: ModelObjectId,
-    surface: Surface,
-    material_idx: u32,
-}
-impl ModelSurface {
-    pub fn new(id: ModelObjectId, surface: Surface, material_idx: u32) -> Self {
-        Self {
-            id,
-            surface,
-            material_idx,
-        }
-    }
-
-    pub fn surface(&self) -> &Surface {
-        &self.surface
-    }
-
-    pub fn material_idx(&self) -> u32 {
-        self.material_idx
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct ModelEdge {
-    id: ModelObjectId,
-    edge: Edge,
-    color: Rgba,
-}
-impl ModelEdge {
-    pub fn new(id: ModelObjectId, edge: Edge, color: Rgba) -> Self {
-        Self { id, edge, color }
-    }
-
-    pub fn edge(&self) -> &Edge {
-        &self.edge
-    }
-
-    pub fn color(&self) -> Rgba {
-        self.color
-    }
-}
-
-#[derive(Clone)]
-pub struct ModelPoint {
-    id: ModelObjectId,
-    point: Point,
-    color: Rgba,
-}
-impl ModelPoint {
-    pub fn new(id: ModelObjectId, point: Point, color: Rgba) -> Self {
-        Self { id, point, color }
-    }
-
-    pub fn point(&self) -> &Point {
-        &self.point
-    }
-
-    pub fn color(&self) -> &Rgba {
-        &self.color
-    }
-}
-
-#[derive(Clone)]
-pub struct Model {
-    opaque_surfaces: Vec<ModelSurface>,
-    translucent_surfaces: Vec<ModelSurface>,
-    edges: Vec<ModelEdge>,
-    points: Vec<ModelPoint>,
-}
-impl Model {
-    pub fn new(
-        opaque_surfaces: Vec<ModelSurface>,
-        translucent_surfaces: Vec<ModelSurface>,
-        edges: Vec<ModelEdge>,
-        points: Vec<ModelPoint>,
-    ) -> Self {
-        Self {
-            opaque_surfaces,
-            translucent_surfaces,
-            edges,
-            points,
-        }
-    }
-
-    pub fn opaque_surfaces(&self) -> &[ModelSurface] {
-        &self.opaque_surfaces
-    }
-
-    pub fn translucent_surfaces(&self) -> &[ModelSurface] {
-        &self.translucent_surfaces
-    }
-
-    pub fn edges(&self) -> &[ModelEdge] {
-        &self.edges
-    }
-
-    pub fn points(&self) -> &[ModelPoint] {
-        &self.points
     }
 }

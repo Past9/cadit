@@ -3,7 +3,6 @@ use crevice::std140::AsStd140;
 
 pub mod camera;
 pub mod lights;
-pub mod mesh;
 pub mod model;
 pub mod renderer;
 pub mod scene;
@@ -15,7 +14,7 @@ pub struct PixelViewport {
     pub height: u32,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rgba([f32; 4]);
 impl Rgba {
     pub const RED: Self = Self([1.0, 0.0, 0.0, 1.0]);
@@ -37,6 +36,10 @@ impl Rgba {
 
     pub fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
         Self([r, g, b, a])
+    }
+
+    pub fn rgb(&self) -> Rgb {
+        Rgb::new(self.r(), self.g(), self.b())
     }
 
     pub fn r(&self) -> f32 {
@@ -99,7 +102,7 @@ pub fn rgba(r: f32, g: f32, b: f32, a: f32) -> Rgba {
     Rgba::new(r, g, b, a)
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rgb([f32; 3]);
 impl Rgb {
     pub const RED: Self = Self([1.0, 0.0, 0.0]);

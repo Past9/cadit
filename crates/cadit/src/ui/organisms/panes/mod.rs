@@ -8,7 +8,7 @@ use egui_dock::NodeIndex;
 use render::{
     camera::Camera,
     lights::DirectionalLight,
-    mesh::{Edge, EdgeVertex, Point, Surface, SurfaceVertex},
+    model::{Edge, EdgeVertex, Point, Surface, SurfaceVertex},
     model::{Model, ModelEdge, ModelPoint, ModelSurface, OpaqueMaterial},
     rgba,
     scene::{Scene, SceneLights},

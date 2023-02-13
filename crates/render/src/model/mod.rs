@@ -50,7 +50,7 @@ impl Geometry {
     }
 
     pub fn build_buffers(&self, allocator: &(impl MemoryAllocator + ?Sized)) -> GeometryBuffers {
-        let (opaque_surface_vertices, opaque_surface_indices) = self.buffer_surfaces(
+        let (opaque_surface_vertices, opaque_surface_indices) = Self::buffer_surfaces(
             allocator,
             self.models
                 .iter()
@@ -58,7 +58,7 @@ impl Geometry {
                 .filter(|surface| surface.is_opaque()),
         );
 
-        let (translucent_surface_vertices, translucent_surface_indices) = self.buffer_surfaces(
+        let (translucent_surface_vertices, translucent_surface_indices) = Self::buffer_surfaces(
             allocator,
             self.models
                 .iter()
@@ -87,7 +87,6 @@ impl Geometry {
     }
 
     fn buffer_surfaces<'a>(
-        &self,
         allocator: &(impl MemoryAllocator + ?Sized),
         surfaces: impl Iterator<Item = &'a ModelSurface>,
     ) -> (

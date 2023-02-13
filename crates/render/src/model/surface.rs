@@ -38,7 +38,7 @@ impl ModelSurface {
     }
 
     pub fn is_translucent(&self) -> bool {
-        self.material_id.is_opaque()
+        self.material_id.is_translucent()
     }
 
     pub fn material_id(&self) -> MaterialId {

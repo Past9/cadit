@@ -75,8 +75,6 @@ where
     for _ in 0..max_iter {
         let (self_val, der_val) = eval(guess);
 
-        println!("guess {:?}, mag {}", guess, self_val.magnitude());
-
         if self_val.magnitude() <= TOL {
             return Some(guess);
         } else {

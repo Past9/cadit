@@ -70,9 +70,9 @@ impl<H: HSpace> BezierSurface<H> {
     pub fn hausdorff_candidates(
         &self,
         plane: &H::EuclideanPlane,
-    ) -> Vec<(f64, f64, H::ProjectedVector)> {
-        let try_point = |(u, v): (f64, f64)| {
-            newton(EVec2::new(u, v), 1000000, |uv| {
+    ) -> Vec<(EVec2, H::ProjectedVector)> {
+        let try_point = |uv: EVec2| {
+            newton(uv, 100, |uv| {
                 let ders: Vec<Vec<H::ProjectedVector>> = rational_surface_derivatives::<H>(
                     &self.weighted_control_points(),
                     2,
@@ -83,33 +83,41 @@ impl<H: HSpace> BezierSurface<H> {
                 let closest = H::plane_closest_to_point(plane, &ders[0][0]);
                 let between = closest - ders[0][0];
 
-                let d1_norm_u = ders[1][0].normalize();
-                let d1_norm_v = ders[1][1].normalize();
+                let d1_norm_u = ders[0][1].normalize();
+                let d1_norm_v = ders[1][0].normalize();
 
-                let num_u = ders[1][0].dot(&between);
-                let num_v = ders[1][1].dot(&between);
+                let num_u = ders[0][1].dot(&between);
+                let num_v = ders[1][0].dot(&between);
 
-                let denom_u = ders[2][0].dot(&between) + d1_norm_u.dot(&d1_norm_u);
-                let denom_v = ders[2][1].dot(&between) + d1_norm_v.dot(&d1_norm_v);
+                let denom_u = ders[0][2].dot(&between) + d1_norm_u.dot(&d1_norm_u);
+                let denom_v = ders[2][0].dot(&between) + d1_norm_v.dot(&d1_norm_v);
 
                 (EVec2::new(num_u, num_v), EVec2::new(denom_u, denom_v))
             })
         };
 
-        let mut params: Vec<(f64, f64)> = Vec::new();
+        let mut params: Vec<EVec2> = Vec::new();
 
         let divisions = 10;
         let initial_uvs = FloatRange::new(0.0, 1.0, divisions)
             .into_iter()
             .cartesian_product(FloatRange::new(0.0, 1.0, divisions))
+            .map(|(u, v)| EVec2::new(u, v))
             .collect::<Vec<_>>();
 
+        //let initial_uvs = vec![(0.4, 0.4)];
+
         for uv_initial in initial_uvs.into_iter() {
-            println!("{:?}, {:?}", uv_initial, try_point(uv_initial));
-            panic!();
+            if let Some(uv) = try_point(uv_initial) {
+                params.push(uv)
+            }
         }
 
-        todo!()
+        let mut points = Vec::new();
+
+        points.extend(params.into_iter().map(|uv| (uv, self.point(uv.x, uv.y))));
+
+        points
     }
 }
 impl BezierSurface<HSpace3> {
@@ -129,6 +137,27 @@ impl BezierSurface<HSpace3> {
                 HVec3::new(-1.0, 0.0, 1.0, 1.0),
                 HVec3::new(0.0, 0.0, 1.0, 1.0),
                 HVec3::new(1.0, 0.0, 1.0, 1.0),
+            ]),
+        ]))
+    }
+
+    pub fn example_eighth_sphere() -> Self {
+        let rt2 = 2.0_f64.sqrt() / 2.0;
+        Self::new(Vec::from([
+            Vec::from([
+                HVec3::new(-1.0, 0.0, 0.0, 1.0),
+                HVec3::new(-1.0, -1.0, 0.0, 2.0_f64.sqrt() / 2.0),
+                HVec3::new(0.0, -1.0, 0.0, 1.0),
+            ]),
+            Vec::from([
+                HVec3::new(-rt2, 0.0, rt2, 1.0),
+                HVec3::new(-rt2, -1.0, rt2, 2.0_f64.sqrt() / 2.0),
+                HVec3::new(0.0, -1.0, 0.0, 1.0),
+            ]),
+            Vec::from([
+                HVec3::new(0.0, 0.0, 1.0, 1.0),
+                HVec3::new(0.0, -1.0, 1.0, 2.0_f64.sqrt() / 2.0),
+                HVec3::new(0.0, -1.0, 0.0, 1.0),
             ]),
         ]))
     }

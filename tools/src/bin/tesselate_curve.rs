@@ -2,12 +2,12 @@ use cgmath::{point3, vec3, Deg, InnerSpace};
 use components::{rgba, scene::SceneViewer, Gui};
 use components::{run_window, Window, WindowDescriptor};
 use eframe::egui;
+use render::model::Geometry;
+use render::scene::SceneBuilder;
 use render::{
     camera::{Camera, CameraAngle},
-    lights::DirectionalLight,
     model::Model,
-    scene::{Scene, SceneLights},
-    Rgb, Rgba,
+    Rgba,
 };
 use space::hspace::HSpace3;
 use std::time::Instant;
@@ -53,6 +53,28 @@ impl App {
             (Instant::now() - start_time).as_micros()
         );
 
+        let mut geometry = Geometry::new();
+        geometry.insert_model(
+            Model::empty()
+                .edges(naive_edges)
+                .edges(exact_edges)
+                .edges(make_grid(5, true, true, true)),
+        );
+
+        let mut scene = SceneBuilder::empty();
+        scene
+            .background(rgba(0.05, 0.1, 0.15, 1.0))
+            .camera(Camera::create_perspective(
+                [0, 0],
+                point3(0.0, 0.0, -1.0),
+                vec3(0.0, 0.0, 1.0),
+                vec3(0.0, -1.0, 0.0).normalize(),
+                Deg(70.0).into(),
+                0.01,
+                5.0,
+            ))
+            .geometry(geometry);
+
         Self {
             viewer: SceneViewer::new(
                 CameraAngle::Front.get_rotation(),
@@ -60,43 +82,7 @@ impl App {
                 true,
                 true,
                 true,
-                Scene::new(
-                    rgba(0.05, 0.1, 0.15, 1.0),
-                    SceneLights::new(
-                        vec![],
-                        vec![
-                            DirectionalLight::new(vec3(1.0, 0.0, 1.0).normalize(), Rgb::BLUE, 1.0),
-                            DirectionalLight::new(
-                                vec3(-1.0, 0.0, 1.0).normalize(),
-                                Rgb::YELLOW,
-                                1.0,
-                            ),
-                        ],
-                        vec![],
-                    ),
-                    Camera::create_perspective(
-                        [0, 0],
-                        point3(0.0, 0.0, -1.0),
-                        vec3(0.0, 0.0, 1.0),
-                        vec3(0.0, -1.0, 0.0).normalize(),
-                        Deg(70.0).into(),
-                        0.01,
-                        5.0,
-                    ),
-                    vec![Model::new(
-                        vec![],
-                        vec![],
-                        make_grid(10, true, true, true)
-                            .into_iter()
-                            .chain(naive_edges)
-                            .chain(exact_edges)
-                            .collect(),
-                        vec![],
-                    )],
-                    //vec![OpaqueMaterial::new(rgb(1.0, 1.0, 1.0), 0.5)],
-                    vec![],
-                    vec![],
-                ),
+                scene.build(),
             ),
         }
     }

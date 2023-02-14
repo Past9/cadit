@@ -1,20 +1,21 @@
 use cgmath::{point3, vec3, Deg, InnerSpace};
-use components::{rgb, run_window, Window, WindowDescriptor};
 use components::{rgba, scene::SceneViewer, Gui};
+use components::{run_window, Window, WindowDescriptor};
 use eframe::egui;
+use render::model::Geometry;
+use render::scene::SceneBuilder;
 use render::{
     camera::{Camera, CameraAngle},
-    lights::DirectionalLight,
-    model::{Edge, EdgeVertex, Point},
-    model::{Model, ModelEdge, ModelPoint, OpaqueMaterial},
-    scene::{Scene, SceneLights},
-    Rgb, Rgba,
+    model::EdgeVertex,
+    model::{Model, ModelEdge},
+    Rgba,
 };
 use space::hspace::HSpace3;
 use space::{EVector, HVec3};
 use spline::math::knot_vector::KnotVector;
 use spline::math::FloatRange;
 use spline::nurbs_curve::NurbsCurve;
+use tools::make_grid;
 
 pub fn main() {
     run_window(
@@ -33,23 +34,6 @@ pub struct App {
 }
 impl App {
     pub fn new() -> Self {
-        // Create grid
-        let gs = 5;
-        let grid_points = (-gs..=gs)
-            .flat_map(|x| {
-                (-gs..=gs).map(move |y| {
-                    ModelPoint::new(
-                        0.into(),
-                        Point {
-                            position: [x as f32, y as f32, 0.0],
-                            expand: [0.0, 0.0, 0.0],
-                        },
-                        rgba(0.0, 0.05, 0.15, 1.0),
-                    )
-                })
-            })
-            .collect::<Vec<_>>();
-
         let curve = NurbsCurve::<HSpace3>::new(
             Vec::from([
                 HVec3::new(-5.0, -2.0, 0.0, 1.0),
@@ -70,14 +54,12 @@ impl App {
         for (i, bezier) in beziers.iter().enumerate() {
             bezier_edges.push(ModelEdge::new(
                 0.into(),
-                Edge {
-                    vertices: FloatRange::new(0.0, 1.0, num_segments)
-                        .map(|u| EdgeVertex {
-                            position: bezier.point(u).f32s(),
-                            expand: [0.0, 0.0, -1.0],
-                        })
-                        .collect::<Vec<_>>(),
-                },
+                FloatRange::new(0.0, 1.0, num_segments)
+                    .map(|u| EdgeVertex {
+                        position: bezier.point(u).f32s(),
+                        expand: [0.0, 0.0, 0.0],
+                    })
+                    .collect::<Vec<_>>(),
                 colors[i],
             ));
         }
@@ -85,16 +67,36 @@ impl App {
         let num_segments = 50 * beziers.len();
         let curve_edge = ModelEdge::new(
             0.into(),
-            Edge {
-                vertices: FloatRange::new(curve.min_u(), curve.max_u(), num_segments)
-                    .map(|u| EdgeVertex {
-                        position: curve.point(u).f32s(),
-                        expand: [0.0, 0.0, 0.0],
-                    })
-                    .collect::<Vec<_>>(),
-            },
+            FloatRange::new(curve.min_u(), curve.max_u(), num_segments)
+                .map(|u| EdgeVertex {
+                    position: curve.point(u).f32s(),
+                    expand: [0.0, 0.0, 0.0],
+                })
+                .collect::<Vec<_>>(),
             Rgba::YELLOW,
         );
+
+        let mut geometry = Geometry::new();
+        geometry.insert_model(
+            Model::empty()
+                .edges(bezier_edges)
+                .edge(curve_edge)
+                .edges(make_grid(5, true, true, true)),
+        );
+
+        let mut scene = SceneBuilder::empty();
+        scene
+            .background(rgba(0.05, 0.1, 0.15, 1.0))
+            .camera(Camera::create_perspective(
+                [0, 0],
+                point3(0.0, 0.0, -1.0),
+                vec3(0.0, 0.0, 1.0),
+                vec3(0.0, -1.0, 0.0).normalize(),
+                Deg(70.0).into(),
+                0.01,
+                5.0,
+            ))
+            .geometry(geometry);
 
         Self {
             viewer: SceneViewer::new(
@@ -103,41 +105,7 @@ impl App {
                 true,
                 true,
                 true,
-                Scene::new(
-                    rgba(0.05, 0.1, 0.15, 1.0),
-                    SceneLights::new(
-                        vec![],
-                        vec![
-                            DirectionalLight::new(vec3(1.0, 0.0, 1.0).normalize(), Rgb::BLUE, 1.0),
-                            DirectionalLight::new(
-                                vec3(-1.0, 0.0, 1.0).normalize(),
-                                Rgb::YELLOW,
-                                1.0,
-                            ),
-                        ],
-                        vec![],
-                    ),
-                    Camera::create_perspective(
-                        [0, 0],
-                        point3(0.5, 0.5, -3.0),
-                        vec3(0.0, 0.0, 1.0),
-                        vec3(0.0, -1.0, 0.0).normalize(),
-                        Deg(70.0).into(),
-                        0.01,
-                        5.0,
-                    ),
-                    vec![Model::new(
-                        vec![],
-                        vec![],
-                        bezier_edges
-                            .into_iter()
-                            .chain([curve_edge].into_iter())
-                            .collect(),
-                        grid_points.into_iter().collect(),
-                    )],
-                    vec![OpaqueMaterial::new(rgb(1.0, 1.0, 1.0), 0.5)],
-                    vec![],
-                ),
+                scene.build(),
             ),
         }
     }

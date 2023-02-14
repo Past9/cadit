@@ -2,14 +2,12 @@ use cgmath::{point3, vec3, Deg, InnerSpace, Vector3, Vector4};
 use components::{rgb, run_window, Window, WindowDescriptor};
 use components::{rgba, scene::SceneViewer, Gui};
 use eframe::egui;
-use render::lights::{AmbientLight, Lights};
-use render::model::{Geometry, TranslucentMaterial};
+use render::lights::Lights;
+use render::model::Geometry;
 use render::scene::SceneBuilder;
 use render::{
     camera::{Camera, CameraAngle},
-    lights::DirectionalLight,
-    model::{Model, OpaqueMaterial},
-    scene::Scene,
+    model::Model,
     Rgb,
 };
 use space::hspace::HSpace3;

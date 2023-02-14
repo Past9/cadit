@@ -1,19 +1,20 @@
 use cgmath::{point3, vec3, Deg, InnerSpace};
-use components::{rgb, run_window, Window, WindowDescriptor};
 use components::{rgba, scene::SceneViewer, Gui};
+use components::{run_window, Window, WindowDescriptor};
 use eframe::egui;
+use render::model::Geometry;
+use render::scene::SceneBuilder;
 use render::{
     camera::{Camera, CameraAngle},
-    lights::DirectionalLight,
-    model::{Edge, EdgeVertex, Point},
-    model::{Model, ModelEdge, ModelPoint, OpaqueMaterial},
-    scene::{Scene, SceneLights},
-    Rgb, Rgba,
+    model::EdgeVertex,
+    model::{Model, ModelEdge},
+    Rgba,
 };
 use space::hspace::{HSpace, HSpace2};
 use space::{EVector, HVec2};
 use spline::math::FloatRange;
 use spline::{math::knot_vector::KnotVector, nurbs_curve::NurbsCurve};
+use tools::make_grid;
 
 pub fn main() {
     run_window(
@@ -32,26 +33,6 @@ pub struct App {
 }
 impl App {
     pub fn new() -> Self {
-        let gs = 5;
-        let grid_points = (-gs..=gs)
-            .flat_map(|x| {
-                (-gs..=gs).map(move |y| {
-                    let mut color = rgba(0.0, 0.05, 0.15, 1.0);
-                    if x == 0 && y == 0 {
-                        color = Rgba::RED;
-                    }
-                    ModelPoint::new(
-                        0.into(),
-                        Point {
-                            position: [x as f32, y as f32, 0.0],
-                            expand: [0.0, 0.0, 0.0],
-                        },
-                        color,
-                    )
-                })
-            })
-            .collect::<Vec<_>>();
-
         let curve = NurbsCurve::<HSpace2>::new(
             Vec::from([
                 HVec2::new(-3.0, 0.0, 1.0),
@@ -69,25 +50,22 @@ impl App {
             let closest = curve
                 .find_closest(HSpace2::project_vec(point.clone()), u, 20)
                 .unwrap();
-            println!("{:?} {:#?}", HSpace2::project_vec(point.clone()), closest);
             closest_lines.push(ModelEdge::new(
                 0.into(),
-                Edge {
-                    vertices: vec![
-                        EdgeVertex {
-                            position: [point.x as f32, point.y as f32, 0.0],
-                            expand: [0.0, 0.0, 0.0],
-                        },
-                        EdgeVertex {
-                            position: [
-                                closest.closest_point.x as f32,
-                                closest.closest_point.y as f32,
-                                0.0,
-                            ],
-                            expand: [0.0, 0.0, 0.0],
-                        },
-                    ],
-                },
+                vec![
+                    EdgeVertex {
+                        position: [point.x as f32, point.y as f32, 0.0],
+                        expand: [0.0, 0.0, 0.0],
+                    },
+                    EdgeVertex {
+                        position: [
+                            closest.closest_point.x as f32,
+                            closest.closest_point.y as f32,
+                            0.0,
+                        ],
+                        expand: [0.0, 0.0, 0.0],
+                    },
+                ],
                 Rgba::CYAN,
             ));
         }
@@ -95,26 +73,36 @@ impl App {
         let num_segments = 200;
         let curve_edge = ModelEdge::new(
             0.into(),
-            Edge {
-                vertices: FloatRange::new(curve.min_u(), curve.max_u(), num_segments)
-                    .map(|u| EdgeVertex {
-                        position: curve.point(u).f32s(),
-                        expand: [0.0, 0.0, 0.0],
-                    })
-                    .collect::<Vec<_>>(),
-            },
+            FloatRange::new(curve.min_u(), curve.max_u(), num_segments)
+                .map(|u| EdgeVertex {
+                    position: curve.point(u).f32s(),
+                    expand: [0.0, 0.0, 0.0],
+                })
+                .collect::<Vec<_>>(),
             Rgba::YELLOW,
         );
 
-        let cam = Camera::create_perspective(
-            [0, 0],
-            point3(0.0, 0.0, -3.0),
-            vec3(0.0, 0.0, 1.0),
-            vec3(0.0, -1.0, 0.0).normalize(),
-            Deg(70.0).into(),
-            0.01,
-            5.0,
+        let mut geometry = Geometry::new();
+        geometry.insert_model(
+            Model::empty()
+                .edges(closest_lines)
+                .edge(curve_edge)
+                .edges(make_grid(5, true, true, true)),
         );
+
+        let mut scene = SceneBuilder::empty();
+        scene
+            .background(rgba(0.05, 0.1, 0.15, 1.0))
+            .camera(Camera::create_perspective(
+                [0, 0],
+                point3(0.0, 0.0, -1.0),
+                vec3(0.0, 0.0, 1.0),
+                vec3(0.0, -1.0, 0.0).normalize(),
+                Deg(70.0).into(),
+                0.01,
+                5.0,
+            ))
+            .geometry(geometry);
 
         Self {
             viewer: SceneViewer::new(
@@ -123,33 +111,7 @@ impl App {
                 true,
                 true,
                 true,
-                Scene::new(
-                    rgba(0.05, 0.1, 0.15, 1.0),
-                    SceneLights::new(
-                        vec![],
-                        vec![
-                            DirectionalLight::new(vec3(1.0, 0.0, 1.0).normalize(), Rgb::BLUE, 1.0),
-                            DirectionalLight::new(
-                                vec3(-1.0, 0.0, 1.0).normalize(),
-                                Rgb::YELLOW,
-                                1.0,
-                            ),
-                        ],
-                        vec![],
-                    ),
-                    cam,
-                    vec![Model::new(
-                        vec![],
-                        vec![],
-                        [curve_edge]
-                            .into_iter()
-                            .chain(closest_lines.into_iter())
-                            .collect(),
-                        grid_points.into_iter().collect(),
-                    )],
-                    vec![OpaqueMaterial::new(rgb(1.0, 1.0, 1.0), 0.5)],
-                    vec![],
-                ),
+                scene.build(),
             ),
         }
     }

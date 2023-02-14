@@ -1,18 +1,19 @@
 use cgmath::{point3, vec3, Deg, InnerSpace};
-use components::{rgb, run_window, Window, WindowDescriptor};
 use components::{rgba, scene::SceneViewer, Gui};
+use components::{run_window, Window, WindowDescriptor};
 use eframe::egui;
+use render::model::Geometry;
+use render::scene::SceneBuilder;
 use render::{
     camera::{Camera, CameraAngle},
-    lights::DirectionalLight,
-    model::{Edge, EdgeVertex, Point},
-    model::{Model, ModelEdge, ModelPoint, OpaqueMaterial},
-    scene::{Scene, SceneLights},
-    Rgb, Rgba,
+    model::EdgeVertex,
+    model::{Model, ModelEdge},
+    Rgba,
 };
 use space::hspace::HSpace2;
 use spline::math::FloatRange;
 use spline::nurbs_curve::NurbsCurve;
+use tools::make_grid;
 
 pub fn main() {
     run_window(
@@ -41,22 +42,6 @@ demo indicates that curve normals, tangents, and first derivatives are correctly
 
         let curve = NurbsCurve::<HSpace2>::example_circle();
 
-        let gs = 3;
-        let grid_points = (-gs..=gs)
-            .flat_map(|x| {
-                (-gs..=gs).map(move |y| {
-                    ModelPoint::new(
-                        0.into(),
-                        Point {
-                            position: [x as f32, y as f32, 0.0],
-                            expand: [0.0, 0.0, 0.0],
-                        },
-                        rgba(0.0, 0.05, 0.15, 1.0),
-                    )
-                })
-            })
-            .collect::<Vec<_>>();
-
         let num_segments = 360;
         let mut curve_edge_vertices: Vec<EdgeVertex> = Vec::new();
         let mut normal_edges: Vec<ModelEdge> = Vec::new();
@@ -74,47 +59,60 @@ demo indicates that curve normals, tangents, and first derivatives are correctly
 
             normal_edges.push(ModelEdge::new(
                 0.into(),
-                Edge {
-                    vertices: vec![
-                        EdgeVertex {
-                            position: [point.x as f32, point.y as f32, 0.0],
-                            expand: [0.0, 0.0, 0.0],
-                        },
-                        EdgeVertex {
-                            position: [normal_end.x as f32, normal_end.y as f32, 0.0],
-                            expand: [0.0, 0.0, 0.0],
-                        },
-                    ],
-                },
+                vec![
+                    EdgeVertex {
+                        position: [point.x as f32, point.y as f32, 0.0],
+                        expand: [0.0, 0.0, 0.0],
+                    },
+                    EdgeVertex {
+                        position: [normal_end.x as f32, normal_end.y as f32, 0.0],
+                        expand: [0.0, 0.0, 0.0],
+                    },
+                ],
                 Rgba::GREEN,
             ));
 
             let rev_normal_end = point - normal * 0.99;
             rev_normal_edges.push(ModelEdge::new(
                 0.into(),
-                Edge {
-                    vertices: vec![
-                        EdgeVertex {
-                            position: [point.x as f32, point.y as f32, 0.0],
-                            expand: [0.0, 0.0, 0.0],
-                        },
-                        EdgeVertex {
-                            position: [rev_normal_end.x as f32, rev_normal_end.y as f32, 0.0],
-                            expand: [0.0, 0.0, 0.0],
-                        },
-                    ],
-                },
+                vec![
+                    EdgeVertex {
+                        position: [point.x as f32, point.y as f32, 0.0],
+                        expand: [0.0, 0.0, 0.0],
+                    },
+                    EdgeVertex {
+                        position: [rev_normal_end.x as f32, rev_normal_end.y as f32, 0.0],
+                        expand: [0.0, 0.0, 0.0],
+                    },
+                ],
                 Rgba::RED,
             ));
         }
 
-        let curve_edge = ModelEdge::new(
-            0.into(),
-            Edge {
-                vertices: curve_edge_vertices,
-            },
-            Rgba::YELLOW,
+        let curve_edge = ModelEdge::new(0.into(), curve_edge_vertices, Rgba::YELLOW);
+
+        let mut geometry = Geometry::new();
+        geometry.insert_model(
+            Model::empty()
+                .edges(normal_edges)
+                .edges(rev_normal_edges)
+                .edge(curve_edge)
+                .edges(make_grid(5, true, true, true)),
         );
+
+        let mut scene = SceneBuilder::empty();
+        scene
+            .background(rgba(0.05, 0.1, 0.15, 1.0))
+            .camera(Camera::create_perspective(
+                [0, 0],
+                point3(0.0, 0.0, -1.0),
+                vec3(0.0, 0.0, 1.0),
+                vec3(0.0, -1.0, 0.0).normalize(),
+                Deg(70.0).into(),
+                0.01,
+                5.0,
+            ))
+            .geometry(geometry);
 
         Self {
             viewer: SceneViewer::new(
@@ -123,42 +121,7 @@ demo indicates that curve normals, tangents, and first derivatives are correctly
                 true,
                 true,
                 true,
-                Scene::new(
-                    rgba(0.05, 0.1, 0.15, 1.0),
-                    SceneLights::new(
-                        vec![],
-                        vec![
-                            DirectionalLight::new(vec3(1.0, 0.0, 1.0).normalize(), Rgb::BLUE, 1.0),
-                            DirectionalLight::new(
-                                vec3(-1.0, 0.0, 1.0).normalize(),
-                                Rgb::YELLOW,
-                                1.0,
-                            ),
-                        ],
-                        vec![],
-                    ),
-                    Camera::create_perspective(
-                        [0, 0],
-                        point3(0.0, 0.0, -3.0),
-                        vec3(0.0, 0.0, 1.0),
-                        vec3(0.0, -1.0, 0.0).normalize(),
-                        Deg(70.0).into(),
-                        0.01,
-                        5.0,
-                    ),
-                    vec![Model::new(
-                        vec![],
-                        vec![],
-                        [curve_edge]
-                            .into_iter()
-                            .chain(normal_edges.into_iter())
-                            .chain(rev_normal_edges.into_iter())
-                            .collect(),
-                        grid_points.into_iter().collect(),
-                    )],
-                    vec![OpaqueMaterial::new(rgb(1.0, 1.0, 1.0), 0.5)],
-                    vec![],
-                ),
+                scene.build(),
             ),
         }
     }

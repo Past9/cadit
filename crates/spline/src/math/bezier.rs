@@ -1,6 +1,6 @@
 use std::ops::{Add, Mul, Sub};
 
-use space::{hspace::HSpace, EVector, HVector, TOL};
+use space::{hspace::HSpace, EVec2, EVector, HVector, TOL};
 
 use super::binomial_coefficient;
 
@@ -66,19 +66,29 @@ where
     None
 }
 
-pub fn newton<V, F>(guess: V, max_iter: usize, eval: F) -> Option<V>
+pub fn newton<F>(
+    guess: EVec2,
+    max_iter: usize,
+    min_uv: EVec2,
+    max_uv: EVec2,
+    eval: F,
+) -> Option<EVec2>
 where
-    V: EVector,
-    F: Fn(V) -> (V, V),
+    F: Fn(EVec2) -> (EVec2, EVec2),
 {
     let mut guess = guess;
-    for _ in 0..max_iter {
+    for i in 0..max_iter {
         let (self_val, der_val) = eval(guess);
 
         if self_val.magnitude() <= TOL {
+            println!("{} iter", i);
             return Some(guess);
         } else {
             guess = guess - (self_val / der_val);
+            if guess.x < min_uv.x || guess.x > max_uv.x || guess.y < min_uv.y || guess.y > max_uv.y
+            {
+                return None;
+            }
         }
     }
 

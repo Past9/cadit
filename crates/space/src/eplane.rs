@@ -72,3 +72,16 @@ impl EPlane3 {
     }
 }
 impl EPlane for EPlane3 {}
+
+#[cfg(test)]
+mod tests {
+    use crate::{EPlane3, EVec3, EVector};
+
+    #[test]
+    fn point_closest_to_plane() {
+        let plane = EPlane3::new_from_normal_vec(EVec3::new(1.0, -1.0, 0.0).normalize(), 0.0);
+        let point = EVec3::new(1.0, -2.0, 0.0);
+
+        println!("{:?}", plane.closest_to_point(&point));
+    }
+}

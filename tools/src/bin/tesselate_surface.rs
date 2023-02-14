@@ -52,7 +52,7 @@ impl App {
 
         let plane =
             space::EPlane3::new_from_normal_vec(EVec3::new(1.0, -1.0, 0.0).normalize(), 0.0);
-        let hausdorff_candidates = surface1.hausdorff_candidates(&plane);
+        let hausdorff_candidates = surface1.hausdorff_candidates(&plane, None, None);
 
         println!("{} {:?}", hausdorff_candidates.len(), hausdorff_candidates);
 

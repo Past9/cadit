@@ -70,9 +70,24 @@ impl<H: HSpace> BezierSurface<H> {
     pub fn hausdorff_candidates(
         &self,
         plane: &H::EuclideanPlane,
+        min_uv: Option<EVec2>,
+        max_uv: Option<EVec2>,
     ) -> Vec<(EVec2, H::ProjectedVector)> {
+        let (min_uv, max_uv) = {
+            let min_uv = min_uv.unwrap_or(EVec2::new(0.0, 0.0));
+            let max_uv = max_uv.unwrap_or(EVec2::new(1.0, 1.0));
+
+            if min_uv.x < max_uv.x && min_uv.y < max_uv.y {
+                (min_uv, max_uv)
+            } else if min_uv.x > max_uv.x && min_uv.y > max_uv.y {
+                (max_uv, min_uv)
+            } else {
+                panic!("Cannot decide which of min_uv and max_uv is the actual min and max")
+            }
+        };
+
         let try_point = |uv: EVec2| {
-            newton(uv, 100, |uv| {
+            newton(uv, 10000, min_uv, max_uv, |uv| {
                 let ders: Vec<Vec<H::ProjectedVector>> = rational_surface_derivatives::<H>(
                     &self.weighted_control_points(),
                     2,

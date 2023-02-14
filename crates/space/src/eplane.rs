@@ -52,5 +52,23 @@ impl EPlane3 {
         (self.norm.x * point.x + self.norm.y * point.y + self.norm.z * point.z + self.d).abs()
             <= TOL
     }
+
+    pub fn closest_to_point(&self, point: &EVec3) -> EVec3 {
+        let a = self.norm.x;
+        let b = self.norm.y;
+        let c = self.norm.z;
+        let d = self.d;
+
+        let EVec3 { x, y, z } = point.clone();
+
+        let numer = -a * x - b * y - c * z - d;
+        let denom = a.powi(2) + b.powi(2) + c.powi(2);
+
+        let n = numer / denom;
+
+        let pip = point + n * self.norm;
+
+        pip
+    }
 }
 impl EPlane for EPlane3 {}

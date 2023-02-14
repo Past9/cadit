@@ -181,7 +181,7 @@ impl<H: HSpace> BezierCurve<H> {
                 let ders: Vec<H::ProjectedVector> =
                     rational_curve_derivatives::<H>(&self.weighted_control_points(), u, 2);
 
-                let closest = H::closest_to_point(line, &ders[0]);
+                let closest = H::line_closest_to_point(line, &ders[0]);
                 let between = closest - ders[0];
 
                 let d1_norm = ders[1].normalize();

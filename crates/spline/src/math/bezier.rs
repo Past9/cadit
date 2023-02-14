@@ -66,6 +66,27 @@ where
     None
 }
 
+pub fn newton<V, F>(guess: V, max_iter: usize, eval: F) -> Option<V>
+where
+    V: EVector,
+    F: Fn(V) -> (V, V),
+{
+    let mut guess = guess;
+    for _ in 0..max_iter {
+        let (self_val, der_val) = eval(guess);
+
+        println!("guess {:?}, mag {}", guess, self_val.magnitude());
+
+        if self_val.magnitude() <= TOL {
+            return Some(guess);
+        } else {
+            guess = guess - (self_val / der_val);
+        }
+    }
+
+    None
+}
+
 pub fn newton_vec<F, E: EVector>(
     u_guess: f64,
     max_iter: usize,

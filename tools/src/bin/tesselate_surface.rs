@@ -11,7 +11,7 @@ use render::{
     Rgb,
 };
 use space::hspace::HSpace3;
-use space::HVec3;
+use space::{EVec3, HVec3};
 use tesselate::naive;
 use tools::make_grid;
 
@@ -49,6 +49,9 @@ impl App {
     pub fn new() -> Self {
         let mut surface1 = spline::bezier_surface::BezierSurface::<HSpace3>::example_simple();
         surface1.translate(HVec3::new(0.0, 1.0, 0.0, 0.0));
+
+        let plane = space::EPlane3::new_from_normal_vec(EVec3::new(0.0, -1.0, 0.0), 0.0);
+        surface1.hausdorff_candidates(&plane);
 
         let mut surface2 = spline::bezier_surface::BezierSurface::<HSpace3>::example_simple();
         surface2.translate(HVec3::new(0.0, -1.0, 0.0, 0.0));

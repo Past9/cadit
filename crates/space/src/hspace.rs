@@ -27,8 +27,12 @@ pub trait HSpace: Debug + Clone {
         line: &Self::EuclideanLine,
         point: &Self::ProjectedVector,
     ) -> bool;
-    fn closest_to_point(
+    fn line_closest_to_point(
         line: &Self::EuclideanLine,
+        point: &Self::ProjectedVector,
+    ) -> Self::ProjectedVector;
+    fn plane_closest_to_point(
+        plane: &Self::EuclideanPlane,
         point: &Self::ProjectedVector,
     ) -> Self::ProjectedVector;
     fn make_point_implicit_by_line(
@@ -125,8 +129,15 @@ impl HSpace for HUnimplementedSpace {
         unimplemented!()
     }
 
-    fn closest_to_point(
+    fn line_closest_to_point(
         _line: &Self::EuclideanLine,
+        _point: &Self::ProjectedVector,
+    ) -> Self::ProjectedVector {
+        unimplemented!()
+    }
+
+    fn plane_closest_to_point(
+        _plane: &Self::EuclideanPlane,
         _point: &Self::ProjectedVector,
     ) -> Self::ProjectedVector {
         unimplemented!()
@@ -216,8 +227,15 @@ impl HSpace for HSpace1 {
         unimplemented!()
     }
 
-    fn closest_to_point(
+    fn line_closest_to_point(
         _line: &Self::EuclideanLine,
+        _point: &Self::ProjectedVector,
+    ) -> Self::ProjectedVector {
+        unimplemented!()
+    }
+
+    fn plane_closest_to_point(
+        _plane: &Self::EuclideanPlane,
         _point: &Self::ProjectedVector,
     ) -> Self::ProjectedVector {
         unimplemented!()
@@ -330,11 +348,18 @@ impl HSpace for HSpace2 {
         EVec1 { x: vec.x }
     }
 
-    fn closest_to_point(
+    fn line_closest_to_point(
         line: &Self::EuclideanLine,
         point: &Self::ProjectedVector,
     ) -> Self::ProjectedVector {
         line.closest_to_point(point)
+    }
+
+    fn plane_closest_to_point(
+        _plane: &Self::EuclideanPlane,
+        _point: &Self::ProjectedVector,
+    ) -> Self::ProjectedVector {
+        unimplemented!()
     }
 }
 
@@ -393,7 +418,7 @@ impl HSpace for HSpace3 {
         line.contains_point(point)
     }
 
-    fn closest_to_point(
+    fn line_closest_to_point(
         line: &Self::EuclideanLine,
         point: &Self::ProjectedVector,
     ) -> Self::ProjectedVector {
@@ -405,6 +430,13 @@ impl HSpace for HSpace3 {
         point: &Self::Vector,
     ) -> <Self::Lower as HSpace>::Vector {
         line.make_implicit_point(point)
+    }
+
+    fn plane_closest_to_point(
+        plane: &Self::EuclideanPlane,
+        point: &Self::ProjectedVector,
+    ) -> Self::ProjectedVector {
+        plane.closest_to_point(point)
     }
 
     fn split_implicit_vec_dimensions(point: <Self::Lower as HSpace>::Vector) -> Vec<HVec1> {

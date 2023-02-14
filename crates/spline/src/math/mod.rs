@@ -21,6 +21,7 @@ pub fn binomial_coefficient(k: usize, i: usize) -> f64 {
     BINOMIAL_COEFFICIENTS[k][i]
 }
 
+#[derive(Clone)]
 pub struct FloatRange {
     num_increments: usize,
     start: f64,

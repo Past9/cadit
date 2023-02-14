@@ -1,10 +1,14 @@
+use iter_tools::Itertools;
 use once_cell::unsync::OnceCell;
 use space::{
     hspace::{HSpace, HSpace3},
-    HVec3, HVector,
+    EVec2, EVector, HVec3, HVector,
 };
 
-use crate::math::bezier::{decasteljau2, rational_surface_derivatives};
+use crate::math::{
+    bezier::{decasteljau2, newton, rational_surface_derivatives},
+    FloatRange,
+};
 
 pub struct BezierSurface<H: HSpace> {
     control_points: Vec<Vec<H::Vector>>,
@@ -67,7 +71,43 @@ impl<H: HSpace> BezierSurface<H> {
         &self,
         plane: &H::EuclideanPlane,
     ) -> Vec<(f64, f64, H::ProjectedVector)> {
-        let try_point = |u_initial: f64, v_initial: f64, params: &mut Vec<(f64, f64)>| todo!();
+        let try_point = |(u, v): (f64, f64)| {
+            newton(EVec2::new(u, v), 1000000, |uv| {
+                let ders: Vec<Vec<H::ProjectedVector>> = rational_surface_derivatives::<H>(
+                    &self.weighted_control_points(),
+                    2,
+                    uv.x,
+                    uv.y,
+                );
+
+                let closest = H::plane_closest_to_point(plane, &ders[0][0]);
+                let between = closest - ders[0][0];
+
+                let d1_norm_u = ders[1][0].normalize();
+                let d1_norm_v = ders[1][1].normalize();
+
+                let num_u = ders[1][0].dot(&between);
+                let num_v = ders[1][1].dot(&between);
+
+                let denom_u = ders[2][0].dot(&between) + d1_norm_u.dot(&d1_norm_u);
+                let denom_v = ders[2][1].dot(&between) + d1_norm_v.dot(&d1_norm_v);
+
+                (EVec2::new(num_u, num_v), EVec2::new(denom_u, denom_v))
+            })
+        };
+
+        let mut params: Vec<(f64, f64)> = Vec::new();
+
+        let divisions = 10;
+        let initial_uvs = FloatRange::new(0.0, 1.0, divisions)
+            .into_iter()
+            .cartesian_product(FloatRange::new(0.0, 1.0, divisions))
+            .collect::<Vec<_>>();
+
+        for uv_initial in initial_uvs.into_iter() {
+            println!("{:?}, {:?}", uv_initial, try_point(uv_initial));
+            panic!();
+        }
 
         todo!()
     }

@@ -9,3 +9,4 @@ edition = "2021"
 space = { path = "../space" }
 auto_ops = "0.3.0"
 once_cell = "1.17.0"
+iter_tools = "0.1.4"

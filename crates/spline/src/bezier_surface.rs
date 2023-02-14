@@ -1,7 +1,7 @@
 use once_cell::unsync::OnceCell;
 use space::{
     hspace::{HSpace, HSpace3},
-    HVec3,
+    HVec3, HVector,
 };
 
 use crate::math::bezier::{decasteljau2, rational_surface_derivatives};
@@ -61,6 +61,15 @@ impl<H: HSpace> BezierSurface<H> {
             new_pts.push(new_row);
         }
         self.control_points = new_pts;
+    }
+
+    pub fn hausdorff_candidates(
+        &self,
+        plane: &H::EuclideanPlane,
+    ) -> Vec<(f64, f64, H::ProjectedVector)> {
+        let try_point = |u_initial: f64, v_initial: f64, params: &mut Vec<(f64, f64)>| todo!();
+
+        todo!()
     }
 }
 impl BezierSurface<HSpace3> {

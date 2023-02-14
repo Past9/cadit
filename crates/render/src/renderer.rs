@@ -1,7 +1,13 @@
-use std::sync::Arc;
-
+use super::{
+    model::{BufferedEdgeVertex, BufferedPointVertex, BufferedSurfaceVertex},
+    scene::Scene,
+};
+use crate::lights::LightBuffers;
+use crate::model::GeometryBuffers;
+use crate::PixelViewport;
 use bytemuck::{Pod, Zeroable};
 use cgmath::{Point3, Vector2, Vector3};
+use std::sync::Arc;
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
     command_buffer::{
@@ -28,7 +34,9 @@ use vulkano::{
             depth_stencil::{CompareOp, DepthState, DepthStencilState},
             input_assembly::{InputAssemblyState, PrimitiveTopology},
             multisample::MultisampleState,
-            rasterization::{CullMode, FrontFace, LineRasterizationMode, RasterizationState},
+            rasterization::{
+                CullMode, FrontFace, LineRasterizationMode, PolygonMode, RasterizationState,
+            },
             vertex_input::BuffersDefinition,
             viewport::{Scissor, Viewport, ViewportState},
         },
@@ -38,24 +46,14 @@ use vulkano::{
     sync::GpuFuture,
 };
 
-use crate::PixelViewport;
-use crate::{
-    lights::LightBuffers,
-    model::{Std140OpaqueMaterial, Std140TranslucentMaterial},
-};
-use crate::{
-    lights::{Std140AmbientLight, Std140DirectionalLight, Std140PointLight},
-    model::GeometryBuffers,
-};
-
-use super::{
-    model::{BufferedEdgeVertex, BufferedPointVertex, BufferedSurfaceVertex},
-    scene::Scene,
-};
-
 const FINAL_IMAGE_FORMAT: Format = Format::B8G8R8A8_UNORM;
 const TRANSLUCENT_ACCUM_FORMAT: Format = Format::R16G16B16A16_SFLOAT;
 const TRANSLUCENT_TRANSMISSION_FORMAT: Format = Format::R8G8B8A8_UNORM;
+
+pub enum SurfaceMode {
+    Fill,
+    Wireframe,
+}
 
 pub struct Renderer {
     scene: Scene,
@@ -100,7 +98,13 @@ impl Renderer {
             point_pipeline,
             translucent_surface_pipeline,
             compositing_pipeline,
-        ) = Self::create_pipelines(msaa_samples, &scissor, memory_allocator, queue);
+        ) = Self::create_pipelines(
+            SurfaceMode::Wireframe,
+            msaa_samples,
+            &scissor,
+            memory_allocator,
+            queue,
+        );
 
         let geometry_buffers = scene.geometry_buffers(memory_allocator);
         let light_buffers = scene.light_buffers(memory_allocator);
@@ -178,6 +182,7 @@ impl Renderer {
     }
 
     fn create_pipelines<'a>(
+        mode: SurfaceMode,
         msaa_samples: SampleCount,
         scissor: &Scissor,
         memory_allocator: &StandardMemoryAllocator,
@@ -302,7 +307,18 @@ impl Renderer {
             )
             .rasterization_state(RasterizationState {
                 front_face: StateMode::Fixed(FrontFace::CounterClockwise),
-                cull_mode: StateMode::Fixed(CullMode::Back),
+                cull_mode: match mode {
+                    SurfaceMode::Fill => StateMode::Fixed(CullMode::Back),
+                    SurfaceMode::Wireframe => StateMode::Fixed(CullMode::None),
+                },
+                polygon_mode: match mode {
+                    SurfaceMode::Fill => PolygonMode::Fill,
+                    SurfaceMode::Wireframe => PolygonMode::Line,
+                },
+                line_width: match mode {
+                    SurfaceMode::Fill => StateMode::Fixed(1.0),
+                    SurfaceMode::Wireframe => StateMode::Fixed(2.0),
+                },
                 ..RasterizationState::default()
             })
             .multisample_state(MultisampleState {

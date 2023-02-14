@@ -6,7 +6,7 @@ use eframe::{
     epaint::{mutex::Mutex, PaintCallback, PaintCallbackInfo, Pos2, Rect, Vec2},
 };
 use egui_winit_vulkano::CallbackFn;
-use render::{scene::Scene, Rgba};
+use render::scene::Scene;
 use vulkano::pipeline::graphics::viewport::Viewport;
 
 use self::gui_renderer::GuiRenderer;

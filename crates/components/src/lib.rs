@@ -53,6 +53,7 @@ pub fn run_window<W: Window + 'static>(mut window: W, desc: &WindowDescriptor) -
             wide_lines: true,
             rectangular_lines: true,
             independent_blend: true,
+            fill_mode_non_solid: true,
             ..Default::default()
         },
         device_extensions: DeviceExtensions {

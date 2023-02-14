@@ -176,8 +176,8 @@ impl<H: HSpace> BezierCurve<H> {
             }
         };
 
-        let try_point = |u_initial: f64, params: &mut Vec<f64>| {
-            let zero = newton_f64(u_initial, 10000, min_u, max_u, |u| {
+        let try_point = |u_initial: f64| {
+            newton_f64(u_initial, 10000, min_u, max_u, |u| {
                 let ders: Vec<H::ProjectedVector> =
                     rational_curve_derivatives::<H>(&self.weighted_control_points(), u, 2);
 
@@ -190,11 +190,7 @@ impl<H: HSpace> BezierCurve<H> {
                 let denom = ders[2].dot(&between) + d1_norm.dot(&d1_norm);
 
                 (num, denom)
-            });
-
-            if let Some(zero) = zero {
-                params.push(zero);
-            }
+            })
         };
 
         let mut params = Vec::new();
@@ -226,16 +222,22 @@ impl<H: HSpace> BezierCurve<H> {
             }
 
             if skipped_start {
-                try_point(min_u, &mut params);
+                if let Some(point) = try_point(min_u) {
+                    params.push(point);
+                }
                 skipped_start = false;
             }
 
             if u_initial > max_u {
-                try_point(max_u, &mut params);
+                if let Some(point) = try_point(max_u) {
+                    params.push(point);
+                }
                 break;
             }
 
-            try_point(u_initial, &mut params);
+            if let Some(point) = try_point(u_initial) {
+                params.push(point);
+            }
         }
 
         // All candidate points
